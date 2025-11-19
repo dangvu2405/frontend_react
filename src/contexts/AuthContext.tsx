@@ -43,6 +43,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Check if current user is admin
+  const checkAdminRole = useCallback((userToCheck?: User | null): boolean => {
+    const userToValidate = userToCheck || user;
+    if (!userToValidate) return false;
+    
+    // Check roleName first
+    if (userToValidate.roleName) {
+      const roleName = userToValidate.roleName.toLowerCase().trim();
+      if (roleName === 'admin' || 
+          roleName === 'quản trị viên' || 
+          roleName === 'administrator') {
+        return true;
+      }
+    }
+    
+    // Fallback: check role ID if roleName is not available
+    // This is a workaround for cases where roleName might not be populated
+    if (userToValidate.role) {
+      // You might need to adjust this based on your backend role IDs
+      // For now, we'll rely on roleName primarily
+    }
+    
+    return false;
+  }, [user]);
+
   // Fetch user info with role from API
   const fetchUserInfo = useCallback(async () => {
     try {
@@ -61,6 +86,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           roleName: response.MaVaiTro?.TenVaiTro || response.roleName,
         };
         setUser(userData);
+        // Save to storage for fallback
+        storage.setUser(userData);
+        
+        // Log in production for debugging
+        if (import.meta.env.PROD) {
+          console.log('✅ User info loaded:', {
+            username: userData.username,
+            roleName: userData.roleName,
+            isAdmin: checkAdminRole(userData),
+          });
+        }
       }
     } catch (error: any) {
       // Nếu là lỗi 401 (token không hợp lệ/hết hạn), clear storage và user
@@ -68,21 +104,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // Token không hợp lệ, clear tất cả
         storage.clearAll();
         setUser(null);
-        if (import.meta.env.DEV) {
-          console.log('Token không hợp lệ hoặc hết hạn, đã clear storage');
+        if (import.meta.env.DEV || import.meta.env.PROD) {
+          console.warn('⚠️ Token không hợp lệ hoặc hết hạn, đã clear storage');
         }
         return;
       }
       
-      // Các lỗi khác - chỉ log trong dev mode
-      if (import.meta.env.DEV) {
-        console.error('Failed to fetch user info:', error);
-      }
+      // Log errors in both dev and prod for debugging
+      console.error('❌ Failed to fetch user info:', {
+        message: error?.message,
+        status: error?.status || error?.response?.status,
+        url: error?.config?.url,
+        baseURL: error?.config?.baseURL,
+      });
       
       // Nếu không phải 401, thử lấy từ storage
       const storedUser: any = storage.getUser();
       if (storedUser) {
-        setUser({
+        const fallbackUser = {
           id: storedUser._id || storedUser.id,
           username: storedUser.TenDangNhap || storedUser.username,
           email: storedUser.Email || storedUser.email,
@@ -92,10 +131,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           avatar: storedUser.AvatarUrl || storedUser.Avatar || storedUser.avatar,
           role: storedUser.MaVaiTro?._id || storedUser.role,
           roleName: storedUser.MaVaiTro?.TenVaiTro || storedUser.roleName,
-        });
+        };
+        setUser(fallbackUser);
+        
+        // Log fallback in production
+        if (import.meta.env.PROD) {
+          console.warn('⚠️ Using stored user data (API failed):', {
+            username: fallbackUser.username,
+            roleName: fallbackUser.roleName,
+            isAdmin: checkAdminRole(fallbackUser),
+          });
+        }
+      } else {
+        // No stored user either
+        if (import.meta.env.PROD) {
+          console.error('❌ No user data available (API failed and no storage)');
+        }
       }
     }
-  }, []);
+  }, [checkAdminRole]);
 
   useEffect(() => {
     const token = storage.getToken();
@@ -194,16 +248,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       toast.error(error.message || 'Đăng ký thất bại');
       throw error;
     }
-  };
-
-  // Check if current user is admin
-  const checkAdminRole = (): boolean => {
-    if (!user || !user.roleName) return false;
-    
-    const roleName = user.roleName.toLowerCase().trim();
-    return roleName === 'admin' || 
-           roleName === 'quản trị viên' || 
-           roleName === 'administrator';
   };
 
   const logout = async () => {

@@ -14,8 +14,13 @@ const axiosInstance = axios.create({
 
 // Log API configuration for debugging
 if (typeof window !== 'undefined') {
-  console.log('🌐 Axios Base URL:', axiosInstance.defaults.baseURL);
-  console.log('🌐 Full API URL example:', `${axiosInstance.defaults.baseURL}/api/products`);
+  const baseURL = axiosInstance.defaults.baseURL || 'empty (relative)';
+  console.log('🌐 Axios Base URL:', baseURL);
+  console.log('🌐 Environment:', import.meta.env.MODE);
+  console.log('🌐 VITE_API_URL:', import.meta.env.VITE_API_URL || 'not set');
+  if (baseURL !== 'empty (relative)') {
+    console.log('🌐 Full API URL example:', `${axiosInstance.defaults.baseURL}/user/me`);
+  }
 }
 
 // Request interceptor - Thêm token vào header
