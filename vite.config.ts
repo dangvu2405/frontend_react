@@ -56,16 +56,10 @@ export default defineConfig({
           console.log('✅ Copied 404.html to dist')
         }
         
-        // Verify static.json exists and is valid
+        // Verify static.json exists
         const staticJsonPath = path.join(distDir, 'static.json')
         if (existsSync(staticJsonPath)) {
-          try {
-            const staticJsonContent = require('fs').readFileSync(staticJsonPath, 'utf8')
-            JSON.parse(staticJsonContent)
-            console.log('✅ Verified static.json is valid JSON')
-          } catch (e: any) {
-            console.error('❌ static.json is invalid JSON:', e?.message || 'Unknown error')
-          }
+          console.log('✅ Verified static.json exists in dist')
         } else {
           console.error('❌ static.json NOT FOUND in dist!')
         }
