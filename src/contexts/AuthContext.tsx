@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import type { ReactNode } from 'react';
 import authService from '@/services/authService';
 import { userService } from '@/services/userService';
@@ -42,8 +42,9 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const isFetchingRef = useRef(false);
 
-  // Check if current user is admin
+  // Check if current user is admin - moved outside to avoid dependency issues
   const checkAdminRole = useCallback((userToCheck?: User | null): boolean => {
     const userToValidate = userToCheck || user;
     if (!userToValidate) return false;
@@ -68,8 +69,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return false;
   }, [user]);
 
+  // Helper function to check admin role without dependencies
+  const isAdminRole = (userToCheck: User | null): boolean => {
+    if (!userToCheck) return false;
+    if (userToCheck.roleName) {
+      const roleName = userToCheck.roleName.toLowerCase().trim();
+      return roleName === 'admin' || 
+             roleName === 'quản trị viên' || 
+             roleName === 'administrator';
+    }
+    return false;
+  };
+
   // Fetch user info with role from API
   const fetchUserInfo = useCallback(async () => {
+    // Prevent multiple simultaneous calls
+    if (isFetchingRef.current) {
+      return;
+    }
+
+    isFetchingRef.current = true;
     try {
       // Call API để lấy user info (có populate role)
       const response: any = await userService.getCurrentUser();
@@ -94,7 +113,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           console.log('✅ User info loaded:', {
             username: userData.username,
             roleName: userData.roleName,
-            isAdmin: checkAdminRole(userData),
+            isAdmin: isAdminRole(userData),
           });
         }
       }
@@ -139,7 +158,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           console.warn('⚠️ Using stored user data (API failed):', {
             username: fallbackUser.username,
             roleName: fallbackUser.roleName,
-            isAdmin: checkAdminRole(fallbackUser),
+            isAdmin: isAdminRole(fallbackUser),
           });
         }
       } else {
@@ -148,15 +167,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           console.error('❌ No user data available (API failed and no storage)');
         }
       }
+    } finally {
+      isFetchingRef.current = false;
     }
-  }, [checkAdminRole]);
+  }, []);
 
   useEffect(() => {
     const token = storage.getToken();
     if (token) {
       fetchUserInfo();
+    } else {
+      setLoading(false);
     }
-    setLoading(false);
 
     // Listen for storage changes (for OAuth callback)
     const handleStorageChange = (e: StorageEvent) => {
@@ -168,7 +190,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Listen for custom token update event (for OAuth callback)
     const handleTokenUpdate = () => {
       const token = storage.getToken();
-      if (token) {
+      if (token && !isFetchingRef.current) {
         fetchUserInfo();
       }
     };
@@ -180,7 +202,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('token:updated', handleTokenUpdate);
     };
-  }, [fetchUserInfo]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount - fetchUserInfo is stable with empty deps
+
+  // Update loading state when user is set
+  useEffect(() => {
+    if (user !== null || !storage.getToken()) {
+      setLoading(false);
+    }
+  }, [user]);
 
   const login = async (username: string, password: string) => {
     try {
