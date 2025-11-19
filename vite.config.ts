@@ -2,12 +2,37 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
+import { copyFileSync, existsSync } from 'fs'
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    // Plugin to copy .htaccess and other config files to dist
+    {
+      name: 'copy-config-files',
+      closeBundle() {
+        const publicDir = path.resolve(__dirname, 'public')
+        const distDir = path.resolve(__dirname, 'dist')
+        
+        // Copy .htaccess
+        const htaccessSrc = path.join(publicDir, '.htaccess')
+        const htaccessDest = path.join(distDir, '.htaccess')
+        if (existsSync(htaccessSrc)) {
+          copyFileSync(htaccessSrc, htaccessDest)
+          console.log('✅ Copied .htaccess to dist')
+        }
+        
+        // Copy static.json if not already there
+        const staticJsonSrc = path.join(__dirname, 'static.json')
+        const staticJsonDest = path.join(distDir, 'static.json')
+        if (existsSync(staticJsonSrc) && !existsSync(staticJsonDest)) {
+          copyFileSync(staticJsonSrc, staticJsonDest)
+          console.log('✅ Copied static.json to dist')
+        }
+      }
+    }
   ],
   resolve: {
     alias: {

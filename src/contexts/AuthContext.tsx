@@ -190,7 +190,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     // Listen for storage changes (for OAuth callback) - with debounce
-    let storageTimeout: NodeJS.Timeout;
+    let storageTimeout: ReturnType<typeof setTimeout>;
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'access_token' && e.newValue && mounted) {
         // Debounce to prevent multiple calls
@@ -205,7 +205,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
 
     // Listen for custom token update event (for OAuth callback) - with debounce
-    let tokenTimeout: NodeJS.Timeout;
+    let tokenTimeout: ReturnType<typeof setTimeout>;
     const handleTokenUpdate = () => {
       const token = storage.getToken();
       if (token && !isFetchingRef.current && mounted) {
