@@ -28,3 +28,14 @@ Render.com cần file `static.json` trong thư mục `dist` để xử lý SPA r
 - ✅ .htaccess (cho Apache)
 - ✅ vercel.json (cho Vercel)
 
+### Thêm rewrite rule trực tiếp trên Render
+1. Vào Render Dashboard → Service frontend.
+2. Chọn tab **Redirects / Rewrites** → **Add rule**.
+3. Nhập:
+   | Source | Destination | Action  |
+   |--------|-------------|---------|
+   | `/*`   | `/index.html` | Rewrite |
+4. Deploy lại service.
+
+> Tip: Nếu deploy ở nền tảng khác (Netlify, Vercel, Nginx, ...), file `public/_redirects` và `static.json` trong repo đã sẵn sàng để sử dụng.
+

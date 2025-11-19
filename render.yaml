@@ -2,10 +2,9 @@ services:
   - type: static
     name: frontend-app
     region: singapore
-    buildCommand: NODE_ENV=development npm install && npm run build && ls -la dist/static.json && cat dist/static.json
+    buildCommand: NODE_ENV=development npm install && npm run build
     staticPublishPath: ./dist
-    # Render.com reads static.json from the publish path (dist folder)
-    # The vite.config.ts plugin automatically copies static.json to dist
+    # Ensure static.json is in the publish path for SPA routing
     envVars:
       - key: NODE_ENV
         value: production

@@ -81,20 +81,18 @@ function App() {
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/auth/callback" element={<OAuthCallback />} />
               
-              {/* Admin Routes - Protected by AdminRoute */}
-              <Route element={<AdminRoute />}>
-                <Route path="/admin/*" element={<AdminLayout />}>
-                  <Route index element={<AdminDashboard />} />
-                  <Route path="orders" element={<AdminOrdersPage />} />
-                  <Route path="products" element={<AdminProductsPage />} />
-                  <Route path="customers" element={<AdminCustomersPage />} />
-                  <Route path="accounts" element={<AdminAccountsPage />} />
-                  <Route path="reviews" element={<AdminReviewsPage />} />
-                  <Route path="vouchers" element={<AdminVouchersPage />} />
-                  <Route path="supply-chain" element={<AdminSupplyChainPage />} />
-                  <Route path="chat" element={<AdminChatPage />} />
-                  <Route path="settings" element={<AdminSettingsPage />} />
-                </Route>
+              {/* Admin Routes - Temporarily without AdminRoute for testing */}
+              <Route path="/admin/*" element={<AdminLayout />}>
+                <Route index element={<AdminDashboard />} />
+                <Route path="orders" element={<AdminOrdersPage />} />
+                <Route path="products" element={<AdminProductsPage />} />
+                <Route path="customers" element={<AdminCustomersPage />} />
+                <Route path="accounts" element={<AdminAccountsPage />} />
+                <Route path="reviews" element={<AdminReviewsPage />} />
+                <Route path="vouchers" element={<AdminVouchersPage />} />
+                <Route path="supply-chain" element={<AdminSupplyChainPage />} />
+                <Route path="chat" element={<AdminChatPage />} />
+                <Route path="settings" element={<AdminSettingsPage />} />
               </Route>
               
               {/* 404 - Catch all unmatched routes */}

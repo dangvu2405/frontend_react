@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build && node -e \"const fs=require('fs'); if(fs.existsSync('static.json')) { fs.copyFileSync('static.json', 'dist/static.json'); console.log('✅ static.json copied to dist'); }\"",
+    "build": "tsc -b && vite build",
     "build:render": "npm ci && npm run build",
     "lint": "eslint .",
     "preview": "vite preview",
