@@ -18,8 +18,8 @@ export default defineConfig({
     port: 5174,
   },
   esbuild: {
-    // Remove console.log and debugger in production
-    drop: process.env.NODE_ENV === 'production' ? ['console', 'debugger'] : [],
+    // Keep console for debugging in production (remove if not needed)
+    // drop: process.env.NODE_ENV === 'production' ? ['console', 'debugger'] : [],
   },
   build: {
     rollupOptions: {
