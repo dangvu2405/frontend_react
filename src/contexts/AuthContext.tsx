@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import authService from '@/services/authService';
 import { userService } from '@/services/userService';
@@ -43,6 +43,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const isFetchingRef = useRef(false);
+  const hasFetchedRef = useRef(false);
 
   // Check if current user is admin - moved outside to avoid dependency issues
   const checkAdminRole = useCallback((userToCheck?: User | null): boolean => {
@@ -172,26 +173,50 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
+  // Initial fetch on mount - only once
   useEffect(() => {
+    let mounted = true;
     const token = storage.getToken();
-    if (token) {
-      fetchUserInfo();
+    
+    if (token && !hasFetchedRef.current && !isFetchingRef.current) {
+      hasFetchedRef.current = true;
+      fetchUserInfo().finally(() => {
+        if (mounted) {
+          setLoading(false);
+        }
+      });
     } else {
       setLoading(false);
     }
 
-    // Listen for storage changes (for OAuth callback)
+    // Listen for storage changes (for OAuth callback) - with debounce
+    let storageTimeout: NodeJS.Timeout;
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'access_token' && e.newValue) {
-        fetchUserInfo();
+      if (e.key === 'access_token' && e.newValue && mounted) {
+        // Debounce to prevent multiple calls
+        clearTimeout(storageTimeout);
+        storageTimeout = setTimeout(() => {
+          if (mounted && !isFetchingRef.current) {
+            hasFetchedRef.current = false; // Reset to allow refetch
+            fetchUserInfo();
+          }
+        }, 300);
       }
     };
 
-    // Listen for custom token update event (for OAuth callback)
+    // Listen for custom token update event (for OAuth callback) - with debounce
+    let tokenTimeout: NodeJS.Timeout;
     const handleTokenUpdate = () => {
       const token = storage.getToken();
-      if (token && !isFetchingRef.current) {
-        fetchUserInfo();
+      if (token && !isFetchingRef.current && mounted) {
+        // Debounce to prevent multiple calls
+        clearTimeout(tokenTimeout);
+        tokenTimeout = setTimeout(() => {
+          if (mounted && !isFetchingRef.current) {
+            hasFetchedRef.current = false; // Reset to allow refetch
+            fetchUserInfo();
+          }
+        }, 300);
       }
     };
 
@@ -199,11 +224,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     window.addEventListener('token:updated', handleTokenUpdate);
 
     return () => {
+      mounted = false;
+      clearTimeout(storageTimeout);
+      clearTimeout(tokenTimeout);
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('token:updated', handleTokenUpdate);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Only run once on mount - fetchUserInfo is stable with empty deps
+  }, []); // Only run once on mount
 
   // Update loading state when user is set
   useEffect(() => {
@@ -312,16 +340,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const value: AuthContextType = {
+  // Memoize isAdmin to prevent unnecessary recalculations
+  const isAdmin = useMemo(() => {
+    return checkAdminRole();
+  }, [user, checkAdminRole]);
+
+  // Memoize isAuthenticated
+  const isAuthenticated = useMemo(() => {
+    return !!authService.isAuthenticated();
+  }, [user]); // Recalculate when user changes
+
+  // Memoize the context value to prevent unnecessary re-renders
+  const value: AuthContextType = useMemo(() => ({
     user,
     loading,
-    isAuthenticated: !!authService.isAuthenticated(),
-    isAdmin: checkAdminRole(),
+    isAuthenticated,
+    isAdmin,
     login,
     register,
     logout,
     checkAdminRole,
-  };
+  }), [user, loading, isAuthenticated, isAdmin, login, register, logout, checkAdminRole]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
