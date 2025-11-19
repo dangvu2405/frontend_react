@@ -4,6 +4,7 @@ services:
     region: singapore
     buildCommand: NODE_ENV=development npm install && npm run build
     staticPublishPath: ./dist
+    # Ensure static.json is in the publish path for SPA routing
     envVars:
       - key: NODE_ENV
         value: production
