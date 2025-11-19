@@ -24,12 +24,28 @@ export default defineConfig({
           console.log('✅ Copied .htaccess to dist')
         }
         
-        // Copy static.json if not already there
+        // Copy static.json (always overwrite to ensure latest version)
         const staticJsonSrc = path.join(__dirname, 'static.json')
         const staticJsonDest = path.join(distDir, 'static.json')
-        if (existsSync(staticJsonSrc) && !existsSync(staticJsonDest)) {
+        if (existsSync(staticJsonSrc)) {
           copyFileSync(staticJsonSrc, staticJsonDest)
           console.log('✅ Copied static.json to dist')
+        }
+        
+        // Copy _redirects (always overwrite)
+        const redirectsSrc = path.join(publicDir, '_redirects')
+        const redirectsDest = path.join(distDir, '_redirects')
+        if (existsSync(redirectsSrc)) {
+          copyFileSync(redirectsSrc, redirectsDest)
+          console.log('✅ Copied _redirects to dist')
+        }
+        
+        // Copy vercel.json if exists
+        const vercelJsonSrc = path.join(__dirname, 'vercel.json')
+        const vercelJsonDest = path.join(distDir, 'vercel.json')
+        if (existsSync(vercelJsonSrc)) {
+          copyFileSync(vercelJsonSrc, vercelJsonDest)
+          console.log('✅ Copied vercel.json to dist')
         }
       }
     }
