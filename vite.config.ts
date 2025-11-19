@@ -47,6 +47,28 @@ export default defineConfig({
           copyFileSync(vercelJsonSrc, vercelJsonDest)
           console.log('✅ Copied vercel.json to dist')
         }
+        
+        // Copy 404.html for fallback
+        const notFoundSrc = path.join(publicDir, '404.html')
+        const notFoundDest = path.join(distDir, '404.html')
+        if (existsSync(notFoundSrc)) {
+          copyFileSync(notFoundSrc, notFoundDest)
+          console.log('✅ Copied 404.html to dist')
+        }
+        
+        // Verify static.json exists and is valid
+        const staticJsonPath = path.join(distDir, 'static.json')
+        if (existsSync(staticJsonPath)) {
+          try {
+            const staticJsonContent = require('fs').readFileSync(staticJsonPath, 'utf8')
+            JSON.parse(staticJsonContent)
+            console.log('✅ Verified static.json is valid JSON')
+          } catch (e: any) {
+            console.error('❌ static.json is invalid JSON:', e?.message || 'Unknown error')
+          }
+        } else {
+          console.error('❌ static.json NOT FOUND in dist!')
+        }
       }
     }
   ],
