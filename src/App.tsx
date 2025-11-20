@@ -21,6 +21,7 @@ const ForgotPasswordPage = lazy(() => import('./pages/forgot-password'));
 const ProductTracePage = lazy(() => import('./pages/ProductTrace'));
 const TraceLookupPage = lazy(() => import('./pages/TraceLookup'));
 const VNPayReturnPage = lazy(() => import('./pages/VNPayReturn'));
+const VNPayDebugPage = lazy(() => import('./pages/VNPayDebug'));
 const OAuthCallback = lazy(() => import('./pages/OAuthCallback').then(m => ({ default: m.OAuthCallback })));
 const PrivacyPage = lazy(() => import('./pages/Privacy'));
 const TermsPage = lazy(() => import('./pages/Terms'));
@@ -66,6 +67,7 @@ function App() {
               <Route path="/my-account" element={<MyAccountPage />} />
               <Route path="/trace-lookup" element={<TraceLookupPage />} />
               <Route path="/payment/vnpay-return" element={<VNPayReturnPage />} />
+              <Route path="/debug/vnpay" element={<VNPayDebugPage />} />
               
               {/* Info Pages */}
               <Route path="/about" element={<AboutPage />} />
