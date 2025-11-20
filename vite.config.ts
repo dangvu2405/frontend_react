@@ -39,14 +39,6 @@ export default defineConfig({
           copyFileSync(redirectsSrc, redirectsDest)
           console.log('✅ Copied _redirects to dist')
         }
-        
-        // Copy vercel.json if exists
-        const vercelJsonSrc = path.join(__dirname, 'vercel.json')
-        const vercelJsonDest = path.join(distDir, 'vercel.json')
-        if (existsSync(vercelJsonSrc)) {
-          copyFileSync(vercelJsonSrc, vercelJsonDest)
-          console.log('✅ Copied vercel.json to dist')
-        }
       }
     }
   ],
