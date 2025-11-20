@@ -86,8 +86,8 @@ function App() {
               <Route path="/debug-route" element={<DebugRoute />} />
               
               {/* Admin Routes - Protected by AdminRoute */}
-              <Route element={<AdminRoute />}>
-                <Route path="/admin" element={<AdminLayout />}>
+              <Route path="/admin/*" element={<AdminRoute />}>
+                <Route element={<AdminLayout />}>
                   <Route index element={<AdminDashboard />} />
                   <Route path="orders" element={<AdminOrdersPage />} />
                   <Route path="products" element={<AdminProductsPage />} />
