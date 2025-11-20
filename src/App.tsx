@@ -24,6 +24,7 @@ const VNPayReturnPage = lazy(() => import('./pages/VNPayReturn'));
 const OAuthCallback = lazy(() => import('./pages/OAuthCallback').then(m => ({ default: m.OAuthCallback })));
 const PrivacyPage = lazy(() => import('./pages/Privacy'));
 const TermsPage = lazy(() => import('./pages/Terms'));
+const DebugRoute = lazy(() => import('./pages/DebugRoute'));
 
 // Admin pages - lazy load (heavier)
 const AdminLayout = lazy(() => import('./pages/admin/Layout'));
@@ -81,18 +82,23 @@ function App() {
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/auth/callback" element={<OAuthCallback />} />
               
-              {/* Admin Routes - Temporarily without AdminRoute for testing */}
-              <Route path="/admin/*" element={<AdminLayout />}>
-                <Route index element={<AdminDashboard />} />
-                <Route path="orders" element={<AdminOrdersPage />} />
-                <Route path="products" element={<AdminProductsPage />} />
-                <Route path="customers" element={<AdminCustomersPage />} />
-                <Route path="accounts" element={<AdminAccountsPage />} />
-                <Route path="reviews" element={<AdminReviewsPage />} />
-                <Route path="vouchers" element={<AdminVouchersPage />} />
-                <Route path="supply-chain" element={<AdminSupplyChainPage />} />
-                <Route path="chat" element={<AdminChatPage />} />
-                <Route path="settings" element={<AdminSettingsPage />} />
+              {/* Debug Route - Remove in production */}
+              <Route path="/debug-route" element={<DebugRoute />} />
+              
+              {/* Admin Routes - Protected by AdminRoute */}
+              <Route element={<AdminRoute />}>
+                <Route path="/admin" element={<AdminLayout />}>
+                  <Route index element={<AdminDashboard />} />
+                  <Route path="orders" element={<AdminOrdersPage />} />
+                  <Route path="products" element={<AdminProductsPage />} />
+                  <Route path="customers" element={<AdminCustomersPage />} />
+                  <Route path="accounts" element={<AdminAccountsPage />} />
+                  <Route path="reviews" element={<AdminReviewsPage />} />
+                  <Route path="vouchers" element={<AdminVouchersPage />} />
+                  <Route path="supply-chain" element={<AdminSupplyChainPage />} />
+                  <Route path="chat" element={<AdminChatPage />} />
+                  <Route path="settings" element={<AdminSettingsPage />} />
+                </Route>
               </Route>
               
               {/* 404 - Catch all unmatched routes */}
