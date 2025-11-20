@@ -13,23 +13,13 @@ export const AdminRoute = () => {
   const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
-    // Debug logging
-    console.log('[AdminRoute] Debug Info:', {
-      pathname: location.pathname,
-      isAuthenticated,
-      isAdmin,
-      loading,
-      user: user ? { id: user.id, username: user.username, role: user.role, roleName: user.roleName } : null,
-      isChecking
-    });
-
     // Đợi một chút để đảm bảo user info đã được load
     const timer = setTimeout(() => {
       setIsChecking(false);
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [user, isAuthenticated, isAdmin, loading, location.pathname, isChecking]);
+  }, [user]);
 
   // Đang loading hoặc đang check
   if (loading || isChecking) {

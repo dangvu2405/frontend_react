@@ -24,7 +24,6 @@ const VNPayReturnPage = lazy(() => import('./pages/VNPayReturn'));
 const OAuthCallback = lazy(() => import('./pages/OAuthCallback').then(m => ({ default: m.OAuthCallback })));
 const PrivacyPage = lazy(() => import('./pages/Privacy'));
 const TermsPage = lazy(() => import('./pages/Terms'));
-const DebugRoute = lazy(() => import('./pages/DebugRoute'));
 
 // Admin pages - lazy load (heavier)
 const AdminLayout = lazy(() => import('./pages/admin/Layout'));
@@ -81,9 +80,6 @@ function App() {
               <Route path="/register" element={<SignupForm />} />
               <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               <Route path="/auth/callback" element={<OAuthCallback />} />
-              
-              {/* Debug Route - Remove in production */}
-              <Route path="/debug-route" element={<DebugRoute />} />
               
               {/* Admin Routes - Protected by AdminRoute */}
               <Route path="/admin/*" element={<AdminRoute />}>
