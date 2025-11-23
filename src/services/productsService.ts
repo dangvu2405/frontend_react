@@ -1,115 +1,120 @@
 import axiosInstance from "./axios";
 import { apiCache } from "@/utils/apiCache";
-
-export interface Product {
-  id: string;
-  tenSP: string;
-  mota: string;
-  gia: number;
-  giamGia?: number;
-  soLuong: number;
-  daBan: number;
-  hinhAnh: string; // Deprecated: dùng hinhAnhChinh thay thế
-  hinhAnhChinh: string;
-  hinhAnhPhu: string[];
-  loaiSP: string;
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-export interface Pagination {
-  page: number;
-  limit: number;
-  total: number;
-  totalPages: number;
-}
-
-interface ProductsResponse {
-  success: boolean;
-  products: Product[];
-  message?: string;
-  pagination?: Pagination;
-}
-
-interface ProductResponse {
-  success: boolean;
-  product: Product;
-  message?: string;
-}
+import type { ApiItemResponse, ApiListResponse, Pagination, Product } from "@/types/models";
 
 export const productsService = {
-  // Lấy tất cả sản phẩm
   getAllProducts: async (params?: { page?: number; limit?: number }): Promise<{ products: Product[]; pagination?: Pagination }> => {
     try {
-      // Create cache key from params
       const cacheKey = `products:${JSON.stringify(params || {})}`;
       
-      // Check cache first
       const cached = apiCache.get<{ products: Product[]; pagination?: Pagination }>(cacheKey);
-      if (cached) {
+      if (cached && cached.products && cached.products.length > 0) {
         return cached;
       }
 
-      const response = await axiosInstance.get<ProductsResponse>("/api/products", { params });
+      const response = await axiosInstance.get<ApiListResponse<Product>>("/api/products", { params });
+      const responseData = response.data as any;
+      
+      let products: Product[] = [];
+      let pagination: Pagination | undefined = undefined;
+      
+      if (responseData && 'data' in responseData && Array.isArray(responseData.data)) {
+        products = responseData.data;
+        pagination = responseData.pagination;
+      } else if (Array.isArray(responseData)) {
+        products = responseData;
+      } else if (responseData && 'products' in responseData && Array.isArray(responseData.products)) {
+        products = responseData.products;
+        pagination = responseData.pagination;
+      } else if (responseData && typeof responseData === 'object') {
+        for (const key of Object.keys(responseData)) {
+          if (Array.isArray(responseData[key])) {
+            products = responseData[key];
+            if (responseData.pagination) {
+              pagination = responseData.pagination;
+            }
+            break;
+          }
+        }
+      }
+      
       const result = {
-        products: (response as any)?.data || [],
-        pagination: (response as any)?.pagination
+        products: products ?? [],
+        pagination: pagination
       };
 
-      // Cache the result (5 minutes for product list)
-      apiCache.set(cacheKey, result, 5 * 60 * 1000);
+      if (result.products.length > 0) {
+        apiCache.set(cacheKey, result, 5 * 60 * 1000);
+      }
 
       return result;
     } catch (error: any) {
-      console.error("Error fetching products:", error);
       throw error;
     }
   },
 
-  // Lấy chi tiết sản phẩm theo ID
   getProductById: async (id: string): Promise<Product | null> => {
     try {
       const cacheKey = `product:${id}`;
       
-      // Check cache first
       const cached = apiCache.get<Product>(cacheKey);
       if (cached) {
         return cached;
       }
 
-      const response = await axiosInstance.get<ProductResponse>(`/api/products/${id}`);
-      const product = (response as any)?.product || null;
+      const response = await axiosInstance.get<ApiItemResponse<Product>>(`/api/products/${id}`);
+      const responseData = response.data as any;
+      
+      let product: Product | null = null;
+      
+      // ✅ Backend trả { success, product } - check 'product' trước
+      if (responseData && 'product' in responseData && responseData.product) {
+        product = responseData.product as Product;
+      } else if (responseData && 'data' in responseData && responseData.data) {
+        // Fallback: nếu có 'data' thì dùng
+        product = responseData.data as Product;
+      } else if (responseData && typeof responseData === 'object' && !responseData.success && !Array.isArray(responseData)) {
+        // Fallback: nếu responseData chính là product object
+        if (responseData._id || responseData.id) {
+          product = responseData as Product;
+        }
+      }
 
-      // Cache the result (10 minutes for product detail)
       if (product) {
         apiCache.set(cacheKey, product, 10 * 60 * 1000);
       }
 
       return product;
     } catch (error: any) {
-      console.error(`Error fetching product ${id}:`, error);
+      if (import.meta.env.DEV) {
+        console.error(`Error fetching product ${id}:`, error);
+      }
       throw error;
     }
   },
 
-  // Lấy sản phẩm theo loại
   getProductsByCategory: async (category: string): Promise<Product[]> => {
     try {
-      const response = await axiosInstance.get<ProductsResponse>(`/api/products?loaiSP=${category}`);
-      return (response as any)?.data || [];
+      const response = await axiosInstance.get<ApiListResponse<Product>>(`/api/products?loaiSP=${category}`);
+      const responseData = response.data as unknown as ApiListResponse<Product>;
+      return (responseData && 'data' in responseData ? responseData.data : []) ?? [];
     } catch (error: any) {
-      console.error(`Error fetching products by category ${category}:`, error);
+      if (import.meta.env.DEV) {
+        console.error(`Error fetching products by category ${category}:`, error);
+      }
       throw error;
     }
   },
 
-  // Tìm kiếm sản phẩm
   searchProducts: async (keyword: string): Promise<Product[]> => {
     try {
-      const response = await axiosInstance.get<ProductsResponse>(`/api/products/search?q=${keyword}`);
-      return (response as any)?.data || [];
+      const response = await axiosInstance.get<ApiListResponse<Product>>(`/api/products/search?q=${keyword}`);
+      const responseData = response.data as unknown as ApiListResponse<Product>;
+      return (responseData && 'data' in responseData ? responseData.data : []) ?? [];
     } catch (error: any) {
-      console.error(`Error searching products with keyword ${keyword}:`, error);
+      if (import.meta.env.DEV) {
+        console.error(`Error searching products with keyword ${keyword}:`, error);
+      }
       throw error;
     }
   },

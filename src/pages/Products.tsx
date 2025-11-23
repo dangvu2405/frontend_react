@@ -19,84 +19,25 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Search, SlidersHorizontal, X } from 'lucide-react';
-import { lazy, Suspense, useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
-import { productsService, type Product } from '@/services/productsService';
+import { Suspense, useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { productsService } from '@/services/productsService';
+import type { Product, Category } from '@/types/models';
 import adminService from '@/services/adminService';
 import { toast } from 'sonner';
 import { storage, type CartItem } from '@/utils/storage';
+import { getCloudinaryProductImageUrl } from '@/utils/imageUtils';
+import { ProductsGrid } from '@/components/products';
 
-const ProductsGrid = lazy(async () => {
-  const module = await import('@/components/products');
-  return { default: module.ProductsGrid };
-});
-
-// Parse Cloudinary connection string và tạo base URL
-const parseCloudinaryUrl = (connectionString: string): string => {
-  // Format: icloudinary://{api_key}:{api_secret}@{cloud_name}
-  const match = connectionString.match(/@([^@]+)$/);
-  if (match && match[1]) {
-    const cloudName = match[1];
-    return `https://res.cloudinary.com/${cloudName}/image/upload`;
-  }
-  return '';
-};
-
-// Lấy Cloudinary URL từ connection string hoặc env
-const cloudinaryConnectionString = import.meta.env.VITE_CLOUDINARY_URL || 'icloudinary://686864971786299:e2HY_MPTM8XR4vlUDKqmVySC3Rk@dbiabh88k';
-const imageUrl = cloudinaryConnectionString.startsWith('https://')
-  ? cloudinaryConnectionString
-  : parseCloudinaryUrl(cloudinaryConnectionString);
-
-// Helper function để lấy URL ảnh từ Cloudinary
-// Database trả về: ZmfIxdkQ0gc.jpg
-// Cloudinary Public ID: products/ZmfIxdkQ0gc
-// URL: https://res.cloudinary.com/dbiabh88k/image/upload/products/ZmfIxdkQ0gc
-const getCloudinaryImageUrl = (imageName: string): string => {
-  // Nếu đã là full URL, trả về trực tiếp
-  if (imageName && (imageName.startsWith('http://') || imageName.startsWith('https://'))) {
-    return imageName;
-  }
-  
-  // Luôn ghép base URL với tên ảnh từ database
-  if (imageUrl) {
-    if (!imageName) {
-      // Nếu không có tên ảnh, vẫn trả về base URL
-      return imageUrl;
-    }
-    
-    // Loại bỏ leading slash nếu có
-    let cleanImageName = imageName.startsWith('/') ? imageName.slice(1) : imageName;
-    
-    // Loại bỏ extension (.jpg, .png, etc.) vì Cloudinary Public ID không cần extension
-    cleanImageName = cleanImageName.replace(/\.(jpg|jpeg|png|gif|webp)$/i, '');
-    
-    // Kiểm tra xem đã có prefix 'products/' chưa
-    // Nếu chưa có, thêm prefix 'products/'
-    if (!cleanImageName.startsWith('/w_500,h_500,c_fill,f_auto,q_20/products/')) {
-      cleanImageName = `/w_500,h_500,c_fill,f_auto,q_20/products/${cleanImageName}`;
-    }
-    
-    // Ghép với base URL: https://res.cloudinary.com/dbiabh88k/image/upload/products/ZmfIxdkQ0gc
-    return `${imageUrl}/${cleanImageName}`;
-  }
-  
-  // Nếu không có imageUrl, trả về tên ảnh gốc (fallback)
-  return imageName || '';
-};
-
-type Category = {
-  _id: string;
-  TenLoaiSanPham: string;
-};
+const NO_IMAGE_PLACEHOLDER = 'https://placehold.co/600x600/E5E5EA/000?text=No+Image';
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const [totalProducts, setTotalProducts] = useState(0);
   const productsPerPage = 12;
+  const LOAD_ALL_LIMIT = 200;
   const deferredQuery = useDeferredValue(query);
   
   // Filter states
@@ -108,13 +49,18 @@ export default function ProductsPage() {
   const [sortBy, setSortBy] = useState<string>('default');
 
   const handleAddToCart = useCallback((product: Product) => {
+    // Lấy category name
+    const categoryName = typeof product.MaLoaiSanPham === 'object' && product.MaLoaiSanPham
+      ? product.MaLoaiSanPham.TenLoaiSanPham
+      : 'Nước hoa';
+
     const item: CartItem = {
-      id: product.id,
-      tenSP: product.tenSP,
-      gia: product.gia,
-      giamGia: product.giamGia,
-      hinhAnh: product.hinhAnhChinh || product.hinhAnh,
-      loaiSP: product.loaiSP,
+      id: product._id,
+      tenSP: product.TenSanPham,
+      gia: product.Gia,
+      giamGia: product.KhuyenMai || 0,
+      hinhAnh: product.HinhAnhChinh,
+      loaiSP: categoryName,
       quantity: 1,
     };
     storage.addCartItem(item, 1);
@@ -127,10 +73,16 @@ export default function ProductsPage() {
     const fetchCategories = async () => {
       try {
         const response = await adminService.getCategories();
-        const categoriesData = (response as any)?.data || [];
+        const responseData = response.data;
+        // ✅ Backend trả về: { success, message, data: Category[] }
+        const categoriesData = Array.isArray(responseData?.data) 
+          ? responseData.data 
+          : (Array.isArray(responseData) ? responseData : []);
         setCategories(categoriesData);
       } catch (error) {
-        console.error('Error fetching categories:', error);
+        if (import.meta.env.DEV) {
+          console.error('Error fetching categories:', error);
+        }
       }
     };
     fetchCategories();
@@ -143,55 +95,30 @@ export default function ProductsPage() {
       try {
         setLoading(true);
         const result = await productsService.getAllProducts({
-          page: currentPage,
-          limit: productsPerPage
+          page: 1,
+          limit: LOAD_ALL_LIMIT
         });
         
         if (!isMounted) return;
 
         const apiProducts = result.products || [];
-        const pagination = result.pagination;
-
-        const normalized: Product[] = apiProducts.map((raw: any, index: number) => {
-          let discountPercent = 0;
-          if (raw.KhuyenMai > 0) {
-            discountPercent = Number(raw.KhuyenMai);
-          } else if (raw.GiaKhuyenMai && raw.Gia && raw.GiaKhuyenMai < raw.Gia) {
-            discountPercent = Math.round(((Number(raw.Gia) - Number(raw.GiaKhuyenMai)) / Number(raw.Gia)) * 100);
-          }
-
-          // Hình ảnh chính - lấy từ Cloudinary dựa trên tên ảnh trong database
-          const hinhAnhChinh = getCloudinaryImageUrl(raw.HinhAnhChinh);
-          
-          // Hình ảnh phụ - lấy từ Cloudinary dựa trên tên ảnh trong database
-          const hinhAnhPhu = Array.isArray(raw.HinhAnhPhu) 
-            ? raw.HinhAnhPhu.map((img: string) => getCloudinaryImageUrl(img))
-            : [];
-
-          return {
-            id: raw._id || raw.id || `product-${index}`,
-            tenSP: raw.TenSanPham || 'Sản phẩm',
-            mota: raw.MoTa || 'Sản phẩm chính hãng cao cấp',
-            gia: Number(raw.Gia || 0),
-            giamGia: discountPercent,
-            soLuong: Number(raw.SoLuong || 0),
-            daBan: Number(raw.DaBan || 0),
-            hinhAnh: hinhAnhChinh, // Deprecated: giữ lại để tương thích
-            hinhAnhChinh: hinhAnhChinh,
-            hinhAnhPhu: hinhAnhPhu,
-            loaiSP: raw.MaLoaiSanPham?.TenLoaiSanPham || 'Nước hoa',
-          } as Product;
-        });
+        // ✅ Đơn giản hóa: chỉ transform ảnh, giữ nguyên các field khác từ API
+        const normalized: Product[] = apiProducts.map((raw: Product) => ({
+          ...raw,
+          // Chỉ transform ảnh qua Cloudinary
+          HinhAnhChinh: getCloudinaryProductImageUrl(raw.HinhAnhChinh) || NO_IMAGE_PLACEHOLDER,
+          HinhAnhPhu: Array.isArray(raw.HinhAnhPhu) && raw.HinhAnhPhu.length > 0
+            ? raw.HinhAnhPhu.map((img: string) => getCloudinaryProductImageUrl(img) || NO_IMAGE_PLACEHOLDER)
+            : [],
+        }));
 
         setProducts(normalized);
-        
-        if (pagination) {
-          setTotalPages(pagination.totalPages);
-          setTotalProducts(pagination.total);
-        }
+        setTotalProducts(normalized.length);
       } catch (error: any) {
         if (!isMounted) return;
-        console.error('❌ Error fetching products:', error);
+        if (import.meta.env.DEV) {
+          console.error('Error fetching products:', error);
+        }
         toast.error(error?.message || 'Không thể tải sản phẩm');
       } finally {
         if (isMounted) setLoading(false);
@@ -202,12 +129,19 @@ export default function ProductsPage() {
     return () => {
       isMounted = false;
     };
-  }, [currentPage]);
+  }, []);
 
   const handlePageChange = useCallback((page: number) => {
     setCurrentPage(page);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
+
+  const getCategoryName = (product: Product) => {
+    if (typeof product.MaLoaiSanPham === 'object' && product.MaLoaiSanPham) {
+      return product.MaLoaiSanPham.TenLoaiSanPham;
+    }
+    return '';
+  };
 
   const filtered = useMemo(
     () => {
@@ -216,8 +150,8 @@ export default function ProductsPage() {
       // Search filter
       if (deferredQuery) {
         result = result.filter((p) =>
-          (p.tenSP || '').toLowerCase().includes(deferredQuery.toLowerCase()) ||
-            (p.mota || '').toLowerCase().includes(deferredQuery.toLowerCase())
+          (p.TenSanPham || '').toLowerCase().includes(deferredQuery.toLowerCase()) ||
+            (p.MoTa || '').toLowerCase().includes(deferredQuery.toLowerCase())
         );
       }
 
@@ -225,14 +159,15 @@ export default function ProductsPage() {
       if (selectedCategories.size > 0) {
         result = result.filter((p) => {
           const categoryNames = Array.from(selectedCategories);
-          return categoryNames.some(catName => p.loaiSP === catName);
+          const productCategoryName = getCategoryName(p);
+          return categoryNames.some(catName => productCategoryName === catName);
         });
       }
 
       // Price range filter
       if (priceRange !== 'all') {
         result = result.filter((p) => {
-          const price = p.gia;
+          const price = p.Gia;
           switch (priceRange) {
             case 'under-1m':
               return price < 1000000;
@@ -255,9 +190,9 @@ export default function ProductsPage() {
         result = result.filter((p) => {
           switch (discountFilter) {
             case 'has-discount':
-              return (p.giamGia || 0) > 0;
+              return (p.KhuyenMai || 0) > 0;
             case 'no-discount':
-              return (p.giamGia || 0) === 0;
+              return (p.KhuyenMai || 0) === 0;
             default:
               return true;
           }
@@ -269,11 +204,11 @@ export default function ProductsPage() {
         result = result.filter((p) => {
           switch (stockFilter) {
             case 'in-stock':
-              return p.soLuong > 0;
+              return p.SoLuong > 0;
             case 'out-of-stock':
-              return p.soLuong === 0;
+              return p.SoLuong === 0;
             case 'low-stock':
-              return p.soLuong > 0 && p.soLuong < 10;
+              return p.SoLuong > 0 && p.SoLuong < 10;
             default:
               return true;
           }
@@ -285,15 +220,15 @@ export default function ProductsPage() {
         result = [...result].sort((a, b) => {
           switch (sortBy) {
             case 'price-asc':
-              return a.gia - b.gia;
+              return a.Gia - b.Gia;
             case 'price-desc':
-              return b.gia - a.gia;
+              return b.Gia - a.Gia;
             case 'name-asc':
-              return a.tenSP.localeCompare(b.tenSP);
+              return a.TenSanPham.localeCompare(b.TenSanPham);
             case 'name-desc':
-              return b.tenSP.localeCompare(a.tenSP);
+              return b.TenSanPham.localeCompare(a.TenSanPham);
             case 'discount-desc':
-              return (b.giamGia || 0) - (a.giamGia || 0);
+              return (b.KhuyenMai || 0) - (a.KhuyenMai || 0);
             default:
               return 0;
           }
@@ -304,6 +239,20 @@ export default function ProductsPage() {
     },
     [products, deferredQuery, selectedCategories, priceRange, discountFilter, stockFilter, sortBy]
   );
+
+  const totalFiltered = filtered.length;
+  const computedTotalPages = Math.max(1, Math.ceil(totalFiltered / productsPerPage));
+
+  useEffect(() => {
+    if (currentPage > computedTotalPages) {
+      setCurrentPage(computedTotalPages);
+    }
+  }, [computedTotalPages, currentPage]);
+
+  const paginatedProducts = useMemo(() => {
+    const start = (currentPage - 1) * productsPerPage;
+    return filtered.slice(start, start + productsPerPage);
+  }, [filtered, currentPage, productsPerPage]);
 
   const handleCategoryToggle = (categoryName: string) => {
     const newSelected = new Set(selectedCategories);
@@ -365,7 +314,7 @@ export default function ProductsPage() {
                 }}
               />
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <Select value={sortBy} onValueChange={setSortBy}>
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="Sắp xếp" />
@@ -505,15 +454,17 @@ export default function ProductsPage() {
             }
           >
             <ProductsGrid
-              products={filtered}
+              products={paginatedProducts}
               loading={loading}
               emptyMessage="Không có sản phẩm nào"
-              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+              className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6"
+              showSoldQuantity={true}
+              showAddToCartButton={true}
               onAddToCart={handleAddToCart}
               showPagination={!deferredQuery}
               pagination={{
                 currentPage,
-                totalPages,
+                totalPages: computedTotalPages,
                 onPageChange: handlePageChange
               }}
             />

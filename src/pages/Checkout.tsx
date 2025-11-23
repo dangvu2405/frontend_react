@@ -3,6 +3,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { CreditCard, MapPin } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { storage, type CartItem } from '@/utils/storage';
@@ -12,48 +19,24 @@ import { userService } from '@/services/userService';
 import { cartService } from '@/services/cartService';
 import PaymentSuccess from '@/components/payment-sucess';
 import PaymentFail from '@/components/payment-fail';
-
-type Address = {
-  _id?: string;
-  HoTen: string;
-  SoDienThoai: string;
-  DiaChiChiTiet: string;
-  PhuongXa?: string;
-  QuanHuyen?: string;
-  TinhThanh?: string;
-  MacDinh: boolean;
-};
-
-type CheckoutResponse = {
-  message?: string;
-  orderId?: string;
-  _id?: string | { toString(): string };
-  donHang?: {
-    _id?: string | { toString(): string };
-    id?: string | { toString(): string };
-  };
-  data?: {
-    donHang?: {
-      _id?: string | { toString(): string };
-      id?: string | { toString(): string };
-    };
-  };
-};
-
+import type { CheckoutResponse, UserAddress } from '@/types/models';
+import { 
+  getAllProvinces, 
+  getDistrictsByProvince, 
+  getWardsByDistrict 
+} from '@/constants/vietnam-addresses';
 
 export default function CheckoutPage() {
   const { isAuthenticated } = useAuth();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const [addresses, setAddresses] = useState<Address[]>([]);
+  const [addresses, setAddresses] = useState<UserAddress[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [showNewAddress, setShowNewAddress] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'COD' | 'BANK' | 'CARD' | 'VNPay' | 'VNPayQR'>('COD');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'COD' | 'BANK' | 'CARD'>('COD');
   const [selectedNote, setSelectedNote] = useState<string>('');
   const [paymentStatus, setPaymentStatus] = useState<'idle' | 'success' | 'fail' | 'processing'>('idle');
-  const [vnpayQRCode, setVnpayQRCode] = useState<string>('');
-  const [vnpayPaymentUrl, setVnpayPaymentUrl] = useState<string>('');
-  const [newAddress, setNewAddress] = useState<Address>({
+  const [newAddress, setNewAddress] = useState<UserAddress>({
     HoTen: '',
     SoDienThoai: '',
     DiaChiChiTiet: '',
@@ -64,6 +47,47 @@ export default function CheckoutPage() {
   });
   const [voucherCode, setVoucherCode] = useState('');
   const [voucherDiscountPct, setVoucherDiscountPct] = useState<number>(0);
+
+  // Format địa chỉ để hiển thị trong Select
+  const formatAddressForSelect = (addr: UserAddress): string => {
+    const parts = [
+      addr.HoTen,
+      addr.SoDienThoai,
+      addr.DiaChiChiTiet,
+      [addr.PhuongXa, addr.QuanHuyen, addr.TinhThanh].filter(Boolean).join(', ')
+    ].filter(Boolean);
+    return parts.join(' · ');
+  };
+
+  // Lấy danh sách quận/huyện và phường/xã dựa trên tỉnh/thành phố đã chọn
+  const availableDistricts = useMemo(() => {
+    if (!newAddress.TinhThanh) return [];
+    return getDistrictsByProvince(newAddress.TinhThanh).map(d => d.name);
+  }, [newAddress.TinhThanh]);
+  
+  const availableWards = useMemo(() => {
+    if (!newAddress.TinhThanh || !newAddress.QuanHuyen) return [];
+    return getWardsByDistrict(newAddress.TinhThanh, newAddress.QuanHuyen);
+  }, [newAddress.TinhThanh, newAddress.QuanHuyen]);
+
+  // Reset quận/huyện và phường/xã khi thay đổi tỉnh/thành phố
+  const handleProvinceChange = (province: string) => {
+    setNewAddress({
+      ...newAddress,
+      TinhThanh: province,
+      QuanHuyen: '',
+      PhuongXa: '',
+    });
+  };
+
+  // Reset phường/xã khi thay đổi quận/huyện
+  const handleDistrictChange = (district: string) => {
+    setNewAddress({
+      ...newAddress,
+      QuanHuyen: district,
+      PhuongXa: '',
+    });
+  };
 
   useEffect(() => {
     setCartItems(storage.getCart());
@@ -76,23 +100,18 @@ export default function CheckoutPage() {
     };
   }, []);
 
-  // Load user addresses from backend
   useEffect(() => {
     const fetchAddresses = async () => {
       if (!isAuthenticated) {
-        // Không đăng nhập: không gọi API, hiển thị form nhập địa chỉ
         setAddresses([]);
         setShowNewAddress(true);
         return;
       }
       try {
-        const res: any = await userService.getAddresses();
-        // Backend trả về { message, data: DiaChi[] }
-        // Axios interceptor đã extract response.data, nên res = { message, data: [...] }
-        const list: Address[] = (res?.data || res?.DiaChi || res?.addresses || []) as Address[];
+        // ✅ userService.getAddresses() trả về UserAddress[] (đã được fix)
+        const list = await userService.getAddresses();
         
-        // Format địa chỉ để đảm bảo có _id
-        const formattedList = list.map((addr: any) => ({
+        const formattedList = list.map((addr: UserAddress) => ({
           _id: addr._id || addr.id,
           HoTen: addr.HoTen || '',
           SoDienThoai: addr.SoDienThoai || '',
@@ -106,10 +125,11 @@ export default function CheckoutPage() {
         setAddresses(formattedList);
         const def = formattedList.find((a) => a.MacDinh);
         setSelectedAddressId((def?._id as string) || (formattedList[0]?._id as string) || null);
-        setShowNewAddress(formattedList.length === 0); // nếu chưa có địa chỉ -> mở form
+        setShowNewAddress(formattedList.length === 0);
       } catch (e: any) {
-        console.error('Error fetching addresses:', e);
-        // Nếu lỗi khi lấy địa chỉ, cho phép nhập tay
+        if (import.meta.env.DEV) {
+          console.error('Error fetching addresses:', e);
+        }
         setAddresses([]);
         setShowNewAddress(true);
       }
@@ -156,8 +176,7 @@ export default function CheckoutPage() {
       const response: any = await userService.createAddress(newAddress);
       toast.success('Đã lưu địa chỉ');
       
-      // Thêm địa chỉ mới vào state thay vì fetch lại toàn bộ
-      const newAddr: Address = {
+      const newAddr: UserAddress = {
         _id: response?._id || response?.data?._id || response?.id,
         HoTen: newAddress.HoTen,
         SoDienThoai: newAddress.SoDienThoai,
@@ -168,7 +187,6 @@ export default function CheckoutPage() {
         MacDinh: Boolean(newAddress.MacDinh),
       };
 
-      // Nếu đặt làm mặc định, bỏ mặc định của các địa chỉ khác
       const normalizedExisting = newAddr.MacDinh
         ? addresses.map((addr) => ({ ...addr, MacDinh: false }))
         : addresses;
@@ -187,7 +205,7 @@ export default function CheckoutPage() {
         toast.error('Giỏ hàng trống');
         return;
       }
-      // Xác định payload địa chỉ
+      
       let DiaChiPayload: any = null;
       if (isAuthenticated) {
         if (!selectedAddressId) {
@@ -196,7 +214,6 @@ export default function CheckoutPage() {
         }
         DiaChiPayload = selectedAddressId;
       } else {
-        // Khách vãng lai – yêu cầu nhập đầy đủ địa chỉ
         if (!newAddress.HoTen || !newAddress.SoDienThoai || !newAddress.DiaChiChiTiet) {
           toast.error('Vui lòng nhập đầy đủ Họ tên, Số điện thoại và Địa chỉ chi tiết');
           return;
@@ -206,18 +223,6 @@ export default function CheckoutPage() {
 
       setIsSubmitting(true);
       setPaymentStatus('processing');
-
-      // Tạo đơn hàng
-      if (import.meta.env.DEV) {
-        console.log('Starting checkout with payload:', {
-          DiaChi: DiaChiPayload,
-          SanPham: cartItems,
-          TongTien: total,
-          PhuongThucThanhToan: selectedPaymentMethod,
-          GhiChu: selectedNote,
-          Voucher: voucherCode || undefined,
-        });
-      }
 
       let checkoutResult: CheckoutResponse | null = null;
       try {
@@ -230,24 +235,13 @@ export default function CheckoutPage() {
           Voucher: voucherCode || undefined,
         } as any);
         
-        if (import.meta.env.DEV) {
-          console.log('Raw checkout response:', response);
-        }
-        
-        checkoutResult = response as CheckoutResponse;
+        checkoutResult = response as unknown as CheckoutResponse;
       } catch (checkoutError: any) {
-        if (import.meta.env.DEV) {
-          console.error('Checkout API error:', checkoutError);
-        }
         const errorMsg = checkoutError?.message || checkoutError?.data?.message || 'Không thể tạo đơn hàng. Vui lòng thử lại.';
         toast.error(errorMsg);
         setPaymentStatus('fail');
         setIsSubmitting(false);
         return;
-      }
-
-      if (import.meta.env.DEV) {
-        console.log('Checkout result:', checkoutResult);
       }
 
       // Validate checkout result
@@ -261,48 +255,42 @@ export default function CheckoutPage() {
         return;
       }
 
-      // Lấy orderId từ response - có thể ở nhiều vị trí
       let orderId: string | null = null;
       
-      // Thử các cách lấy orderId
       if (checkoutResult?.donHang?._id) {
-        orderId = typeof checkoutResult.donHang._id === 'string' 
-          ? checkoutResult.donHang._id 
-          : checkoutResult.donHang._id.toString();
-      } else if (checkoutResult?.donHang?.id) {
-        orderId = typeof checkoutResult.donHang.id === 'string' 
-          ? checkoutResult.donHang.id 
-          : checkoutResult.donHang.id.toString();
+        const id = checkoutResult.donHang._id;
+        orderId = typeof id === 'string' ? id : String(id);
+      } else if (checkoutResult?.donHang && 'id' in checkoutResult.donHang && checkoutResult.donHang.id) {
+        const id = checkoutResult.donHang.id;
+        orderId = typeof id === 'string' ? id : String(id);
       } else if (checkoutResult?.data?.donHang?._id) {
-        orderId = typeof checkoutResult.data.donHang._id === 'string' 
-          ? checkoutResult.data.donHang._id 
-          : checkoutResult.data.donHang._id.toString();
-      } else if (checkoutResult?.data?.donHang?.id) {
-        orderId = typeof checkoutResult.data.donHang.id === 'string' 
-          ? checkoutResult.data.donHang.id 
-          : checkoutResult.data.donHang.id.toString();
+        const id = checkoutResult.data.donHang._id;
+        orderId = typeof id === 'string' ? id : String(id);
+      } else if (checkoutResult?.data?.donHang && 'id' in checkoutResult.data.donHang && checkoutResult.data.donHang.id) {
+        const id = checkoutResult.data.donHang.id;
+        orderId = typeof id === 'string' ? id : String(id);
       } else if (checkoutResult?._id) {
-        orderId = typeof checkoutResult._id === 'string' 
-          ? checkoutResult._id 
-          : checkoutResult._id.toString();
+        const id = checkoutResult._id;
+        orderId = typeof id === 'string' ? id : String(id);
       } else if (checkoutResult?.donHang) {
-        // Nếu donHang là object trực tiếp
-        const donHang = checkoutResult.donHang;
-        orderId = donHang._id?.toString() || donHang.id?.toString() || null;
+        const donHang = checkoutResult.donHang as any;
+        if (donHang._id) {
+          orderId = typeof donHang._id === 'string' ? donHang._id : String(donHang._id);
+        } else if (donHang.id) {
+          orderId = typeof donHang.id === 'string' ? donHang.id : String(donHang.id);
+        }
       }
 
-      console.log('Order ID extracted:', orderId, 'Type:', typeof orderId);
-      console.log('Full checkout result structure:', JSON.stringify(checkoutResult, null, 2));
-
       if (!orderId || orderId === 'null' || orderId === 'undefined') {
-        console.error('Failed to extract order ID. Full result:', checkoutResult);
+        if (import.meta.env.DEV) {
+          console.error('Failed to extract order ID. Full result:', checkoutResult);
+        }
         toast.error('Không thể lấy ID đơn hàng. Vui lòng thử lại hoặc liên hệ hỗ trợ.');
         setPaymentStatus('fail');
         setIsSubmitting(false);
         return;
       }
 
-      // Nếu là COD, hoàn tất luôn
       if (selectedPaymentMethod === 'COD') {
         toast.success('Đặt hàng thành công');
         storage.setCart([]);
@@ -310,68 +298,6 @@ export default function CheckoutPage() {
         setPaymentStatus('success');
         return;
       }
-
-      // Nếu là VNPay hoặc VNPayQR, tạo payment
-      if (selectedPaymentMethod === 'VNPay' || selectedPaymentMethod === 'VNPayQR') {
-        try {
-          // Đảm bảo orderId và amount là hợp lệ
-          if (!orderId || !total || total <= 0) {
-            throw new Error(`Invalid payment data: orderId=${orderId}, amount=${total}`);
-          }
-
-          if (import.meta.env.DEV) {
-            console.log('Creating payment with:', { orderId, amount: total, method: selectedPaymentMethod });
-          }
-
-          if (selectedPaymentMethod === 'VNPayQR') {
-            // Tạo QR code
-            const qrResult: any = await cartService.createVNPayQR({
-              orderId: orderId,
-              amount: total,
-              orderDescription: `Thanh toan don hang ${orderId}`
-            });
-            if (import.meta.env.DEV) {
-              console.log('QR Result:', qrResult);
-            }
-            const qrData = qrResult?.data || qrResult;
-            if (!qrData?.qrCode && !qrData?.paymentUrl) {
-              throw new Error('VNPay QR response không hợp lệ');
-            }
-            setVnpayQRCode(qrData.qrCode || '');
-            setVnpayPaymentUrl(qrData.paymentUrl || '');
-            toast.info('Quét QR code để thanh toán');
-          } else {
-            // Tạo payment URL và redirect
-            const paymentResult: any = await cartService.createVNPayUrl({
-              orderId: orderId,
-              amount: total,
-              orderDescription: `Thanh toan don hang ${orderId}`
-            });
-            if (import.meta.env.DEV) {
-              console.log('Payment URL Result:', paymentResult);
-            }
-            const paymentData = paymentResult?.data || paymentResult;
-            if (!paymentData?.paymentUrl) {
-              throw new Error('Không nhận được paymentUrl từ VNPay');
-            }
-            setVnpayPaymentUrl(paymentData.paymentUrl);
-            // Redirect đến VNPay
-            window.location.href = paymentData.paymentUrl;
-            return;
-          }
-        } catch (paymentError: any) {
-          if (import.meta.env.DEV) {
-            console.error('Lỗi khi tạo payment:', paymentError);
-          }
-          const errorMsg = paymentError?.message || paymentError?.data?.message || 'Không thể tạo thanh toán. Vui lòng thử lại.';
-          toast.error(errorMsg);
-          setPaymentStatus('fail');
-          setIsSubmitting(false);
-          return;
-        }
-      }
-
-      // Các phương thức thanh toán khác (BANK, CARD)
       if (selectedPaymentMethod === 'BANK' || selectedPaymentMethod === 'CARD') {
         toast.success('Đặt hàng thành công. Vui lòng thanh toán theo hướng dẫn.');
         storage.setCart([]);
@@ -379,7 +305,9 @@ export default function CheckoutPage() {
         setPaymentStatus('success');
       }
     } catch (e: any) {
-      console.error('Checkout error:', e);
+      if (import.meta.env.DEV) {
+        console.error('Checkout error:', e);
+      }
       toast.error(e?.message || 'Không thể đặt hàng');
       setPaymentStatus('fail');
     } finally {
@@ -422,29 +350,60 @@ export default function CheckoutPage() {
                 </div>
                 <div className="space-y-4">
                   {addresses.length > 0 && !showNewAddress && (
-                    <div className="space-y-3">
+                    <div className="space-y-4">
+                      <div>
+                        <Label>Chọn địa chỉ giao hàng</Label>
+                        <Select
+                          value={selectedAddressId || undefined}
+                          onValueChange={(value) => setSelectedAddressId(value || null)}
+                        >
+                          <SelectTrigger className="w-full h-12 bg-background border-input rounded-xl">
+                            <SelectValue placeholder="Chọn địa chỉ giao hàng" />
+                          </SelectTrigger>
+                          <SelectContent>
                       {addresses.map((addr) => (
-                        <label key={addr._id} className={`flex items-start gap-3 p-4 rounded-xl border cursor-pointer ${selectedAddressId === addr._id ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted'}`}>
-                          <input
-                            type="radio"
-                            name="address"
-                            className="mt-1"
-                            checked={selectedAddressId === addr._id}
-                            onChange={() => setSelectedAddressId(addr._id || null)}
-                          />
-                          <div className="text-sm">
-                            <p className="font-semibold text-foreground">{addr.HoTen} · {addr.SoDienThoai}</p>
-                            <p className="text-foreground">{addr.DiaChiChiTiet}</p>
-                            <p className="text-muted-foreground">
-                              {[addr.PhuongXa, addr.QuanHuyen, addr.TinhThanh].filter(Boolean).join(', ')}
-                            </p>
+                              <SelectItem key={addr._id} value={addr._id || ''}>
+                                <div className="flex flex-col gap-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-semibold">{addr.HoTen}</span>
+                                    <span className="text-muted-foreground">·</span>
+                                    <span className="text-muted-foreground">{addr.SoDienThoai}</span>
                             {addr.MacDinh && (
-                              <span className="inline-block mt-1 text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/30">Mặc định</span>
+                                      <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/30">
+                                        Mặc định
+                                      </span>
                             )}
                           </div>
-                        </label>
-                      ))}
-                      <Button variant="outline" className="border-border" onClick={() => setShowNewAddress(true)}>
+                                  <span className="text-sm text-foreground">{addr.DiaChiChiTiet}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {[addr.PhuongXa, addr.QuanHuyen, addr.TinhThanh].filter(Boolean).join(', ')}
+                                  </span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {selectedAddressId && (
+                        <div className="p-4 rounded-xl border border-border bg-muted/30">
+                          {(() => {
+                            const selectedAddr = addresses.find(addr => addr._id === selectedAddressId);
+                            if (!selectedAddr) return null;
+                            return (
+                              <div className="text-sm">
+                                <p className="font-semibold text-foreground mb-1">
+                                  {selectedAddr.HoTen} · {selectedAddr.SoDienThoai}
+                                </p>
+                                <p className="text-foreground mb-1">{selectedAddr.DiaChiChiTiet}</p>
+                                <p className="text-muted-foreground">
+                                  {[selectedAddr.PhuongXa, selectedAddr.QuanHuyen, selectedAddr.TinhThanh].filter(Boolean).join(', ')}
+                                </p>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      )}
+                      <Button variant="outline" className="border-border w-full" onClick={() => setShowNewAddress(true)}>
                         Thêm địa chỉ mới
                       </Button>
                     </div>
@@ -452,34 +411,123 @@ export default function CheckoutPage() {
 
                   {(addresses.length === 0 || showNewAddress) && (
                     <div className="space-y-4">
+                      {!isAuthenticated && (
+                        <div className="bg-muted/50 border border-border rounded-xl p-4 mb-4">
+                          <p className="text-sm text-muted-foreground">
+                            Bạn đang đặt hàng với tư cách khách. Vui lòng điền đầy đủ thông tin để chúng tôi có thể giao hàng cho bạn.
+                          </p>
+                        </div>
+                      )}
                       <div className="grid md:grid-cols-2 gap-4">
                         <div>
-                          <Label>Họ và tên</Label>
+                          <Label>Họ và tên <span className="text-destructive">*</span></Label>
                           <Input className="bg-background border-input h-12 rounded-xl px-4" value={newAddress.HoTen} onChange={(e) => setNewAddress({ ...newAddress, HoTen: e.target.value })} required />
                         </div>
                         <div>
-                          <Label>Số điện thoại</Label>
+                          <Label>Số điện thoại <span className="text-destructive">*</span></Label>
                           <Input className="bg-background border-input h-12 rounded-xl px-4" value={newAddress.SoDienThoai} onChange={(e) => setNewAddress({ ...newAddress, SoDienThoai: e.target.value })} required />
                         </div>
                       </div>
                       <div>
-                        <Label>Địa chỉ chi tiết</Label>
+                        <Label>Địa chỉ chi tiết <span className="text-destructive">*</span></Label>
                         <Input className="bg-background border-input h-12 rounded-xl px-4" value={newAddress.DiaChiChiTiet} onChange={(e) => setNewAddress({ ...newAddress, DiaChiChiTiet: e.target.value })} required />
                       </div>
                       <div className="grid md:grid-cols-3 gap-4">
                         <div>
-                          <Label>Tỉnh/Thành phố</Label>
-                          <Input className="bg-background border-input h-12 rounded-xl px-4" value={newAddress.TinhThanh} onChange={(e) => setNewAddress({ ...newAddress, TinhThanh: e.target.value })} required />
+                          <Label>Tỉnh/Thành phố <span className="text-destructive">*</span></Label>
+                          <Select
+                            value={newAddress.TinhThanh}
+                            onValueChange={handleProvinceChange}
+                          >
+                            <SelectTrigger className="w-full h-12 bg-background border-input rounded-xl">
+                              <SelectValue placeholder="Chọn tỉnh/thành phố" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {getAllProvinces().map((province) => (
+                                <SelectItem key={province} value={province}>
+                                  {province}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         </div>
                         <div>
-                          <Label>Quận/Huyện</Label>
-                          <Input className="bg-background border-input h-12 rounded-xl px-4" value={newAddress.QuanHuyen} onChange={(e) => setNewAddress({ ...newAddress, QuanHuyen: e.target.value })} required />
+                          <Label>Quận/Huyện <span className="text-destructive">*</span></Label>
+                          <Select
+                            value={newAddress.QuanHuyen || undefined}
+                            onValueChange={handleDistrictChange}
+                            disabled={!newAddress.TinhThanh}
+                          >
+                            <SelectTrigger className="w-full h-12 bg-background border-input rounded-xl">
+                              <SelectValue placeholder={newAddress.TinhThanh ? (availableDistricts.length > 0 ? "Chọn quận/huyện" : "Chưa có dữ liệu") : "Chọn tỉnh/thành phố trước"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {availableDistricts.length > 0 ? (
+                                availableDistricts.map((district) => (
+                                  <SelectItem key={district} value={district}>
+                                    {district}
+                                  </SelectItem>
+                                ))
+                              ) : newAddress.TinhThanh ? (
+                                <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                                  Chưa có dữ liệu cho tỉnh này
+                                </div>
+                              ) : (
+                                <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                                  Vui lòng chọn tỉnh/thành phố trước
+                                </div>
+                              )}
+                            </SelectContent>
+                          </Select>
+                          {availableDistricts.length === 0 && newAddress.TinhThanh && (
+                            <Input 
+                              className="bg-background border-input h-12 rounded-xl px-4 mt-2" 
+                              value={newAddress.QuanHuyen} 
+                              onChange={(e) => setNewAddress({ ...newAddress, QuanHuyen: e.target.value })} 
+                              placeholder="Nhập quận/huyện (nếu chưa có trong danh sách)"
+                              required 
+                            />
+                          )}
                         </div>
                         <div>
                           <Label>Phường/Xã</Label>
-                          <Input className="bg-background border-input h-12 rounded-xl px-4" value={newAddress.PhuongXa} onChange={(e) => setNewAddress({ ...newAddress, PhuongXa: e.target.value })} required />
+                          <Select
+                            value={newAddress.PhuongXa || undefined}
+                            onValueChange={(value) => setNewAddress({ ...newAddress, PhuongXa: value })}
+                            disabled={!newAddress.QuanHuyen}
+                          >
+                            <SelectTrigger className="w-full h-12 bg-background border-input rounded-xl">
+                              <SelectValue placeholder={newAddress.QuanHuyen ? (availableWards.length > 0 ? "Chọn phường/xã" : "Chưa có dữ liệu") : "Chọn quận/huyện trước"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {availableWards.length > 0 ? (
+                                availableWards.map((ward) => (
+                                  <SelectItem key={ward} value={ward}>
+                                    {ward}
+                                  </SelectItem>
+                                ))
+                              ) : newAddress.QuanHuyen ? (
+                                <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                                  Chưa có dữ liệu cho quận/huyện này
+                                </div>
+                              ) : (
+                                <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                                  Vui lòng chọn quận/huyện trước
+                                </div>
+                              )}
+                            </SelectContent>
+                          </Select>
+                          {availableWards.length === 0 && newAddress.QuanHuyen && (
+                            <Input 
+                              className="bg-background border-input h-12 rounded-xl px-4 mt-2" 
+                              value={newAddress.PhuongXa} 
+                              onChange={(e) => setNewAddress({ ...newAddress, PhuongXa: e.target.value })} 
+                              placeholder="Nhập phường/xã (nếu chưa có trong danh sách)"
+                            />
+                          )}
                         </div>
                       </div>
+                      {isAuthenticated && (
                       <div className="flex items-center justify-between">
                         <label className="flex items-center gap-2 text-sm text-foreground">
                           <input type="checkbox" checked={newAddress.MacDinh} onChange={(e) => setNewAddress({ ...newAddress, MacDinh: e.target.checked })} />
@@ -492,6 +540,7 @@ export default function CheckoutPage() {
                           <Button className="bg-primary hover:bg-primary/90 text-primary-foreground" onClick={saveNewAddress}>Lưu địa chỉ</Button>
                         </div>
                       </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -520,30 +569,6 @@ export default function CheckoutPage() {
                     />
                     <span className="font-semibold text-foreground">
                       Thanh toán khi nhận hàng (COD)
-                    </span>
-                  </label>
-                  <label className="flex items-center p-4 border border-border rounded-xl cursor-pointer hover:bg-muted">
-                    <input
-                      type="radio"
-                      name="payment"
-                      className="mr-3"
-                      checked={selectedPaymentMethod === 'VNPay'}
-                      onChange={() => setSelectedPaymentMethod('VNPay')}
-                    />
-                    <span className="font-semibold text-foreground">
-                      💳 VNPay (Thẻ tín dụng/Ghi nợ)
-                    </span>
-                  </label>
-                  <label className="flex items-center p-4 border border-border rounded-xl cursor-pointer hover:bg-muted">
-                    <input
-                      type="radio"
-                      name="payment"
-                      className="mr-3"
-                      checked={selectedPaymentMethod === 'VNPayQR'}
-                      onChange={() => setSelectedPaymentMethod('VNPayQR')}
-                    />
-                    <span className="font-semibold text-foreground">
-                      📱 VNPay QR Code
                     </span>
                   </label>
                   <label className="flex items-center p-4 border border-border rounded-xl cursor-pointer hover:bg-muted">
@@ -582,47 +607,6 @@ export default function CheckoutPage() {
                 </div>
               </CardContent>
             </Card>
-
-            {/* VNPay QR Code Display */}
-            {vnpayQRCode && selectedPaymentMethod === 'VNPayQR' && (
-              <Card>
-                <CardContent className="p-6">
-                  <div className="text-center space-y-4">
-                    <h3 className="text-xl font-bold text-foreground">Quét mã QR để thanh toán</h3>
-                    <div className="flex justify-center">
-                      <img 
-                        src={vnpayQRCode} 
-                        alt="VNPay QR Code" 
-                        className="w-64 h-64 border-2 border-border rounded-lg p-2 bg-white"
-                      />
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      Sử dụng ứng dụng ngân hàng để quét mã QR và thanh toán
-                    </p>
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        if (vnpayPaymentUrl) {
-                          window.open(vnpayPaymentUrl, '_blank');
-                        }
-                      }}
-                    >
-                      Mở trang thanh toán
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      onClick={() => {
-                        setVnpayQRCode('');
-                        setVnpayPaymentUrl('');
-                        setPaymentStatus('idle');
-                      }}
-                    >
-                      Hủy thanh toán
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
           </div>
 
           {/* Order Summary */}
@@ -689,12 +673,10 @@ export default function CheckoutPage() {
                 <Button
                   className="w-full bg-primary hover:bg-primary/90 text-primary-foreground py-6 text-lg"
                   onClick={checkOut}
-                  disabled={isSubmitting || (paymentStatus === 'processing' && selectedPaymentMethod === 'VNPayQR')}
+                  disabled={isSubmitting}
                 >
                   {isSubmitting 
-                    ? (selectedPaymentMethod === 'VNPay' || selectedPaymentMethod === 'VNPayQR' 
-                        ? 'Đang xử lý thanh toán...' 
-                        : 'Đang xử lý...')
+                    ? 'Đang xử lý...'
                     : 'Đặt hàng'}
                 </Button>
                 <p className="text-xs text-muted-foreground text-center mt-4">

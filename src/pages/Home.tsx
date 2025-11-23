@@ -3,110 +3,16 @@ import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import { Sparkles, ShieldCheck, Truck, HeadphonesIcon } from 'lucide-react';
 import { lazy, Suspense, useState, useEffect, useCallback } from 'react';
-import { productsService, type Product } from '@/services/productsService';
+import { productsService } from '@/services/productsService';
+import type { Product } from '@/types/models';
 import { toast } from 'sonner';
 import { storage, type CartItem } from '@/utils/storage';
+import { getCloudinaryProductImageUrl, getVideoUrl } from '@/utils/imageUtils';
+
 const ProductsGrid = lazy(async () => {
   const module = await import('@/components/products');
   return { default: module.ProductsGrid };
 });
-
-// Parse Cloudinary connection string và lấy cloud name
-const parseCloudinaryConnectionString = (connectionString: string): string => {
-  // Format: icloudinary://{api_key}:{api_secret}@{cloud_name}
-  const match = connectionString.match(/@([^@]+)$/);
-  if (match && match[1]) {
-    return match[1];
-  }
-  return '';
-};
-
-// Lấy Cloudinary cloud name từ connection string hoặc env
-const cloudinaryConnectionString = import.meta.env.VITE_CLOUDINARY_URL || 'icloudinary://686864971786299:e2HY_MPTM8XR4vlUDKqmVySC3Rk@dbiabh88k';
-const cloudName = cloudinaryConnectionString.startsWith('https://')
-  ? cloudinaryConnectionString.replace('https://res.cloudinary.com/', '').split('/')[0]
-  : parseCloudinaryConnectionString(cloudinaryConnectionString);
-
-// Base URLs cho image và video
-const imageUrl = cloudName ? `https://res.cloudinary.com/${cloudName}/image/upload` : '';
-const videoUrl = cloudName ? `https://res.cloudinary.com/${cloudName}/video/upload` : '';
-
-// Helper function để lấy URL ảnh từ Cloudinary
-// Database trả về: ZmfIxdkQ0gc.jpg
-// Cloudinary Public ID: products/ZmfIxdkQ0gc
-// URL: https://res.cloudinary.com/dbiabh88k/image/upload/products/ZmfIxdkQ0gc
-const getCloudinaryImageUrl = (imageName: string): string => {
-  // Nếu đã là full URL, trả về trực tiếp
-  if (imageName && (imageName.startsWith('http://') || imageName.startsWith('https://'))) {
-    return imageName;
-  }
-  
-  // Luôn ghép base URL với tên ảnh từ database
-  if (imageUrl) {
-    if (!imageName) {
-      // Nếu không có tên ảnh, vẫn trả về base URL
-      return imageUrl;
-    }
-    
-    // Loại bỏ leading slash nếu có
-    let cleanImageName = imageName.startsWith('/') ? imageName.slice(1) : imageName;
-    
-    // Loại bỏ extension (.jpg, .png, etc.) vì Cloudinary Public ID không cần extension
-    cleanImageName = cleanImageName.replace(/\.(jpg|jpeg|png|gif|webp)$/i, '');
-    
-    // Kiểm tra xem đã có prefix 'products/' chưa
-    // Nếu chưa có, thêm prefix 'products/'
-    if (!cleanImageName.startsWith('/w_500,h_500,c_fill,f_auto,q_20/products/')) {
-      cleanImageName = `/w_500,h_500,c_fill,f_auto,q_20/products/${cleanImageName}`;
-    }
-    
-    // Ghép với base URL: https://res.cloudinary.com/dbiabh88k/image/upload/products/ZmfIxdkQ0gc
-    return `${imageUrl}/${cleanImageName}`;
-  }
-  
-  // Nếu không có imageUrl, trả về tên ảnh gốc (fallback)
-  return imageName || '';
-};
-
-// URL với version: https://res.cloudinary.com/dbiabh88k/video/upload/v1763184665/videos/backgroud.mp4
-const getCloudinaryVideoUrl = (videoName: string, version?: string): string => {
-  // Nếu đã là full URL, trả về trực tiếp
-  if (videoName && (videoName.startsWith('http://') || videoName.startsWith('https://'))) {
-    return videoName;
-  }
-  
-  // Luôn ghép base URL với tên video từ database
-  if (videoUrl) {
-    if (!videoName) {
-      // Nếu không có tên video, vẫn trả về base URL
-      return videoUrl;
-    }
-    
-    // Loại bỏ leading slash nếu có
-    let cleanVideoName = videoName.startsWith('/') ? videoName.slice(1) : videoName;
-    
-    // Loại bỏ extension (.mp4, .webm, etc.) vì Cloudinary Public ID không cần extension
-    cleanVideoName = cleanVideoName.replace(/\.(mp4|webm|mov|avi)$/i, '');
-    
-    // Kiểm tra xem đã có prefix 'videos/' chưa
-    // Nếu chưa có, thêm prefix 'videos/'
-    if (!cleanVideoName.startsWith('videos/')) {
-      cleanVideoName = `videos/${cleanVideoName}`;
-    }
-    
-    // Nếu có version, thêm vào URL
-    // Format: https://res.cloudinary.com/dbiabh88k/video/upload/v{version}/videos/backgroud
-    if (version) {
-      return `${videoUrl}/v${version}/${cleanVideoName}`;
-    }
-    
-    // Ghép với base URL: https://res.cloudinary.com/dbiabh88k/video/upload/videos/backgroud
-    return `${videoUrl}/${cleanVideoName}`;
-  }
-  
-  // Nếu không có videoUrl, trả về tên video gốc (fallback)
-  return videoName || '';
-};
 
 const FEATURE_CARDS = [
   {
@@ -137,14 +43,23 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [canPlayHero, setCanPlayHero] = useState(false);
 
-  const handleAddToCart = useCallback((product: Product) => {
+  const handleAddToCart = useCallback((product: Product | any) => {
+    // Support both normalized (camelCase) and original (PascalCase) formats
+    const productAny = product as any;
+    const productId = productAny.id || productAny._id || '';
+    const productName = productAny.tenSP || productAny.TenSanPham || 'Sản phẩm';
+    const productPrice = productAny.gia || productAny.Gia || 0;
+    const productDiscount = productAny.giamGia || productAny.KhuyenMai || 0;
+    const productImage = productAny.hinhAnhChinh || productAny.hinhAnh || productAny.HinhAnhChinh || '';
+    const productCategory = productAny.loaiSP || (typeof productAny.MaLoaiSanPham === 'object' ? productAny.MaLoaiSanPham?.TenLoaiSanPham : '') || 'Nước hoa';
+
     const item: CartItem = {
-      id: product.id,
-      tenSP: product.tenSP,
-      gia: product.gia,
-      giamGia: product.giamGia,
-      hinhAnh: product.hinhAnhChinh || product.hinhAnh,
-      loaiSP: product.loaiSP,
+      id: productId,
+      tenSP: productName,
+      gia: productPrice,
+      giamGia: productDiscount,
+      hinhAnh: productImage,
+      loaiSP: productCategory,
       quantity: 1,
     };
     storage.addCartItem(item, 1);
@@ -153,79 +68,68 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    let isMounted = true; // Flag để track component mounted
+    let isMounted = true;
     const frame = requestAnimationFrame(() => setCanPlayHero(true));
 
-    // Fetch products - non-blocking
     productsService.getAllProducts({ limit: 8 })
       .then((result) => {
         if (!isMounted) return;
         
         const products = result.products || [];
         
-        // Validate và normalize dữ liệu
         const validProducts = products.map((product, index) => {
-          const p = product as any; // Cast để tránh lỗi TypeScript
-          // Tính % giảm giá
+          const p = product as any;
           let discountPercent = 0;
           if (p.KhuyenMai > 0) {
-            // Nếu có field KhuyenMai (%) → dùng luôn
             discountPercent = Number(p.KhuyenMai);
           } else if (p.GiaKhuyenMai && p.Gia && p.GiaKhuyenMai < p.Gia) {
-            // Nếu có GiaKhuyenMai (giá sau giảm) → tính %
             discountPercent = Math.round(((p.Gia - p.GiaKhuyenMai) / p.Gia) * 100);
           }
-          return {
-            // ID từ MongoDB _id
-            id: p._id || p.id || `product-${index}`,
-            
-            // Tên sản phẩm
-            tenSP: p.TenSanPham || 'Sản phẩm',
-            
-            // Mô tả
-            mota: p.MoTa || 'Sản phẩm chính hãng cao cấp',
-            
-            // Giá gốc
-            gia: Number(p.Gia || 0),
-            
-            // % Khuyến mãi
-            giamGia: discountPercent,
-            
-            // Số lượng tồn
-            soLuong: Number(p.SoLuong || 0),
-            
-            // Đã bán
-            daBan: Number(p.DaBan || 0),
-            
-            // Hình ảnh chính - lấy từ Cloudinary dựa trên tên ảnh trong database
-            hinhAnhChinh: getCloudinaryImageUrl(p.HinhAnhChinh),
-            
-            // Hình ảnh phụ - lấy từ Cloudinary dựa trên tên ảnh trong database
-            hinhAnhPhu: Array.isArray(p.HinhAnhPhu) 
-              ? p.HinhAnhPhu.map((img: string) => getCloudinaryImageUrl(img))
+          
+          const normalized = {
+            _id: p._id || p.id || `product-${index}`,
+            TenSanPham: p.TenSanPham || 'Sản phẩm',
+            MoTa: p.MoTa || 'Sản phẩm chính hãng cao cấp',
+            Gia: Number(p.Gia || 0),
+            KhuyenMai: discountPercent,
+            SoLuong: Number(p.SoLuong || 0),
+            DaBan: Number(p.DaBan || 0),
+            HinhAnhChinh: getCloudinaryProductImageUrl(p.HinhAnhChinh),
+            HinhAnhPhu: Array.isArray(p.HinhAnhPhu) 
+              ? p.HinhAnhPhu.map((img: string) => getCloudinaryProductImageUrl(img))
               : [],
-            
-            // Deprecated: giữ lại để tương thích
-            hinhAnh: getCloudinaryImageUrl(p.HinhAnhChinh),
-            
-            // Loại sản phẩm
-            loaiSP: p.MaLoaiSanPham?.TenLoaiSanPham || 'Nước hoa',
-          } as Product;
+            MaLoaiSanPham: p.MaLoaiSanPham || (typeof p.MaLoaiSanPham === 'object' ? p.MaLoaiSanPham : null),
+            id: p._id || p.id || `product-${index}`,
+            tenSP: p.TenSanPham || 'Sản phẩm',
+            mota: p.MoTa || 'Sản phẩm chính hãng cao cấp',
+            gia: Number(p.Gia || 0),
+            giamGia: discountPercent,
+            soLuong: Number(p.SoLuong || 0),
+            daBan: Number(p.DaBan || 0),
+            hinhAnhChinh: getCloudinaryProductImageUrl(p.HinhAnhChinh),
+            hinhAnhPhu: Array.isArray(p.HinhAnhPhu) 
+              ? p.HinhAnhPhu.map((img: string) => getCloudinaryProductImageUrl(img))
+              : [],
+            hinhAnh: getCloudinaryProductImageUrl(p.HinhAnhChinh),
+            loaiSP: typeof p.MaLoaiSanPham === 'object' ? p.MaLoaiSanPham?.TenLoaiSanPham : 'Nước hoa',
+          };
+          
+          return normalized as unknown as Product;
         });
         
-        // Lấy 8 sản phẩm đầu tiên để hiển thị
         setFeaturedProducts(validProducts.slice(0, 8));
         setLoading(false);
       })
       .catch((error) => {
         if (isMounted) {
+          if (import.meta.env.DEV) {
           console.error('Error fetching products:', error);
+          }
           toast.error('Không thể tải sản phẩm');
           setLoading(false);
         }
       });
 
-    // Cleanup function
     return () => {
       isMounted = false;
       cancelAnimationFrame(frame);
@@ -280,7 +184,7 @@ export default function HomePage() {
                       });
                     }}
                   >
-                    <source src={getCloudinaryVideoUrl('backgroud', '1763184665')} type="video/mp4" />
+                    <source src={getVideoUrl('backgroud', undefined, '1763184665')} type="video/mp4" />
                   </video>
                 ) : (
                   <div className="w-full h-full bg-muted animate-pulse" />
@@ -337,7 +241,9 @@ export default function HomePage() {
               products={featuredProducts}
               loading={loading}
               emptyMessage="Không có sản phẩm nào"
-              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8"
+              className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6"
+              showSoldQuantity={true}
+              showAddToCartButton={true}
               onAddToCart={handleAddToCart}
             />
           </Suspense>

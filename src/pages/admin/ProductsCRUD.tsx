@@ -41,30 +41,11 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
-
-type Product = {
-  _id: string
-  TenSanPham: string
-  MoTa?: string
-  Gia: number
-  KhuyenMai?: number
-  SoLuong: number
-  DaBan: number
-  MaLoaiSanPham: { _id: string; TenLoaiSanPham: string } | string
-  HinhAnhChinh?: string
-  HinhAnhPhu?: string[]
-}
-
-type Category = {
-  _id: string
-  TenLoaiSanPham: string
-}
-
-type ChartItem = {
-  name: string
-  sold: number
-  revenue?: number
-}
+import type { Category, ChartItem, Product } from "@/types/models"
+import { getCloudinaryProductImageUrl } from "@/utils/imageUtils"
+import { API_BASE_URL } from "@/constants"
+import axiosInstance from "@/services/axios"
+import { storage } from "@/utils/storage"
 
 const currencyFormatter = new Intl.NumberFormat("vi-VN", {
   style: "currency",
@@ -114,6 +95,8 @@ export default function AdminProductsPage() {
   // Image preview states
   const [mainImagePreview, setMainImagePreview] = useState<string>("")
   const [subImagePreviews, setSubImagePreviews] = useState<string[]>(["", "", ""])
+  const [mainImageUploading, setMainImageUploading] = useState(false)
+  const [subImageUploading, setSubImageUploading] = useState<boolean[]>([false, false, false])
   
   // Track if categories have been fetched
   const categoriesFetchedRef = useRef(false)
@@ -127,7 +110,35 @@ export default function AdminProductsPage() {
     try {
       categoriesFetchedRef.current = true
       const categoriesRes = await adminService.getCategories()
-      const categoriesData = (categoriesRes as any)?.data ?? []
+      
+      // Parse response - normalizeResponse đã giữ lại structure
+      const responseData = categoriesRes?.data
+      let categoriesData: Category[] = []
+      
+      if (responseData) {
+        if (responseData && typeof responseData === 'object' && !Array.isArray(responseData) && 'success' in responseData && 'data' in responseData) {
+          // data có thể là array hoặc object có categories
+          if (Array.isArray(responseData.data)) {
+            categoriesData = responseData.data
+          } else if (responseData.data && typeof responseData.data === 'object' && 'categories' in responseData.data) {
+            categoriesData = Array.isArray(responseData.data.categories) ? responseData.data.categories : []
+          }
+        } else if (Array.isArray(responseData)) {
+          categoriesData = responseData
+        } else if (responseData && typeof responseData === 'object' && !Array.isArray(responseData) && 'data' in responseData) {
+          if (Array.isArray(responseData.data)) {
+            categoriesData = responseData.data
+          } else if (responseData.data && typeof responseData.data === 'object' && 'categories' in responseData.data) {
+            categoriesData = Array.isArray(responseData.data.categories) ? responseData.data.categories : []
+          }
+        }
+      }
+      
+      // Đảm bảo categoriesData luôn là array
+      if (!Array.isArray(categoriesData)) {
+        categoriesData = []
+      }
+      
       setCategories(categoriesData)
       
       if (categoriesData.length === 0) {
@@ -167,9 +178,51 @@ export default function AdminProductsPage() {
       }
       
       const productsRes = await adminService.getProducts(params)
+      
+      // Debug log trong development
+      if (import.meta.env.DEV) {
+        console.log('📥 Products Response Raw:', {
+          hasResponse: !!productsRes,
+          responseData: productsRes?.data,
+          responseDataType: productsRes?.data ? (Array.isArray(productsRes.data) ? 'array' : typeof productsRes.data) : 'undefined',
+          responseDataKeys: productsRes?.data && !Array.isArray(productsRes.data) && typeof productsRes.data === 'object' ? Object.keys(productsRes.data) : 'N/A',
+        })
+      }
+      
+      // Parse response - normalizeResponse đã giữ lại pagination
+      const responseData = productsRes?.data
+      let productsData: Product[] = []
+      let pagination: { totalPages?: number; total?: number } | undefined
 
-      const productsData = (productsRes as any)?.data ?? []
-      const pagination = (productsRes as any)?.pagination
+      if (responseData) {
+        if (responseData && typeof responseData === 'object' && !Array.isArray(responseData) && 'success' in responseData && 'data' in responseData) {
+          if (Array.isArray(responseData.data)) {
+            productsData = responseData.data
+            pagination = (responseData as any).pagination
+          }
+        } else if (Array.isArray(responseData)) {
+          productsData = responseData
+        } else if (responseData && typeof responseData === 'object' && !Array.isArray(responseData) && 'data' in responseData) {
+          if (Array.isArray(responseData.data)) {
+            productsData = responseData.data
+            pagination = (responseData as any).pagination
+          }
+        }
+      }
+      
+      if (!Array.isArray(productsData)) {
+        productsData = []
+      }
+      
+      // Debug log sau khi parse
+      if (import.meta.env.DEV) {
+        console.log('📥 Products Parsed:', {
+          productsCount: productsData.length,
+          pagination: pagination,
+          totalPages: pagination?.totalPages,
+          total: pagination?.total
+        })
+      }
 
       setProducts(productsData)
       if (pagination) {
@@ -183,7 +236,28 @@ export default function AdminProductsPage() {
         // Chỉ fetch all products cho charts ở trang đầu tiên
         const allProductsParams = { ...params, page: 1, limit: 1000 }
         const allProductsRes = await adminService.getProducts(allProductsParams)
-        const allProductsData = (allProductsRes as any)?.data ?? []
+        const allProductsResponseData = allProductsRes?.data
+        
+        let allProductsData: Product[] = []
+        
+        if (allProductsResponseData) {
+          if (allProductsResponseData && typeof allProductsResponseData === 'object' && !Array.isArray(allProductsResponseData) && 'success' in allProductsResponseData && 'data' in allProductsResponseData) {
+            if (Array.isArray(allProductsResponseData.data)) {
+              allProductsData = allProductsResponseData.data
+            }
+          } else if (Array.isArray(allProductsResponseData)) {
+            allProductsData = allProductsResponseData
+          } else if (allProductsResponseData && typeof allProductsResponseData === 'object' && !Array.isArray(allProductsResponseData) && 'data' in allProductsResponseData) {
+            if (Array.isArray(allProductsResponseData.data)) {
+              allProductsData = allProductsResponseData.data
+            }
+          }
+        }
+        
+        if (!Array.isArray(allProductsData)) {
+          allProductsData = []
+        }
+        
         updateCharts(allProductsData)
       }
     } catch (err: any) {
@@ -195,7 +269,8 @@ export default function AdminProductsPage() {
   }
   
   // Filter products locally by search query and stock
-  const filteredProducts = products.filter((product) => {
+  // Đảm bảo products luôn là array
+  const filteredProducts = (Array.isArray(products) ? products : []).filter((product) => {
     // Search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase()
@@ -278,6 +353,11 @@ export default function AdminProductsPage() {
   }
 
   const updateCharts = (productsData: Product[]) => {
+    // Đảm bảo productsData luôn là array
+    if (!Array.isArray(productsData)) {
+      productsData = []
+    }
+    
     // Chart theo category
     const categoryMap = new Map<string, ChartItem>()
     productsData.forEach((product) => {
@@ -340,6 +420,13 @@ export default function AdminProductsPage() {
     setIsDialogOpen(true)
   }
 
+  const resolvePreviewUrl = (path?: string | null) => {
+    if (!path) return ""
+    if (path.startsWith("http")) return path
+    if (path.startsWith("/uploads")) return path
+    return getCloudinaryProductImageUrl(path)
+  }
+
   const openEditDialog = (product: Product) => {
     setEditingProduct(product)
     const hinhAnhPhu = product.HinhAnhPhu || []
@@ -358,13 +445,48 @@ export default function AdminProductsPage() {
       HinhAnhPhu: hinhAnhPhu,
     })
     // Set previews
-    setMainImagePreview(product.HinhAnhChinh ? `/${product.HinhAnhChinh}` : "")
+    setMainImagePreview(resolvePreviewUrl(product.HinhAnhChinh))
     setSubImagePreviews([
-      hinhAnhPhu[0] ? `/${hinhAnhPhu[0]}` : "",
-      hinhAnhPhu[1] ? `/${hinhAnhPhu[1]}` : "",
-      hinhAnhPhu[2] ? `/${hinhAnhPhu[2]}` : "",
+      resolvePreviewUrl(hinhAnhPhu[0]),
+      resolvePreviewUrl(hinhAnhPhu[1]),
+      resolvePreviewUrl(hinhAnhPhu[2]),
     ])
     setIsDialogOpen(true)
+  }
+
+  const uploadImageToCloudinary = async (base64: string) => {
+    try {
+      // Debug: Kiểm tra token trước khi gửi request
+      const token = storage.getToken();
+      if (!token && import.meta.env.DEV) {
+        console.warn('⚠️ No token found in localStorage before upload');
+      }
+
+      const response = await axiosInstance.post('/api/upload', {
+        image: base64,
+      })
+
+      const data = response.data
+      if (!data?.success || !data?.data?.url) {
+        throw new Error(data?.message || "Không thể upload ảnh lên Cloudinary")
+      }
+
+      return {
+        url: data.data.url as string,
+        publicId: data.data.public_id as string,
+      }
+    } catch (error: any) {
+      // Debug: Log chi tiết lỗi
+      if (import.meta.env.DEV) {
+        console.error('Upload error:', {
+          message: error?.message,
+          response: error?.response?.data,
+          status: error?.response?.status,
+          token: storage.getToken() ? 'present' : 'missing'
+        });
+      }
+      throw new Error(error?.response?.data?.message || error?.message || "Không thể upload ảnh lên Cloudinary")
+    }
   }
 
   const handleImageChange = (file: File | null, index: number = -1) => {
@@ -383,27 +505,68 @@ export default function AdminProductsPage() {
     }
     
     const reader = new FileReader()
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       const result = e.target?.result as string
-      
+
       if (index === -1) {
-        // Main image
         setMainImagePreview(result)
-        // Extract filename from file name
-        const fileName = file.name
-        setFormData({ ...formData, HinhAnhChinh: fileName })
+        setMainImageUploading(true)
       } else {
-        // Sub image
         const newPreviews = [...subImagePreviews]
         newPreviews[index] = result
         setSubImagePreviews(newPreviews)
-        
-        // Update formData
-        const newHinhAnhPhu = [...(formData.HinhAnhPhu || [])]
-        newHinhAnhPhu[index] = file.name
-        // Remove empty strings
-        const filtered = newHinhAnhPhu.filter(img => img !== "")
-        setFormData({ ...formData, HinhAnhPhu: filtered })
+        setSubImageUploading((prev) => {
+          const next = [...prev]
+          next[index] = true
+          return next
+        })
+      }
+
+      try {
+        const uploaded = await uploadImageToCloudinary(result)
+        if (index === -1) {
+          setFormData((prev) => ({
+            ...prev,
+            HinhAnhChinh: uploaded.url,
+          }))
+        } else {
+          setFormData((prev) => {
+            const updated = [...(prev.HinhAnhPhu || [])]
+            updated[index] = uploaded.url
+            return {
+              ...prev,
+              HinhAnhPhu: updated.filter((img) => img && img.trim() !== ""),
+            }
+          })
+        }
+        toast.success("Upload ảnh thành công")
+      } catch (error: any) {
+        toast.error(error?.message || "Không thể upload ảnh. Vui lòng thử lại")
+        if (index === -1) {
+          setMainImagePreview("")
+          setFormData((prev) => ({ ...prev, HinhAnhChinh: "" }))
+        } else {
+          setSubImagePreviews((prev) => {
+            const next = [...prev]
+            next[index] = ""
+            return next
+          })
+          setFormData((prev) => {
+            const updated = [...(prev.HinhAnhPhu || [])]
+            updated.splice(index, 1)
+            return { ...prev, HinhAnhPhu: updated }
+          })
+        }
+      } finally {
+        if (index === -1) {
+          setMainImageUploading(false)
+        } else {
+          setSubImageUploading((prev) => {
+            const next = [...prev]
+            next[index] = false
+            return next
+          })
+        }
       }
     }
     reader.readAsDataURL(file)
@@ -438,6 +601,16 @@ export default function AdminProductsPage() {
       return
     }
     
+    if (!formData.HinhAnhChinh || !formData.HinhAnhChinh.trim()) {
+      toast.error("Vui lòng chọn và upload ảnh chính cho sản phẩm")
+      return
+    }
+
+    if (mainImageUploading || subImageUploading.some((status) => status)) {
+      toast.error("Đang upload ảnh, vui lòng đợi hoàn tất")
+      return
+    }
+
     // Validate number fields
     if (formData.Gia === undefined || formData.Gia === null || formData.Gia < 0) {
       toast.error("Giá sản phẩm phải lớn hơn hoặc bằng 0")
@@ -590,7 +763,7 @@ export default function AdminProductsPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tất cả</SelectItem>
-                {categories.map((cat) => (
+                {(Array.isArray(categories) ? categories : []).map((cat) => (
                   <SelectItem key={cat._id} value={cat._id}>
                     {cat.TenLoaiSanPham}
                   </SelectItem>
@@ -890,7 +1063,7 @@ export default function AdminProductsPage() {
                       <SelectValue placeholder="Chọn loại sản phẩm" />
                     </SelectTrigger>
                     <SelectContent>
-                      {categories.map((cat) => (
+                      {(Array.isArray(categories) ? categories : []).map((cat) => (
                         <SelectItem key={cat._id} value={cat._id}>
                           {cat.TenLoaiSanPham}
                         </SelectItem>

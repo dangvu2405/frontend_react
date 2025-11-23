@@ -20,11 +20,10 @@ const SignupForm = lazy(() => import('./pages/signup-form').then(m => ({ default
 const ForgotPasswordPage = lazy(() => import('./pages/forgot-password'));
 const ProductTracePage = lazy(() => import('./pages/ProductTrace'));
 const TraceLookupPage = lazy(() => import('./pages/TraceLookup'));
-const VNPayReturnPage = lazy(() => import('./pages/VNPayReturn'));
-const VNPayDebugPage = lazy(() => import('./pages/VNPayDebug'));
 const OAuthCallback = lazy(() => import('./pages/OAuthCallback').then(m => ({ default: m.OAuthCallback })));
 const PrivacyPage = lazy(() => import('./pages/Privacy'));
 const TermsPage = lazy(() => import('./pages/Terms'));
+const DebugImageUtilsPage = lazy(() => import('./pages/debug/DebugImageUtils'));
 
 // Admin pages - lazy load (heavier)
 const AdminLayout = lazy(() => import('./pages/admin/Layout'));
@@ -66,8 +65,6 @@ function App() {
               <Route path="/checkout" element={<CheckoutPage />} />
               <Route path="/my-account" element={<MyAccountPage />} />
               <Route path="/trace-lookup" element={<TraceLookupPage />} />
-              <Route path="/payment/vnpay-return" element={<VNPayReturnPage />} />
-              <Route path="/debug/vnpay" element={<VNPayDebugPage />} />
               
               {/* Info Pages */}
               <Route path="/about" element={<AboutPage />} />
@@ -76,6 +73,9 @@ function App() {
               <Route path="/support" element={<SupportPage />} />
               <Route path="/privacy" element={<PrivacyPage />} />
               <Route path="/terms" element={<TermsPage />} />
+              {import.meta.env.DEV && (
+                <Route path="/debug-img" element={<DebugImageUtilsPage />} />
+              )}
               
               {/* Auth Pages */}
               <Route path="/login" element={<LoginForm />} />

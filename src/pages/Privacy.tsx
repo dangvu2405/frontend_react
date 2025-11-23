@@ -20,7 +20,7 @@ export default function Privacy() {
                 <li>Thông tin cá nhân: Họ tên, email, số điện thoại, địa chỉ</li>
                 <li>Thông tin thanh toán: Thông tin thẻ tín dụng, tài khoản ngân hàng</li>
                 <li>Thông tin đăng nhập: Tên đăng nhập, mật khẩu (được mã hóa)</li>
-                <li>Thông tin từ OAuth: Khi bạn đăng nhập bằng Google hoặc Facebook</li>
+                <li>Thông tin từ OAuth: Khi bạn đăng nhập bằng Google</li>
               </ul>
             </section>
 
@@ -80,13 +80,6 @@ export default function Privacy() {
               </p>
             </section>
 
-            <section className="pt-6 border-t">
-              <h2 className="text-2xl font-semibold mb-4">Xóa dữ liệu Facebook</h2>
-              <p className="text-muted-foreground">
-                Nếu bạn đã đăng nhập bằng Facebook và muốn xóa dữ liệu của mình, bạn có thể yêu cầu 
-                xóa dữ liệu thông qua ứng dụng Facebook của bạn trong phần Cài đặt &gt; Ứng dụng và trang web.
-              </p>
-            </section>
           </CardContent>
         </Card>
       </div>

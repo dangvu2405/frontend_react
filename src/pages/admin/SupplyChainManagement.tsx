@@ -45,17 +45,7 @@ import {
   type RecordEventPayload,
   type IssueCertificatePayload 
 } from "@/services/supplyChainService"
-
-type Product = {
-  _id: string
-  TenSanPham: string
-  MoTa?: string
-  Gia: number
-  SoLuong: number
-  MaSanPham?: string
-  LoSanXuat?: string
-  MaLoaiSanPham?: { _id: string; TenLoaiSanPham: string } | string
-}
+import type { Product } from '@/types/models';
 
 const EVENT_TYPES = [
   { value: "harvest", label: "Thu hoạch" },
@@ -105,7 +95,30 @@ export default function SupplyChainManagement() {
     try {
       setLoading(true)
       const response = await adminService.getProducts()
-      const productsData = (response as any)?.data ?? []
+      
+      // Parse response - normalizeResponse đã giữ lại structure
+      const responseData = response?.data
+      let productsData: Product[] = []
+      
+      if (responseData) {
+        if (responseData && typeof responseData === 'object' && !Array.isArray(responseData) && 'success' in responseData && 'data' in responseData) {
+          if (Array.isArray(responseData.data)) {
+            productsData = responseData.data
+          }
+        } else if (Array.isArray(responseData)) {
+          productsData = responseData
+        } else if (responseData && typeof responseData === 'object' && !Array.isArray(responseData) && 'data' in responseData) {
+          if (Array.isArray(responseData.data)) {
+            productsData = responseData.data
+          }
+        }
+      }
+      
+      // Đảm bảo productsData luôn là array
+      if (!Array.isArray(productsData)) {
+        productsData = []
+      }
+      
       setProducts(productsData)
     } catch (err: any) {
       console.error("Error fetching products:", err)
@@ -206,7 +219,8 @@ export default function SupplyChainManagement() {
     }
   }
 
-  const filteredProducts = products.filter((product) =>
+  // Đảm bảo products luôn là array
+  const filteredProducts = (Array.isArray(products) ? products : []).filter((product) =>
     product.TenSanPham.toLowerCase().includes(searchQuery.toLowerCase()) ||
     product.MaSanPham?.toLowerCase().includes(searchQuery.toLowerCase())
   )

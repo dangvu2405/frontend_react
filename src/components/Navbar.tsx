@@ -6,7 +6,7 @@ import { ShoppingCart, LogOut, Menu } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { ThemeToggle } from './ThemeToggle';
 import { storage } from '@/utils/storage';
-import { API_BASE_URL } from '@/constants/index';
+import { getAvatarUrl } from '@/utils/imageUtils';
 
 export function Navbar() {
   const { user, isAuthenticated, logout } = useAuth();
@@ -79,14 +79,12 @@ export function Navbar() {
                 <Link to="/my-account" className="flex items-center space-x-2 hover:opacity-80 transition-opacity">
                   <Avatar className="h-9 w-9 border-2 border-border">
                     <AvatarImage 
-                      src={
-                        user?.avatar 
-                          ? user.avatar.startsWith('http') 
-                            ? user.avatar 
-                            : `${API_BASE_URL}${user.avatar.startsWith('/') ? user.avatar : `/${user.avatar}`}`
-                          : undefined
-                      } 
-                      alt={user?.fullName || user?.username || 'User'} 
+                      src={getAvatarUrl(user?.avatar, { width: 200, height: 200, quality: 80 })} 
+                      alt={user?.fullName || user?.username || 'User'}
+                      crossOrigin="anonymous"
+                      onError={(e) => {
+                        e.currentTarget.src = '';
+                      }}
                     />
                     <AvatarFallback className="bg-primary/20 text-primary font-semibold">
                       {(user?.fullName || user?.username || 'U').charAt(0).toUpperCase()}
@@ -170,13 +168,11 @@ export function Navbar() {
                 >
                   <Avatar className="h-10 w-10 border-2 border-border">
                     <AvatarImage 
-                      src={
-                        user?.avatar 
-                          ? user.avatar.startsWith('http') 
-                            ? user.avatar 
-                            : `${API_BASE_URL}${user.avatar.startsWith('/') ? user.avatar : `/${user.avatar}`}`
-                          : undefined
-                      } 
+                      src={getAvatarUrl(user?.avatar, { width: 200, height: 200, quality: 80 })}
+                      crossOrigin="anonymous"
+                      onError={(e) => {
+                        e.currentTarget.src = '';
+                      }} 
                       alt={user?.fullName || user?.username || 'User'} 
                     />
                     <AvatarFallback className="bg-primary/20 text-primary font-semibold">

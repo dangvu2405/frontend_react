@@ -41,38 +41,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
-
-type Order = {
-  _id: string
-  MaDonHang: string
-  IdKhachHang: {
-    _id: string
-    HoTen: string
-    Email: string
-    SoDienThoai?: string
-  } | null
-  TongTien: number
-  TrangThai: string
-  PhuongThucThanhToan: string
-  DiaChi?: string
-  PhiVanChuyen?: number
-  GhiChu?: string
-  createdAt: string
-  updatedAt?: string
-  SanPham: Array<{
-    MaSanPham?: string
-    TenSanPham?: string
-    SoLuong?: number
-    GiaTaiThoiDiemDat?: number
-    Gia?: number
-  }>
-}
-
-type ChartItem = {
-  name: string
-  count?: number
-  revenue?: number
-}
+import type { ChartItem, Order } from "@/types/models"
 
 const currencyFormatter = new Intl.NumberFormat("vi-VN", {
   style: "currency",
@@ -180,8 +149,31 @@ export default function AdminOrdersPage() {
       }
       
       const ordersRes = await adminService.getOrders(params)
-      const ordersData = (ordersRes as any)?.data ?? []
-      const pagination = (ordersRes as any)?.pagination
+      
+      // Parse response - normalizeResponse đã giữ lại pagination
+      const responseData = ordersRes?.data
+      let ordersData: Order[] = []
+      let pagination: { totalPages?: number; total?: number } | undefined
+
+      if (responseData) {
+        if (responseData && typeof responseData === 'object' && !Array.isArray(responseData) && 'success' in responseData && 'data' in responseData) {
+          if (Array.isArray(responseData.data)) {
+            ordersData = responseData.data
+            pagination = (responseData as any).pagination
+          }
+        } else if (Array.isArray(responseData)) {
+          ordersData = responseData
+        } else if (responseData && typeof responseData === 'object' && !Array.isArray(responseData) && 'data' in responseData) {
+          if (Array.isArray(responseData.data)) {
+            ordersData = responseData.data
+            pagination = (responseData as any).pagination
+          }
+        }
+      }
+      
+      if (!Array.isArray(ordersData)) {
+        ordersData = []
+      }
 
       setOrders(ordersData)
       if (pagination) {
@@ -194,7 +186,28 @@ export default function AdminOrdersPage() {
       if (currentPage === 1) {
         const allOrdersParams = { ...params, page: 1, limit: 1000 }
         const allOrdersRes = await adminService.getOrders(allOrdersParams)
-        const allOrdersData = (allOrdersRes as any)?.data ?? []
+        const allOrdersResponseData = allOrdersRes?.data
+        
+        let allOrdersData: Order[] = []
+        
+        if (allOrdersResponseData) {
+          if (allOrdersResponseData && typeof allOrdersResponseData === 'object' && !Array.isArray(allOrdersResponseData) && 'success' in allOrdersResponseData && 'data' in allOrdersResponseData) {
+            if (Array.isArray(allOrdersResponseData.data)) {
+              allOrdersData = allOrdersResponseData.data
+            }
+          } else if (Array.isArray(allOrdersResponseData)) {
+            allOrdersData = allOrdersResponseData
+          } else if (allOrdersResponseData && typeof allOrdersResponseData === 'object' && !Array.isArray(allOrdersResponseData) && 'data' in allOrdersResponseData) {
+            if (Array.isArray(allOrdersResponseData.data)) {
+              allOrdersData = allOrdersResponseData.data
+            }
+          }
+        }
+        
+        if (!Array.isArray(allOrdersData)) {
+          allOrdersData = []
+        }
+        
         updateCharts(allOrdersData)
       }
     } catch (err: any) {
@@ -206,7 +219,8 @@ export default function AdminOrdersPage() {
   }
   
   // Filter orders locally by search query and other filters (if backend doesn't support them)
-  const filteredOrders = orders.filter((order) => {
+  // Đảm bảo orders luôn là array
+  const filteredOrders = (Array.isArray(orders) ? orders : []).filter((order) => {
     // Search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase()
@@ -226,6 +240,7 @@ export default function AdminOrdersPage() {
     
     // Date filter (if backend doesn't support it)
     if (dateFilter !== "all") {
+      if (!order.createdAt) return false // Skip orders without createdAt
       const orderDate = new Date(order.createdAt)
       const now = new Date()
       let startDate = new Date()
@@ -273,6 +288,7 @@ export default function AdminOrdersPage() {
       const monthName = date.toLocaleDateString("vi-VN", { month: "short" })
       
       const monthOrders = ordersData.filter((order) => {
+        if (!order.createdAt) return false
         const orderDate = new Date(order.createdAt)
         return orderDate.getMonth() === date.getMonth() && 
                orderDate.getFullYear() === date.getFullYear()
@@ -710,7 +726,7 @@ export default function AdminOrdersPage() {
                       </Select>
                     </td>
                     <td className="px-4 py-3 text-sm">
-                      {new Date(order.createdAt).toLocaleDateString("vi-VN")}
+                      {order.createdAt ? new Date(order.createdAt).toLocaleDateString("vi-VN") : "N/A"}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
@@ -845,7 +861,7 @@ export default function AdminOrdersPage() {
                 <div key="date">
                   <p className="text-sm font-medium text-muted-foreground">Ngày đặt</p>
                   <p className="text-sm font-semibold">
-                    {new Date(selectedOrder.createdAt).toLocaleString("vi-VN")}
+                    {selectedOrder.createdAt ? new Date(selectedOrder.createdAt).toLocaleString("vi-VN") : "N/A"}
                   </p>
                 </div>
                 {selectedOrder.DiaChi && (
@@ -878,46 +894,57 @@ export default function AdminOrdersPage() {
 
               <div>
                 <p className="mb-2 text-sm font-medium">Sản phẩm</p>
-                <div className="rounded-md border">
-                  <table className="w-full">
-                    <thead className="border-b bg-muted/50">
-                      <tr>
-                        <th className="px-4 py-2 text-left text-sm">Tên sản phẩm</th>
-                        <th className="px-4 py-2 text-center text-sm">Số lượng</th>
-                        <th className="px-4 py-2 text-right text-sm">Đơn giá</th>
-                        <th className="px-4 py-2 text-right text-sm">Thành tiền</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {selectedOrder.SanPham?.map((item, idx) => {
-                        const price = item.GiaTaiThoiDiemDat || item.Gia || 0
-                        const quantity = item.SoLuong || 0
-                        return (
-                          <tr key={`${selectedOrder._id}-${item.MaSanPham || idx}-${idx}`} className="border-b">
-                            <td className="px-4 py-2 text-sm">{item.TenSanPham || "N/A"}</td>
-                            <td className="px-4 py-2 text-center text-sm">{quantity}</td>
-                            <td className="px-4 py-2 text-right text-sm">
-                              {currencyFormatter.format(price)}
-                            </td>
-                            <td className="px-4 py-2 text-right text-sm font-medium">
-                              {currencyFormatter.format(price * quantity)}
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                    <tfoot className="border-t bg-muted/50">
-                      <tr>
-                        <td colSpan={3} className="px-4 py-2 text-right text-sm font-bold">
-                          Tổng cộng:
-                        </td>
-                        <td className="px-4 py-2 text-right text-sm font-bold">
-                          {currencyFormatter.format(selectedOrder.TongTien)}
-                        </td>
-                      </tr>
-                    </tfoot>
-                  </table>
-                </div>
+                {!selectedOrder.SanPham || selectedOrder.SanPham.length === 0 ? (
+                  <div className="rounded-md border p-4 text-center text-sm text-muted-foreground">
+                    Không có sản phẩm nào trong đơn hàng này
+                  </div>
+                ) : (
+                  <div className="rounded-md border">
+                    <table className="w-full">
+                      <thead className="border-b bg-muted/50">
+                        <tr>
+                          <th className="px-4 py-2 text-left text-sm">Tên sản phẩm</th>
+                          <th className="px-4 py-2 text-center text-sm">Số lượng</th>
+                          <th className="px-4 py-2 text-right text-sm">Đơn giá</th>
+                          <th className="px-4 py-2 text-right text-sm">Thành tiền</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {selectedOrder.SanPham.map((item: any, idx: number) => {
+                          // Hỗ trợ cả MaSanPham và IdSanPham
+                          const productId = item.MaSanPham || item.IdSanPham || item._id || idx;
+                          const productName = item.TenSanPham || item.name || "Sản phẩm không xác định";
+                          const price = item.GiaTaiThoiDiemDat || item.Gia || item.price || 0;
+                          const quantity = item.SoLuong || item.quantity || 0;
+                          const total = item.ThanhTien || item.TongTien || (price * quantity);
+                          
+                          return (
+                            <tr key={`${selectedOrder._id}-${productId}-${idx}`} className="border-b">
+                              <td className="px-4 py-2 text-sm">{productName}</td>
+                              <td className="px-4 py-2 text-center text-sm">{quantity}</td>
+                              <td className="px-4 py-2 text-right text-sm">
+                                {currencyFormatter.format(price)}
+                              </td>
+                              <td className="px-4 py-2 text-right text-sm font-medium">
+                                {currencyFormatter.format(total)}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                      <tfoot className="border-t bg-muted/50">
+                        <tr>
+                          <td colSpan={3} className="px-4 py-2 text-right text-sm font-bold">
+                            Tổng cộng:
+                          </td>
+                          <td className="px-4 py-2 text-right text-sm font-bold">
+                            {currencyFormatter.format(selectedOrder.TongTien)}
+                          </td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                )}
               </div>
             </div>
           )}

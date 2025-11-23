@@ -34,11 +34,22 @@ class SocketService {
     });
 
     this.socket.on('connect', () => {
-      console.log('✅ Socket.IO connected:', this.socket?.id);
+      // Socket.id có thể chưa sẵn sàng ngay khi event 'connect' được trigger
+      // Sử dụng setTimeout để đảm bảo socket.id đã được set
+      setTimeout(() => {
+        if (import.meta.env.DEV) {
+          const socketId = this.socket?.id;
+          if (socketId) {
+            console.log('✅ Socket.IO connected:', socketId);
+          }
+        }
+      }, 0);
     });
 
     this.socket.on('disconnect', () => {
-      console.log('❌ Socket.IO disconnected');
+      if (import.meta.env.DEV) {
+        console.log('❌ Socket.IO disconnected');
+      }
     });
 
     this.socket.on('connect_error', (error) => {

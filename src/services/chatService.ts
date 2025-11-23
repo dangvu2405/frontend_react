@@ -1,67 +1,43 @@
 import axiosInstance from './axios';
+import type { ApiItemResponse, ApiListResponse, ChatMessage, ChatRoom, Pagination } from '@/types/models';
 
-export interface ChatRoom {
-  _id: string;
-  CustomerId: {
-    _id: string;
-    HoTen: string;
-    Email: string;
-    AvatarUrl?: string;
-    TenDangNhap?: string;
-  };
-  AdminId?: {
-    _id: string;
-    HoTen: string;
-    Email: string;
-    AvatarUrl?: string;
-  } | null;
-  Status: 'pending' | 'active' | 'closed';
-  LastMessage?: string;
-  LastMessageAt?: string;
-  UnreadCount: {
-    customer: number;
-    admin: number;
-  };
-  createdAt: string;
-  updatedAt: string;
-}
+const ensureItemSuccess = <T>(response: ApiItemResponse<T>): T => {
+  if (!response.success) {
+    throw new Error(response.message || 'Chat service request failed');
+  }
+  return response.data as T;
+};
 
-export interface ChatMessage {
-  _id: string;
-  ChatRoomId: string;
-  SenderId: {
-    _id: string;
-    HoTen: string;
-    Email: string;
-    AvatarUrl?: string;
+const ensureListSuccess = <T>(response: ApiListResponse<T>): { data: T[]; pagination?: Pagination } => {
+  if (!response.success) {
+    return { data: [] };
+  }
+  return {
+    data: response.data ?? [],
+    pagination: response.pagination,
   };
-  SenderType: 'customer' | 'admin';
-  Message: string;
-  IsRead: boolean;
-  ReadAt?: string;
-  createdAt: string;
-  updatedAt: string;
-}
+};
 
 const chatService = {
   // Get or create chat room for customer
   getOrCreateChatRoom: async (): Promise<ChatRoom> => {
-    // axiosInstance interceptor returns response.data directly
-    const response: { success: boolean; data: ChatRoom } = await axiosInstance.get(
-      '/chat/room'
-    );
-    return response.data;
+    // ✅ Axios interceptor đã normalize response, nên response.data đã là ApiResponse format
+    const response = await axiosInstance.get<ApiItemResponse<ChatRoom>>('/chat/room');
+    const responseData = response.data;
+    
+    // ✅ Backend trả về: { success: true, data: ChatRoom }
+    if (responseData && responseData.success && responseData.data) {
+      return responseData.data as ChatRoom;
+    }
+    
+    // ✅ Nếu không có success hoặc data, throw error
+    throw new Error(responseData?.message || 'Chat service request failed');
   },
 
   // Get all chat rooms (admin only)
   getChatRooms: async (status?: string, page: number = 1, limit: number = 20): Promise<{
     data: ChatRoom[];
-    pagination: {
-      page: number;
-      limit: number;
-      total: number;
-      pages: number;
-    };
+    pagination?: Pagination;
   }> => {
     const params = new URLSearchParams({
       page: page.toString(),
@@ -70,30 +46,33 @@ const chatService = {
     if (status) {
       params.append('status', status);
     }
-    // axiosInstance interceptor returns response.data directly
-    const response: {
-      success: boolean;
-      data: ChatRoom[];
-      pagination: {
-        page: number;
-        limit: number;
-        total: number;
-        pages: number;
+    // ✅ Axios interceptor đã normalize response
+    const response = await axiosInstance.get<ApiListResponse<ChatRoom>>(`/chat/rooms?${params.toString()}`);
+    const responseData = response.data;
+    
+    // ✅ Backend trả về: { success: true, data: ChatRoom[], pagination: {...} }
+    if (responseData && responseData.success) {
+      return {
+        data: Array.isArray(responseData.data) ? responseData.data : [],
+        pagination: responseData.pagination
       };
-    } = await axiosInstance.get(`/chat/rooms?${params.toString()}`);
-    return {
-      data: response.data,
-      pagination: response.pagination,
-    };
+    }
+    
+    return { data: [] };
   },
 
   // Get chat room by ID
   getChatRoomById: async (chatRoomId: string): Promise<ChatRoom> => {
-    // axiosInstance interceptor returns response.data directly
-    const response: { success: boolean; data: ChatRoom } = await axiosInstance.get(
-      `/chat/room/${chatRoomId}`
-    );
-    return response.data;
+    // ✅ Axios interceptor đã normalize response
+    const response = await axiosInstance.get<ApiItemResponse<ChatRoom>>(`/chat/room/${chatRoomId}`);
+    const responseData = response.data;
+    
+    // ✅ Backend trả về: { success: true, data: ChatRoom }
+    if (responseData && responseData.success && responseData.data) {
+      return responseData.data as ChatRoom;
+    }
+    
+    throw new Error(responseData?.message || 'Chat service request failed');
   },
 
   // Get messages for a chat room
@@ -103,41 +82,39 @@ const chatService = {
     limit: number = 50
   ): Promise<{
     data: ChatMessage[];
-    pagination: {
-      page: number;
-      limit: number;
-      total: number;
-      pages: number;
-    };
+    pagination?: Pagination;
   }> => {
     const params = new URLSearchParams({
       page: page.toString(),
       limit: limit.toString(),
     });
-    // axiosInstance interceptor returns response.data directly
-    const response: {
-      success: boolean;
-      data: ChatMessage[];
-      pagination: {
-        page: number;
-        limit: number;
-        total: number;
-        pages: number;
+    // ✅ Axios interceptor đã normalize response
+    const response = await axiosInstance.get<ApiListResponse<ChatMessage>>(`/chat/room/${chatRoomId}/messages?${params.toString()}`);
+    const responseData = response.data;
+    
+    // ✅ Backend trả về: { success: true, data: ChatMessage[], pagination: {...} }
+    if (responseData && responseData.success) {
+      return {
+        data: Array.isArray(responseData.data) ? responseData.data : [],
+        pagination: responseData.pagination
       };
-    } = await axiosInstance.get(`/chat/room/${chatRoomId}/messages?${params.toString()}`);
-    return {
-      data: response.data,
-      pagination: response.pagination,
-    };
+    }
+    
+    return { data: [] };
   },
 
   // Assign admin to chat room
   assignAdmin: async (chatRoomId: string): Promise<ChatRoom> => {
-    // axiosInstance interceptor returns response.data directly
-    const response: { success: boolean; data: ChatRoom } = await axiosInstance.post(
-      `/chat/room/${chatRoomId}/assign`
-    );
-    return response.data;
+    // ✅ Axios interceptor đã normalize response
+    const response = await axiosInstance.post<ApiItemResponse<ChatRoom>>(`/chat/room/${chatRoomId}/assign`);
+    const responseData = response.data;
+    
+    // ✅ Backend trả về: { success: true, data: ChatRoom }
+    if (responseData && responseData.success && responseData.data) {
+      return responseData.data as ChatRoom;
+    }
+    
+    throw new Error(responseData?.message || 'Chat service request failed');
   },
 
   // Close chat room

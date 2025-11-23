@@ -109,8 +109,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // Save to storage for fallback
         storage.setUser(userData);
         
-        // Log in production for debugging
-        if (import.meta.env.PROD) {
+        // Log in development for debugging
+        if (import.meta.env.DEV) {
           console.log('✅ User info loaded:', {
             username: userData.username,
             roleName: userData.roleName,
@@ -124,7 +124,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // Token không hợp lệ, clear tất cả
         storage.clearAll();
         setUser(null);
-        if (import.meta.env.DEV || import.meta.env.PROD) {
+        if (import.meta.env.DEV) {
           console.warn('⚠️ Token không hợp lệ hoặc hết hạn, đã clear storage');
         }
         return;
@@ -154,8 +154,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         };
         setUser(fallbackUser);
         
-        // Log fallback in production
-        if (import.meta.env.PROD) {
+        // Log fallback in development
+        if (import.meta.env.DEV) {
           console.warn('⚠️ Using stored user data (API failed):', {
             username: fallbackUser.username,
             roleName: fallbackUser.roleName,
@@ -164,7 +164,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
       } else {
         // No stored user either
-        if (import.meta.env.PROD) {
+        if (import.meta.env.DEV) {
           console.error('❌ No user data available (API failed and no storage)');
         }
       }
@@ -248,40 +248,53 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // Fetch user info with role after login
         await fetchUserInfo();
         
-        // Load cart từ database và sync vào localStorage
+        // ✅ Load cart từ database và sync vào localStorage
         try {
-          const cartRes = await cartService.getCart();
-          const cartData = (cartRes as any)?.cart || (cartRes as any)?.data?.cart;
+          // ✅ cartService.getCart() trả về Cart object với Items array
+          const cart = await cartService.getCart();
           
-          if (cartData && cartData.Items && Array.isArray(cartData.Items) && cartData.Items.length > 0) {
-            // Map từ database format sang localStorage format
-            const mappedCart = cartData.Items.map((item: any) => {
-              const product = item.IdSanPham || item.MaSanPham || {};
+          if (cart && Array.isArray(cart.Items) && cart.Items.length > 0) {
+            // ✅ Map từ database format (Cart.Items) sang localStorage format (CartItem[])
+            const mappedCart = cart.Items.map((item: any) => {
+              // item có thể là CartItem từ backend (IdSanPham, TenSanPham, Gia, SoLuong, ThanhTien)
+              const product = typeof item.IdSanPham === 'object' ? item.IdSanPham : null;
+              
               return {
-                id: product._id || product.id || item.IdSanPham?._id || item.MaSanPham?._id,
-                tenSP: product.TenSanPham || item.TenSanPham || 'Sản phẩm',
-                gia: product.Gia || item.Gia || 0,
-                giamGia: product.KhuyenMai || 0,
-                hinhAnh: product.HinhAnhChinh || '',
-                loaiSP: product.MaLoaiSanPham?.TenLoaiSanPham || '',
+                id: product?._id || item.IdSanPham?._id || item.MaSanPham?._id || item.MaSanPham || item.id,
+                tenSP: item.TenSanPham || product?.TenSanPham || item.tenSP || 'Sản phẩm',
+                gia: item.Gia || product?.Gia || item.gia || 0,
+                giamGia: product?.KhuyenMai || item.giamGia || 0,
+                hinhAnh: product?.HinhAnhChinh || item.hinhAnh || '',
+                loaiSP: product?.MaLoaiSanPham?.TenLoaiSanPham || item.loaiSP || '',
                 quantity: item.SoLuong || item.quantity || 1,
               };
             });
             
-            // Xóa cart cũ trong localStorage và set cart mới từ database
+            // ✅ Xóa cart cũ trong localStorage và set cart mới từ database
             storage.removeCart();
             storage.setCart(mappedCart);
             
-            // Dispatch event để update UI
+            // ✅ Dispatch event để update UI
             window.dispatchEvent(new CustomEvent('cart:updated'));
+            
+            if (import.meta.env.DEV) {
+              console.log('✅ Cart loaded from database after login:', mappedCart.length, 'items');
+            }
           } else {
-            // Nếu không có cart trong database, xóa localStorage cart
-            storage.removeCart();
+            // ✅ Nếu không có cart trong database, giữ nguyên localStorage cart (có thể là guest cart)
+            // Hoặc xóa nếu muốn reset hoàn toàn
+            // storage.removeCart();
+            
+            if (import.meta.env.DEV) {
+              console.log('ℹ️ No cart in database, keeping localStorage cart');
+            }
           }
-        } catch (cartError) {
-          console.error('Error loading cart from database:', cartError);
-          // Nếu lỗi, vẫn xóa localStorage cart để tránh conflict
-          storage.removeCart();
+        } catch (cartError: any) {
+          // ✅ Log error nhưng không block login
+          if (import.meta.env.DEV) {
+            console.error('⚠️ Error loading cart from database:', cartError?.message || cartError);
+          }
+          // Giữ nguyên localStorage cart nếu load từ database thất bại
         }
       }
       
@@ -297,8 +310,46 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const response = await authService.register(userData);
       
       if (response && response.accessToken) {
-        // Fetch user info with role after register
+        // ✅ Fetch user info with role after register
         await fetchUserInfo();
+        
+        // ✅ Load cart từ database và sync vào localStorage (tương tự login)
+        try {
+          const cart = await cartService.getCart();
+          
+          if (cart && Array.isArray(cart.Items) && cart.Items.length > 0) {
+            // ✅ Map từ database format sang localStorage format
+            const mappedCart = cart.Items.map((item: any) => {
+              const product = typeof item.IdSanPham === 'object' ? item.IdSanPham : null;
+              
+              return {
+                id: product?._id || item.IdSanPham?._id || item.MaSanPham?._id || item.MaSanPham || item.id,
+                tenSP: item.TenSanPham || product?.TenSanPham || item.tenSP || 'Sản phẩm',
+                gia: item.Gia || product?.Gia || item.gia || 0,
+                giamGia: product?.KhuyenMai || item.giamGia || 0,
+                hinhAnh: product?.HinhAnhChinh || item.hinhAnh || '',
+                loaiSP: product?.MaLoaiSanPham?.TenLoaiSanPham || item.loaiSP || '',
+                quantity: item.SoLuong || item.quantity || 1,
+              };
+            });
+            
+            storage.removeCart();
+            storage.setCart(mappedCart);
+            window.dispatchEvent(new CustomEvent('cart:updated'));
+            
+            if (import.meta.env.DEV) {
+              console.log('✅ Cart loaded from database after register:', mappedCart.length, 'items');
+            }
+          } else {
+            if (import.meta.env.DEV) {
+              console.log('ℹ️ No cart in database after register');
+            }
+          }
+        } catch (cartError: any) {
+          if (import.meta.env.DEV) {
+            console.error('⚠️ Error loading cart from database after register:', cartError?.message || cartError);
+          }
+        }
       }
       
       toast.success('Đăng ký thành công!');
@@ -310,33 +361,57 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = async () => {
     try {
-      // Lưu cart từ localStorage vào database trước khi logout
+      // ✅ Lưu cart từ localStorage vào database trước khi logout
       const localCart = storage.getCart();
       if (localCart && localCart.length > 0 && user?.id) {
         try {
-          await cartService.updateCart({ items: localCart });
-          console.log('Cart saved to database before logout');
-        } catch (cartError) {
-          console.error('Error saving cart to database:', cartError);
+          // ✅ Format cart items để gửi lên backend
+          const cartItems = localCart.map(item => ({
+            id: item.id,
+            quantity: item.quantity || 1,
+            tenSP: item.tenSP, // Giữ lại để backend có thể dùng nếu cần
+          }));
+          
+          await cartService.updateCart({ items: cartItems });
+          
+          if (import.meta.env.DEV) {
+            console.log('✅ Cart saved to database before logout:', cartItems.length, 'items');
+          }
+        } catch (cartError: any) {
+          // ✅ Log error nhưng không block logout
+          if (import.meta.env.DEV) {
+            console.error('⚠️ Error saving cart to database before logout:', cartError?.message || cartError);
+          }
           // Không block logout nếu lưu cart thất bại
         }
       }
       
+      // ✅ Gọi logout API
       await authService.logout();
+      
+      // ✅ Clear user state
       setUser(null);
       
-      // Xóa cart trong localStorage sau khi logout
+      // ✅ Xóa cart trong localStorage sau khi logout
       storage.removeCart();
       
-      // Dispatch event để update UI
+      // ✅ Dispatch event để update UI
       window.dispatchEvent(new CustomEvent('cart:updated'));
       
       toast.success('Đăng xuất thành công!');
-    } catch (error) {
-      console.error('Logout error:', error);
+    } catch (error: any) {
+      if (import.meta.env.DEV) {
+        console.error('Logout error:', error?.message || error);
+      }
+      // ✅ Vẫn clear user và cart nếu logout thất bại
       setUser(null);
-      // Vẫn xóa cart trong localStorage nếu logout thất bại
       storage.removeCart();
+      window.dispatchEvent(new CustomEvent('cart:updated'));
+      
+      // ✅ Chỉ show error nếu không phải lỗi network thông thường
+      if (error?.message && !error.message.includes('Network Error')) {
+        toast.error('Đăng xuất thất bại: ' + error.message);
+      }
     }
   };
 

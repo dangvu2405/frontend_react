@@ -35,6 +35,5 @@ export const API_ENDPOINTS = {
   FORGOT_PASSWORD: '/auth/forgot-password',
   RESET_PASSWORD: '/auth/reset-password',
   GOOGLE_AUTH: '/auth/google',
-  FACEBOOK_AUTH: '/auth/facebook',
 } as const;
 

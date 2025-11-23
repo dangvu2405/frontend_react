@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { MainLayout } from '@/layouts/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { productsService, type Product } from '@/services/productsService';
+import { productsService } from '@/services/productsService';
+import type { Product } from '@/types/models';
 import { storage, type CartItem } from '@/utils/storage';
 import { reviewService, type RatingStats } from '@/services/reviewService';
 import { toast } from 'sonner';
@@ -19,62 +20,9 @@ import {
 } from 'lucide-react';
 import { ProductsGrid } from '@/components/products';
 import { ProductReviews } from '@/components/ProductReviews';
+import { getCloudinaryProductImageUrl } from '@/utils/imageUtils';
 
 const FALLBACK_IMAGE = 'https://placehold.co/600x600/E5E5EA/000?text=No+Image';
-
-// Parse Cloudinary connection string và tạo base URL
-const parseCloudinaryUrl = (connectionString: string): string => {
-  // Format: icloudinary://{api_key}:{api_secret}@{cloud_name}
-  const match = connectionString.match(/@([^@]+)$/);
-  if (match && match[1]) {
-    const cloudName = match[1];
-    return `https://res.cloudinary.com/${cloudName}/image/upload`;
-  }
-  return '';
-};
-
-// Lấy Cloudinary URL từ connection string hoặc env
-const cloudinaryConnectionString = import.meta.env.VITE_CLOUDINARY_URL || 'icloudinary://686864971786299:e2HY_MPTM8XR4vlUDKqmVySC3Rk@dbiabh88k';
-const imageUrl = cloudinaryConnectionString.startsWith('https://')
-  ? cloudinaryConnectionString
-  : parseCloudinaryUrl(cloudinaryConnectionString);
-
-// Helper function để lấy URL ảnh từ Cloudinary
-// Database trả về: ZmfIxdkQ0gc.jpg
-// Cloudinary Public ID: products/ZmfIxdkQ0gc
-// URL: https://res.cloudinary.com/dbiabh88k/image/upload/products/ZmfIxdkQ0gc
-const getCloudinaryImageUrl = (imageName: string): string => {
-  // Nếu đã là full URL, trả về trực tiếp
-  if (imageName && (imageName.startsWith('http://') || imageName.startsWith('https://'))) {
-    return imageName;
-  }
-  
-  // Luôn ghép base URL với tên ảnh từ database
-  if (imageUrl) {
-    if (!imageName) {
-      // Nếu không có tên ảnh, vẫn trả về base URL
-      return imageUrl;
-    }
-    
-    // Loại bỏ leading slash nếu có
-    let cleanImageName = imageName.startsWith('/') ? imageName.slice(1) : imageName;
-    
-    // Loại bỏ extension (.jpg, .png, etc.) vì Cloudinary Public ID không cần extension
-    cleanImageName = cleanImageName.replace(/\.(jpg|jpeg|png|gif|webp)$/i, '');
-    
-    // Kiểm tra xem đã có prefix 'products/' chưa
-    // Nếu chưa có, thêm prefix 'products/'
-    if (!cleanImageName.startsWith('/w_500,h_500,c_fill,f_auto,q_20/products/')) {
-      cleanImageName = `/w_500,h_500,c_fill,f_auto,q_20/products/${cleanImageName}`;
-    }
-    
-    // Ghép với base URL: https://res.cloudinary.com/dbiabh88k/image/upload/products/ZmfIxdkQ0gc
-    return `${imageUrl}/${cleanImageName}`;
-  }
-  
-  // Nếu không có imageUrl, trả về tên ảnh gốc (fallback)
-  return imageName || '';
-};
 
 export default function ProductDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -109,38 +57,17 @@ export default function ProductDetailPage() {
           return;
         }
 
-        // Normalize data
-        const raw = productData as any;
-        let discountPercent = 0;
-        if (raw.KhuyenMai > 0) {
-          discountPercent = Number(raw.KhuyenMai);
-        } else if (raw.GiaKhuyenMai && raw.Gia && raw.GiaKhuyenMai < raw.Gia) {
-          discountPercent = Math.round(((Number(raw.Gia) - Number(raw.GiaKhuyenMai)) / Number(raw.Gia)) * 100);
-        }
-
-        // Hình ảnh chính - lấy từ Cloudinary dựa trên tên ảnh trong database
-        const hinhAnhChinh = getCloudinaryImageUrl(raw.HinhAnhChinh) || FALLBACK_IMAGE;
-        
-        // Hình ảnh phụ - lấy từ Cloudinary dựa trên tên ảnh trong database
-        const hinhAnhPhu = Array.isArray(raw.HinhAnhPhu) 
-          ? raw.HinhAnhPhu.map((img: string) => getCloudinaryImageUrl(img))
-          : [];
-
-        const normalized: Product = {
-          id: raw._id || raw.id,
-          tenSP: raw.TenSanPham || 'Sản phẩm',
-          mota: raw.MoTa || 'Sản phẩm chính hãng cao cấp',
-          gia: Number(raw.Gia || 0),
-          giamGia: discountPercent,
-          soLuong: Number(raw.SoLuong || 0),
-          daBan: Number(raw.DaBan || 0),
-          hinhAnh: hinhAnhChinh, // Deprecated: giữ lại để tương thích
-          hinhAnhChinh: hinhAnhChinh,
-          hinhAnhPhu: hinhAnhPhu,
-          loaiSP: raw.MaLoaiSanPham?.TenLoaiSanPham || 'Nước hoa',
+        // ✅ Dùng trực tiếp data từ API, chỉ transform ảnh
+        const product: Product = {
+          ...productData,
+          // Transform ảnh qua Cloudinary
+          HinhAnhChinh: getCloudinaryProductImageUrl(productData.HinhAnhChinh) || FALLBACK_IMAGE,
+          HinhAnhPhu: Array.isArray(productData.HinhAnhPhu) 
+            ? productData.HinhAnhPhu.map((img: string) => getCloudinaryProductImageUrl(img) || FALLBACK_IMAGE)
+            : [],
         };
 
-        setProduct(normalized);
+        setProduct(product);
         setSelectedImage(0); // Reset về ảnh đầu tiên khi load sản phẩm mới
 
         // Fetch rating stats từ reviews
@@ -151,51 +78,50 @@ export default function ProductDetailPage() {
           }
         } catch (statsError) {
           // Nếu không lấy được stats, để null (sẽ hiển thị mặc định)
-          console.warn('Could not fetch rating stats:', statsError);
+          if (import.meta.env.DEV) {
+            console.warn('Could not fetch rating stats:', statsError);
+          }
         }
 
-        // Fetch related products (same category) - chỉ fetch theo category thay vì tất cả products
+        // Fetch related products (same category)
         try {
-          const categoryProducts = await productsService.getProductsByCategory(normalized.loaiSP);
+          // Lấy category name từ product
+          const categoryName = typeof product.MaLoaiSanPham === 'object' && product.MaLoaiSanPham
+            ? product.MaLoaiSanPham.TenLoaiSanPham
+            : '';
+          
+          if (categoryName) {
+            const categoryProducts = await productsService.getProductsByCategory(categoryName);
           const related = categoryProducts
-            .filter((p: any) => {
-              const pId = p._id || p.id;
+              .filter((p) => {
+                const pId = p._id || (p as any).id;
               return pId !== id;
             })
             .slice(0, 4)
-            .map((raw: any) => {
-            // Hình ảnh chính - lấy từ Cloudinary dựa trên tên ảnh trong database
-            const hinhAnhChinh = getCloudinaryImageUrl(raw.HinhAnhChinh) || FALLBACK_IMAGE;
-            
-            // Hình ảnh phụ - lấy từ Cloudinary dựa trên tên ảnh trong database
-            const hinhAnhPhu = Array.isArray(raw.HinhAnhPhu) 
-              ? raw.HinhAnhPhu.map((img: string) => getCloudinaryImageUrl(img))
-              : [];
-
-            return {
-            id: raw._id || raw.id,
-            tenSP: raw.TenSanPham || 'Sản phẩm',
-            mota: raw.MoTa || '',
-            gia: Number(raw.Gia || 0),
-            giamGia: raw.KhuyenMai || 0,
-            soLuong: Number(raw.SoLuong || 0),
-            daBan: Number(raw.DaBan || 0),
-              hinhAnh: hinhAnhChinh, // Deprecated: giữ lại để tương thích
-              hinhAnhChinh: hinhAnhChinh,
-              hinhAnhPhu: hinhAnhPhu,
-            loaiSP: raw.MaLoaiSanPham?.TenLoaiSanPham || 'Nước hoa',
-            };
-          });
+              .map((p) => ({
+                ...p,
+                // Transform ảnh qua Cloudinary
+                HinhAnhChinh: getCloudinaryProductImageUrl(p.HinhAnhChinh) || FALLBACK_IMAGE,
+                HinhAnhPhu: Array.isArray(p.HinhAnhPhu) 
+                  ? p.HinhAnhPhu.map((img: string) => getCloudinaryProductImageUrl(img) || FALLBACK_IMAGE)
+                  : [],
+              }));
 
           setRelatedProducts(related);
+          } else {
+            setRelatedProducts([]);
+          }
         } catch (relatedError) {
-          // Nếu không lấy được related products, để mảng rỗng
-          console.warn('Could not fetch related products:', relatedError);
+          if (import.meta.env.DEV) {
+            console.warn('Could not fetch related products:', relatedError);
+          }
           setRelatedProducts([]);
         }
       } catch (error: any) {
         if (!isMounted) return;
-        console.error('Error fetching product:', error);
+        if (import.meta.env.DEV) {
+          console.error('Error fetching product:', error);
+        }
         toast.error('Không thể tải thông tin sản phẩm');
         navigate('/products');
       } finally {
@@ -211,8 +137,9 @@ export default function ProductDetailPage() {
   }, [id, navigate]);
 
   const handleQuantityChange = (delta: number) => {
+    if (!product) return;
     const newQuantity = quantity + delta;
-    if (newQuantity >= 1 && newQuantity <= (product?.soLuong || 0)) {
+    if (newQuantity >= 1 && newQuantity <= product.SoLuong) {
       setQuantity(newQuantity);
     }
   };
@@ -220,13 +147,18 @@ export default function ProductDetailPage() {
   const handleAddToCart = useCallback(() => {
     if (!product) return;
 
+    // Lấy category name
+    const categoryName = typeof product.MaLoaiSanPham === 'object' && product.MaLoaiSanPham
+      ? product.MaLoaiSanPham.TenLoaiSanPham
+      : 'Nước hoa';
+
     const item: CartItem = {
-      id: product.id,
-      tenSP: product.tenSP,
-      gia: product.gia,
-      giamGia: product.giamGia,
-      hinhAnh: product.hinhAnhChinh || product.hinhAnh,
-      loaiSP: product.loaiSP,
+      id: product._id,
+      tenSP: product.TenSanPham,
+      gia: product.Gia,
+      giamGia: product.KhuyenMai || 0,
+      hinhAnh: product.HinhAnhChinh,
+      loaiSP: categoryName,
       quantity: quantity,
     };
 
@@ -241,13 +173,18 @@ export default function ProductDetailPage() {
   };
 
   const handleAddToCartRelated = useCallback((relatedProduct: Product) => {
+    // Lấy category name
+    const categoryName = typeof relatedProduct.MaLoaiSanPham === 'object' && relatedProduct.MaLoaiSanPham
+      ? relatedProduct.MaLoaiSanPham.TenLoaiSanPham
+      : 'Nước hoa';
+
     const item: CartItem = {
-      id: relatedProduct.id,
-      tenSP: relatedProduct.tenSP,
-      gia: relatedProduct.gia,
-      giamGia: relatedProduct.giamGia,
-      hinhAnh: relatedProduct.hinhAnhChinh || relatedProduct.hinhAnh,
-      loaiSP: relatedProduct.loaiSP,
+      id: relatedProduct._id,
+      tenSP: relatedProduct.TenSanPham,
+      gia: relatedProduct.Gia,
+      giamGia: relatedProduct.KhuyenMai || 0,
+      hinhAnh: relatedProduct.HinhAnhChinh,
+      loaiSP: categoryName,
       quantity: 1,
     };
     storage.addCartItem(item, 1);
@@ -272,11 +209,17 @@ export default function ProductDetailPage() {
     return null;
   }
 
-  const isSoldOut = product.soLuong <= 0;
-  const discount = product.giamGia || 0;
-  const price = product.gia;
+  // ✅ Tính toán từ data đúng format
+  const isSoldOut = product.SoLuong <= 0;
+  const discount = product.KhuyenMai || 0;
+  const price = product.Gia;
   const discountedPrice = discount > 0 ? Math.round(price * (1 - discount / 100)) : price;
   const savings = price - discountedPrice;
+  
+  // Lấy category name
+  const categoryName = typeof product.MaLoaiSanPham === 'object' && product.MaLoaiSanPham
+    ? product.MaLoaiSanPham.TenLoaiSanPham
+    : 'Nước hoa';
 
   return (
     <MainLayout>
@@ -301,22 +244,23 @@ export default function ProductDetailPage() {
             <div className="space-y-4">
               <div className="relative aspect-square rounded-2xl overflow-hidden bg-muted border-2 border-border">
                 {(() => {
-                  // Tạo mảng tất cả ảnh: ảnh chính + ảnh phụ
+                  // ✅ Tạo mảng tất cả ảnh: ảnh chính + ảnh phụ
                   const allImages = [
-                    product.hinhAnhChinh || product.hinhAnh || FALLBACK_IMAGE,
-                    ...(product.hinhAnhPhu || [])
-                  ];
-                  const currentImage = allImages[selectedImage] || allImages[0];
+                    product.HinhAnhChinh || FALLBACK_IMAGE,
+                    ...(Array.isArray(product.HinhAnhPhu) ? product.HinhAnhPhu : [])
+                  ].filter(Boolean); // Loại bỏ các giá trị null/undefined/empty
+                  
+                  const currentImage = allImages[selectedImage] || allImages[0] || FALLBACK_IMAGE;
                   
                   return (
                     <img
                       src={currentImage}
-                  alt={product.tenSP}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    e.currentTarget.src = FALLBACK_IMAGE;
-                  }}
-                />
+                      alt={product.TenSanPham}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.src = FALLBACK_IMAGE;
+                      }}
+                    />
                   );
                 })()}
                 {discount > 0 && (
@@ -325,7 +269,7 @@ export default function ProductDetailPage() {
                   </div>
                 )}
                 {isSoldOut && (
-                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                  <div className="absolute inset-0 bg-foreground/60 flex items-center justify-center">
                     <span className="bg-destructive text-destructive-foreground px-6 py-3 rounded-lg font-bold text-lg">
                       HẾT HÀNG
                     </span>
@@ -335,38 +279,38 @@ export default function ProductDetailPage() {
 
               {/* Thumbnail images */}
               {(() => {
-                // Tạo mảng tất cả ảnh: ảnh chính + ảnh phụ
+                // ✅ Tạo mảng tất cả ảnh: ảnh chính + ảnh phụ
                 const allImages = [
-                  product.hinhAnhChinh || product.hinhAnh || FALLBACK_IMAGE,
-                  ...(product.hinhAnhPhu || [])
-                ];
+                  product.HinhAnhChinh || FALLBACK_IMAGE,
+                  ...(Array.isArray(product.HinhAnhPhu) ? product.HinhAnhPhu : [])
+                ].filter(Boolean); // Loại bỏ các giá trị null/undefined/empty
                 
                 // Chỉ hiển thị thumbnail nếu có nhiều hơn 1 ảnh
                 if (allImages.length <= 1) return null;
                 
                 return (
-              <div className="grid grid-cols-4 gap-2">
+                  <div className="grid grid-cols-4 gap-2">
                     {allImages.slice(0, 4).map((img, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setSelectedImage(idx)}
-                    className={`aspect-square rounded-lg overflow-hidden border-2 transition-all ${
-                      selectedImage === idx
-                        ? 'border-primary ring-2 ring-primary/20'
-                        : 'border-border hover:border-primary/50'
-                    }`}
-                  >
-                    <img
-                      src={img}
-                      alt={`${product.tenSP} ${idx + 1}`}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.currentTarget.src = FALLBACK_IMAGE;
-                      }}
-                    />
-                  </button>
-                ))}
-              </div>
+                      <button
+                        key={idx}
+                        onClick={() => setSelectedImage(idx)}
+                        className={`aspect-square rounded-lg overflow-hidden border-2 transition-all ${
+                          selectedImage === idx
+                            ? 'border-primary ring-2 ring-primary/20'
+                            : 'border-border hover:border-primary/50'
+                        }`}
+                      >
+                        <img
+                          src={img}
+                          alt={`${product.TenSanPham} ${idx + 1}`}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.src = FALLBACK_IMAGE;
+                          }}
+                        />
+                      </button>
+                    ))}
+                  </div>
                 );
               })()}
             </div>
@@ -376,12 +320,12 @@ export default function ProductDetailPage() {
               {/* Category */}
               <div>
                 <span className="inline-block px-3 py-1 bg-primary/10 text-primary text-sm font-semibold rounded-full">
-                  {product.loaiSP}
+                  {categoryName}
                 </span>
               </div>
 
               {/* Title */}
-              <h1 className="text-4xl font-bold text-foreground">{product.tenSP}</h1>
+              <h1 className="text-4xl font-bold text-foreground">{product.TenSanPham}</h1>
 
               {/* Rating & Sold */}
               <div className="flex items-center gap-6 text-sm">
@@ -393,7 +337,7 @@ export default function ProductDetailPage() {
                       return (
                         <span 
                           key={star} 
-                          className={filled ? 'text-yellow-500' : 'text-gray-300'}
+                          className={filled ? 'text-primary' : 'text-muted'}
                         >
                           ★
                         </span>
@@ -411,7 +355,7 @@ export default function ProductDetailPage() {
                 </div>
                 <div className="h-4 w-px bg-border" />
                 <span className="text-muted-foreground">
-                  Đã bán: <span className="font-semibold text-foreground">{product.daBan}</span>
+                  Đã bán: <span className="font-semibold text-foreground">{product.DaBan}</span>
                 </span>
               </div>
 
@@ -443,13 +387,13 @@ export default function ProductDetailPage() {
                 <p className="text-sm text-muted-foreground mb-2">Tình trạng:</p>
                 {isSoldOut ? (
                   <span className="text-destructive font-semibold">Hết hàng</span>
-                ) : product.soLuong <= 10 ? (
-                  <span className="text-orange-500 font-semibold">
-                    ⚠️ Chỉ còn {product.soLuong} sản phẩm
+                ) : product.SoLuong <= 10 ? (
+                  <span className="text-primary font-semibold">
+                    ⚠️ Chỉ còn {product.SoLuong} sản phẩm
                   </span>
                 ) : (
-                  <span className="text-green-600 font-semibold">
-                    ✓ Còn hàng ({product.soLuong} sản phẩm)
+                  <span className="text-foreground font-semibold">
+                    ✓ Còn hàng ({product.SoLuong} sản phẩm)
                   </span>
                 )}
               </div>
@@ -476,14 +420,14 @@ export default function ProductDetailPage() {
                         variant="ghost"
                         size="icon"
                         onClick={() => handleQuantityChange(1)}
-                        disabled={quantity >= product.soLuong}
+                        disabled={quantity >= product.SoLuong}
                         className="h-12 w-12"
                       >
                         <Plus className="h-4 w-4" />
                       </Button>
                     </div>
                     <span className="text-sm text-muted-foreground">
-                      {product.soLuong} sản phẩm có sẵn
+                      {product.SoLuong} sản phẩm có sẵn
                     </span>
                   </div>
                 </div>
@@ -538,7 +482,7 @@ export default function ProductDetailPage() {
               <Button
                 variant="secondary"
                 className="w-full justify-center"
-                onClick={() => navigate(`/products/${product.id}/trace`)}
+                onClick={() => navigate(`/products/${product._id}/trace`)}
               >
                 Xem nguồn gốc & chứng nhận trên blockchain
               </Button>
@@ -551,14 +495,14 @@ export default function ProductDetailPage() {
               <CardContent className="p-8">
                 <h2 className="text-2xl font-bold mb-6">Mô tả sản phẩm</h2>
                 <div className="prose prose-lg max-w-none text-muted-foreground">
-                  <p className="whitespace-pre-line">{product.mota}</p>
+                  <p className="whitespace-pre-line">{product.MoTa || 'Chưa có mô tả'}</p>
                   
                   <div className="mt-8 space-y-4">
                     <h3 className="text-xl font-semibold text-foreground">Thông tin chi tiết</h3>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="flex justify-between py-2 border-b border-border">
                         <span className="font-medium">Danh mục:</span>
-                        <span>{product.loaiSP}</span>
+                        <span>{categoryName}</span>
                       </div>
                       <div className="flex justify-between py-2 border-b border-border">
                         <span className="font-medium">Tình trạng:</span>
@@ -566,11 +510,11 @@ export default function ProductDetailPage() {
                       </div>
                       <div className="flex justify-between py-2 border-b border-border">
                         <span className="font-medium">Đã bán:</span>
-                        <span>{product.daBan} sản phẩm</span>
+                        <span>{product.DaBan} sản phẩm</span>
                       </div>
                       <div className="flex justify-between py-2 border-b border-border">
                         <span className="font-medium">Mã sản phẩm:</span>
-                        <span className="font-mono text-sm">{product.id.slice(-8).toUpperCase()}</span>
+                        <span className="font-mono text-sm">{product._id.slice(-8).toUpperCase()}</span>
                       </div>
                     </div>
                   </div>

@@ -41,33 +41,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
-
-type User = {
-  _id: string
-  HoTen: string
-  Email: string
-  TenDangNhap: string
-  SoDienThoai?: string
-  DiaChi?: string[]
-  GioiTinh?: string
-  NgaySinh?: string
-  AvatarUrl?: string | null
-  AvatarId?: string | null
-  MaVaiTro: string | Role // hoặc object nếu populate
-  TrangThai: string
-  createdAt: string
-  updatedAt: string
-}
-
-type Role = {
-  _id: string
-  TenVaiTro: string
-}
-
-type ChartItem = {
-  name: string
-  count?: number
-}
+import type { ChartItem, Role, User } from "@/types/models"
 
 export default function AdminAccountsPage() {
   const [loading, setLoading] = useState(true)
@@ -173,10 +147,43 @@ export default function AdminAccountsPage() {
       
       const usersRes = await adminService.getUsers(params)
       
-      const usersData = Array.isArray(usersRes.data) ? usersRes.data : usersRes
-      const pagination = (usersRes as any)?.pagination
+      // Backend trả về: { success: true, message: "...", data: User[], pagination: {...} }
+      // Axios interceptor normalizeResponse đã giữ lại pagination ở cùng level với data
+      const responseData = usersRes?.data
       
-      setUsers(usersData as User[])
+      let usersData: User[] = []
+      let pagination: { totalPages?: number; total?: number } | undefined
+
+      // Parse response - normalizeResponse đã giữ lại pagination
+      if (responseData) {
+        // Case 1: responseData là object có success và data (structure chuẩn, pagination được giữ lại)
+        if (responseData && typeof responseData === 'object' && !Array.isArray(responseData) && 'success' in responseData && 'data' in responseData) {
+          if (Array.isArray(responseData.data)) {
+            usersData = responseData.data
+            // pagination ở cùng level với data (đã được normalizeResponse giữ lại)
+            pagination = (responseData as any).pagination
+          }
+        }
+        // Case 2: responseData là array trực tiếp (fallback - không nên xảy ra nếu normalizeResponse hoạt động đúng)
+        else if (Array.isArray(responseData)) {
+          usersData = responseData
+          pagination = undefined
+        }
+        // Case 3: responseData là object nhưng không có success (có thể là data trực tiếp)
+        else if (responseData && typeof responseData === 'object' && !Array.isArray(responseData) && 'data' in responseData) {
+          if (Array.isArray(responseData.data)) {
+            usersData = responseData.data
+            pagination = (responseData as any).pagination
+          }
+        }
+      }
+      
+      // Đảm bảo usersData luôn là array
+      if (!Array.isArray(usersData)) {
+        usersData = []
+      }
+      
+      setUsers(usersData)
       if (pagination) {
         setTotalPages(pagination.totalPages || 1)
         setTotal(pagination.total || 0)
@@ -186,8 +193,31 @@ export default function AdminAccountsPage() {
       if (currentPage === 1) {
         const allUsersParams = { ...params, page: 1, limit: 1000 }
         const allUsersRes = await adminService.getUsers(allUsersParams)
-        const allUsersData = Array.isArray(allUsersRes.data) ? allUsersRes.data : allUsersRes
-        updateCharts(allUsersData as User[], roles)
+        const allUsersResponseData = allUsersRes?.data
+        
+        let allUsersData: User[] = []
+        
+        // Parse response tương tự
+        if (allUsersResponseData) {
+          if (allUsersResponseData && typeof allUsersResponseData === 'object' && !Array.isArray(allUsersResponseData) && 'success' in allUsersResponseData && 'data' in allUsersResponseData) {
+            if (Array.isArray(allUsersResponseData.data)) {
+              allUsersData = allUsersResponseData.data
+            }
+          } else if (Array.isArray(allUsersResponseData)) {
+            allUsersData = allUsersResponseData
+          } else if (allUsersResponseData && typeof allUsersResponseData === 'object' && !Array.isArray(allUsersResponseData) && 'data' in allUsersResponseData) {
+            if (Array.isArray(allUsersResponseData.data)) {
+              allUsersData = allUsersResponseData.data
+            }
+          }
+        }
+        
+        // Đảm bảo allUsersData luôn là array
+        if (!Array.isArray(allUsersData)) {
+          allUsersData = []
+        }
+        
+        updateCharts(allUsersData, roles)
       }
     } catch (err) {
       console.error("Error fetching data:", err)
@@ -198,7 +228,8 @@ export default function AdminAccountsPage() {
   }
   
   // Filter users locally by search query
-  const filteredUsers = users.filter((user) => {
+  // Đảm bảo users luôn là array
+  const filteredUsers = (Array.isArray(users) ? users : []).filter((user) => {
     if (!searchQuery.trim()) return true
     
     const query = searchQuery.toLowerCase()
@@ -1083,4 +1114,3 @@ export default function AdminAccountsPage() {
     </div>
   )
 }
-

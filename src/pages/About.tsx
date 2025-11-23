@@ -1,15 +1,8 @@
 import { MainLayout } from '@/layouts/MainLayout';
 import { Card, CardContent } from '@/components/ui/card';
-import { Award, Users, Globe, Heart } from 'lucide-react';
+import { Award, Users, Heart } from 'lucide-react';
 
 export default function AboutPage() {
-  const stats = [
-    { value: '50+', label: 'Thương hiệu', icon: <Award className="w-8 h-8" /> },
-    { value: '10K+', label: 'Khách hàng', icon: <Users className="w-8 h-8" /> },
-    { value: '500+', label: 'Sản phẩm', icon: <Globe className="w-8 h-8" /> },
-    { value: '99%', label: 'Hài lòng', icon: <Heart className="w-8 h-8" /> },
-  ];
-
   return (
     <MainLayout>
       {/* Hero */}
@@ -21,23 +14,6 @@ export default function AboutPage() {
           <p className="text-xl text-muted-foreground">
             Chúng tôi mang đến những chai nước hoa chính hãng, cao cấp từ các thương hiệu hàng đầu thế giới
           </p>
-        </div>
-      </section>
-
-      {/* Stats */}
-      <section className="py-16 bg-background">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            {stats.map((stat, index) => (
-              <div key={index} className="text-center">
-                <div className="inline-flex items-center justify-center w-16 h-16 bg-primary/10 rounded-2xl text-primary mb-4">
-                  {stat.icon}
-                </div>
-                <h3 className="text-3xl font-bold text-foreground mb-1">{stat.value}</h3>
-                <p className="text-muted-foreground">{stat.label}</p>
-              </div>
-            ))}
-          </div>
         </div>
       </section>
 
@@ -103,7 +79,7 @@ export default function AboutPage() {
                 </div>
                 <h3 className="font-bold text-foreground text-xl mb-3">Uy tín</h3>
                 <p className="text-muted-foreground">
-                  Hơn 10,000 khách hàng tin tưởng và lựa chọn. Chúng tôi luôn đặt sự hài lòng của bạn lên hàng đầu.
+                  Chúng tôi luôn đặt sự hài lòng của bạn lên hàng đầu.
                 </p>
               </CardContent>
             </Card>

@@ -58,31 +58,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
-
-type Voucher = {
-  _id: string
-  MaVoucher: string
-  NoiDung: string
-  GiaTri: number
-  SoLuong: number
-  NgayTao: string
-}
-
-type VoucherStats = {
-  summary: {
-    totalVouchers: number
-    totalQuantity: number
-    avgGiaTri: number
-    minGiaTri: number
-    maxGiaTri: number
-    lowStock: number
-  }
-  giaTriDistribution: Array<{
-    _id: string
-    count: number
-    totalQuantity: number
-  }>
-}
+import type { Voucher, VoucherStats } from "@/types/models"
 
 const formatDate = (dateString: string) => {
   const date = new Date(dateString)
@@ -161,8 +137,31 @@ export default function AdminVouchersPage() {
       }
 
       const vouchersRes = await adminService.getVouchers(params)
-      const vouchersData = (vouchersRes as any)?.data ?? []
-      const pagination = (vouchersRes as any)?.pagination
+      
+      // Parse response - normalizeResponse đã giữ lại pagination
+      const responseData = vouchersRes?.data
+      let vouchersData: Voucher[] = []
+      let pagination: { totalPages?: number; total?: number } | undefined
+
+      if (responseData) {
+        if (responseData && typeof responseData === 'object' && !Array.isArray(responseData) && 'success' in responseData && 'data' in responseData) {
+          if (Array.isArray(responseData.data)) {
+            vouchersData = responseData.data
+            pagination = (responseData as any).pagination
+          }
+        } else if (Array.isArray(responseData)) {
+          vouchersData = responseData
+        } else if (responseData && typeof responseData === 'object' && !Array.isArray(responseData) && 'data' in responseData) {
+          if (Array.isArray(responseData.data)) {
+            vouchersData = responseData.data
+            pagination = (responseData as any).pagination
+          }
+        }
+      }
+      
+      if (!Array.isArray(vouchersData)) {
+        vouchersData = []
+      }
 
       setVouchers(vouchersData)
       if (pagination) {
@@ -180,10 +179,30 @@ export default function AdminVouchersPage() {
   const fetchStats = async () => {
     try {
       const statsRes = await adminService.getVoucherStats()
-      const statsData = (statsRes as any)?.data
-      if (statsData) {
-        setStats(statsData)
+      
+      // Parse response - normalizeResponse đã giữ lại structure
+      const responseData = statsRes?.data
+      let statsData: VoucherStats | null = null
+      
+      if (responseData) {
+        if (responseData && typeof responseData === 'object' && !Array.isArray(responseData) && 'success' in responseData && 'data' in responseData) {
+          // data có thể là VoucherStats trực tiếp hoặc object có stats
+          if (responseData.data && typeof responseData.data === 'object' && 'summary' in responseData.data) {
+            statsData = responseData.data as VoucherStats
+          } else if (responseData.data && typeof responseData.data === 'object' && 'stats' in responseData.data) {
+            statsData = (responseData.data as any).stats as VoucherStats
+          }
+        } else if (responseData && typeof responseData === 'object' && !Array.isArray(responseData) && 'summary' in responseData) {
+          // responseData là VoucherStats trực tiếp
+          statsData = responseData as VoucherStats
+        } else if (responseData && typeof responseData === 'object' && !Array.isArray(responseData) && 'data' in responseData) {
+          if (responseData.data && typeof responseData.data === 'object' && 'summary' in responseData.data) {
+            statsData = responseData.data as VoucherStats
+          }
+        }
       }
+      
+      setStats(statsData)
     } catch (err: any) {
       console.error("Error fetching stats:", err)
     }
@@ -314,7 +333,7 @@ export default function AdminVouchersPage() {
               <Ticket className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.summary.totalVouchers}</div>
+              <div className="text-2xl font-bold">{stats?.summary?.totalVouchers ?? 0}</div>
               <p className="text-xs text-muted-foreground">Tổng số mã giảm giá</p>
             </CardContent>
           </Card>
@@ -325,7 +344,7 @@ export default function AdminVouchersPage() {
               <BarChart3 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.summary.totalQuantity}</div>
+              <div className="text-2xl font-bold">{stats?.summary?.totalQuantity ?? 0}</div>
               <p className="text-xs text-muted-foreground">Tổng số voucher có sẵn</p>
             </CardContent>
           </Card>
@@ -337,10 +356,10 @@ export default function AdminVouchersPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {stats.summary.avgGiaTri.toFixed(1)}%
+                {stats?.summary?.avgGiaTri ? stats.summary.avgGiaTri.toFixed(1) : '0.0'}%
               </div>
               <p className="text-xs text-muted-foreground">
-                {stats.summary.minGiaTri}% - {stats.summary.maxGiaTri}%
+                {stats?.summary?.minGiaTri ?? 0}% - {stats?.summary?.maxGiaTri ?? 0}%
               </p>
             </CardContent>
           </Card>
@@ -351,7 +370,7 @@ export default function AdminVouchersPage() {
               <Percent className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.summary.lowStock}</div>
+              <div className="text-2xl font-bold">{stats?.summary?.lowStock ?? 0}</div>
               <p className="text-xs text-muted-foreground">Voucher ≤ 10 cái</p>
             </CardContent>
           </Card>

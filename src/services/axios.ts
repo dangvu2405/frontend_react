@@ -1,6 +1,76 @@
 import axios from 'axios';
+import type { AxiosResponse } from 'axios';
 import { API_BASE_URL } from '@/constants';
 import { storage } from '@/utils/storage';
+import type { ApiResponse } from '@/types/models';
+
+const FALLBACK_DATA_KEYS = [
+  'data',
+  'product',
+  'products',
+  'order',
+  'orders',
+  'cart',
+  'items',
+  'item',
+  'result',
+  'results',
+  'payload',
+  'record',
+  'records',
+  'user',
+  'users',
+  'voucher',
+  'vouchers',
+  'session',
+  'sessions',
+] as const;
+
+type NormalizablePayload<T> = ApiResponse<T> | Record<string, unknown> | undefined | null;
+
+const normalizeResponse = <T>(payload: NormalizablePayload<T>): ApiResponse<T> & Record<string, unknown> => {
+  if (!payload || typeof payload !== 'object') {
+    return {
+      success: true,
+      message: undefined,
+      data: (payload ?? null) as T,
+    } as ApiResponse<T> & Record<string, unknown>;
+  }
+
+  // Nếu payload đã có cấu trúc ApiResponse (có success và data), giữ nguyên và giữ lại các field khác (như pagination)
+  if ('data' in payload && payload.data !== undefined && ('success' in payload || 'message' in payload)) {
+    // Giữ lại tất cả các field khác (pagination, etc.)
+    return payload as ApiResponse<T> & Record<string, unknown>;
+  }
+
+  // Nếu chưa có cấu trúc ApiResponse, normalize và giữ lại các field khác
+  const normalized = {
+    ...(payload as Record<string, unknown>),
+  } as ApiResponse<T> & Record<string, unknown>;
+
+  normalized.success = (payload as ApiResponse<T>).success ?? true;
+  normalized.message = (payload as ApiResponse<T>).message;
+
+  for (const key of FALLBACK_DATA_KEYS) {
+    if (key in payload && (payload as Record<string, unknown>)[key] !== undefined) {
+      normalized.data = (payload as Record<string, unknown>)[key] as T;
+      break;
+    }
+  }
+
+  if (normalized.data === undefined) {
+    normalized.data = null as T | null;
+  }
+
+  // Giữ lại các field khác từ payload gốc (như pagination)
+  Object.keys(payload as Record<string, unknown>).forEach(key => {
+    if (!['success', 'message', 'data'].includes(key) && !FALLBACK_DATA_KEYS.includes(key as any)) {
+      normalized[key] = (payload as Record<string, unknown>)[key];
+    }
+  });
+
+  return normalized;
+};
 
 // Create axios instance
 const axiosInstance = axios.create({
@@ -12,8 +82,8 @@ const axiosInstance = axios.create({
   },
 });
 
-// Log API configuration for debugging
-if (typeof window !== 'undefined') {
+// Log API configuration for debugging (only in development)
+if (import.meta.env.DEV && typeof window !== 'undefined') {
   const baseURL = axiosInstance.defaults.baseURL || 'empty (relative)';
   console.log('🌐 Axios Base URL:', baseURL);
   console.log('🌐 Environment:', import.meta.env.MODE);
@@ -29,6 +99,26 @@ axiosInstance.interceptors.request.use(
     const token = storage.getToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+      // Debug: Log token được thêm (chỉ trong dev)
+      if (import.meta.env.DEV && config.url?.includes('/api/upload')) {
+        console.log('✅ Token added to upload request:', {
+          url: config.url,
+          hasToken: !!token,
+          tokenLength: token?.length,
+          header: config.headers.Authorization ? 'Bearer ***' : 'missing'
+        });
+      }
+    } else {
+      // Debug: Log khi không có token (chỉ trong dev)
+      if (import.meta.env.DEV && config.url?.includes('/api/upload')) {
+        console.warn('⚠️ No token found for upload request:', {
+          url: config.url,
+          localStorage: {
+            access_token: localStorage.getItem('access_token') ? 'present' : 'missing',
+            refresh_token: localStorage.getItem('refresh_token') ? 'present' : 'missing'
+          }
+        });
+      }
     }
     return config;
   },
@@ -39,9 +129,14 @@ axiosInstance.interceptors.request.use(
 
 // Response interceptor - Xử lý response và errors
 axiosInstance.interceptors.response.use(
-  (response) => {
-    // Return data directly
-    return response.data;
+  (response): AxiosResponse<ApiResponse<unknown>> => {
+    // Normalize response.data và giữ lại trong response.data
+    const normalizedData = normalizeResponse(response.data);
+    // Trả về response với data đã được normalize (giữ lại pagination)
+    return {
+      ...response,
+      data: normalizedData,
+    } as AxiosResponse<ApiResponse<unknown>>;
   },
   async (error) => {
     const originalRequest = error.config;
@@ -95,14 +190,15 @@ axiosInstance.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
+        // ✅ Backend đọc refreshToken từ cookie, không cần gửi trong body
         // Try to refresh token
-        const refreshToken = storage.getRefreshToken();
-        if (refreshToken) {
-          const response = await axios.post(`${API_BASE_URL}/auth/refresh-token`, {
-            refreshToken,
-          });
+        const response = await axiosInstance.post(`${API_BASE_URL}/auth/refresh-token`, {});
 
-          const { accessToken } = response.data;
+        // ✅ Backend trả về: { success, message, data: { accessToken } }
+        const responseData = response.data;
+        const accessToken = responseData?.data?.accessToken || responseData?.accessToken;
+        
+        if (accessToken) {
           storage.setToken(accessToken);
 
           // Retry original request

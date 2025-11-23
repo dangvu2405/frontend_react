@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { reviewService, type Review, type RatingStats } from '@/services/reviewService';
+import { reviewService, type RatingStats } from '@/services/reviewService';
+import type { Review } from '@/types/models';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { Star } from 'lucide-react';

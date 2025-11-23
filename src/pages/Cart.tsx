@@ -51,24 +51,34 @@ export default function CartPage() {
   };
   const getCart = async () => {
     try {
-      const res = await cartService.getCart();
-      // Backend trả về { message, cart } hoặc { data: { cart } }
-      const cartData = (res as any)?.data?.cart || (res as any)?.cart || [];
-      if (Array.isArray(cartData) && cartData.length > 0) {
-        // Nếu cart là array, map sang format CartItem
-        const mappedItems = cartData.map((item: any) => ({
-          id: item.MaSanPham?._id || item.MaSanPham || item.id,
-          tenSP: item.MaSanPham?.TenSanPham || item.tenSP || 'Sản phẩm',
-          gia: item.MaSanPham?.Gia || item.gia || 0,
-          giamGia: item.MaSanPham?.KhuyenMai || item.giamGia || 0,
-          hinhAnh: item.MaSanPham?.HinhAnhChinh || item.hinhAnh || '',
-          loaiSP: item.MaSanPham?.MaLoaiSanPham?.TenLoaiSanPham || item.loaiSP || '',
-          quantity: item.quantity || 1,
-        }));
+      // ✅ cartService.getCart() trả về Cart object với Items array
+      const cart = await cartService.getCart();
+      
+      if (cart && Array.isArray(cart.Items) && cart.Items.length > 0) {
+        // Map Cart.Items sang format CartItem
+        const mappedItems = cart.Items.map((item: any) => {
+          // item có thể là CartItem từ backend (IdSanPham, TenSanPham, Gia, SoLuong, ThanhTien)
+          const product = typeof item.IdSanPham === 'object' ? item.IdSanPham : null;
+          
+          return {
+            id: product?._id || item.IdSanPham?._id || item.MaSanPham?._id || item.MaSanPham || item.id,
+            tenSP: item.TenSanPham || product?.TenSanPham || item.tenSP || 'Sản phẩm',
+            gia: item.Gia || product?.Gia || item.gia || 0,
+            giamGia: product?.KhuyenMai || item.giamGia || 0,
+            hinhAnh: product?.HinhAnhChinh || item.hinhAnh || '',
+            loaiSP: product?.MaLoaiSanPham?.TenLoaiSanPham || item.loaiSP || '',
+            quantity: item.SoLuong || item.quantity || 1,
+          };
+        });
         setCartItems(mappedItems);
+      } else {
+        // Nếu cart rỗng, fallback to localStorage cart
+        setCartItems(storage.getCart());
       }
     } catch (error) {
-      console.error('Error fetching cart:', error);
+      if (import.meta.env.DEV) {
+        console.error('Error fetching cart:', error);
+      }
       // Fallback to localStorage cart
       setCartItems(storage.getCart());
     }

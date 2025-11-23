@@ -1,31 +1,7 @@
 import axiosInstance from './axios';
 import { API_ENDPOINTS } from '@/constants';
 import { storage } from '@/utils/storage';
-
-interface LoginCredentials {
-  username: string;
-  password: string;
-}
-
-interface RegisterData {
-  hoten: string;
-  username: string;
-  email: string;
-  sdt?: string;
-  password: string;
-}
-
-interface AuthResponse {
-  message: string;
-  accessToken: string;
-  user?: {
-    id: string;
-    username: string;
-    email: string;
-    fullName: string;
-    
-  };
-}
+import type { LoginCredentials, RegisterData, AuthResponse } from '@/types/models';
 
 const authService = {
   login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
@@ -34,12 +10,24 @@ const authService = {
       credentials
     );
 
-    if (response && response.accessToken) {
-      storage.setToken(response.accessToken);
+    // ✅ Backend trả về: { success, message, data: { accessToken, user } }
+    const responseData = response.data;
+    if (responseData && responseData.data) {
+      const { accessToken, user } = responseData.data as any;
       
-      if (response.user) {
-        storage.setUser(response.user);
+      if (accessToken) {
+        storage.setToken(accessToken);
       }
+      
+      if (user) {
+        storage.setUser(user);
+      }
+      
+      // Trả về format tương thích với AuthResponse
+      return {
+        accessToken: accessToken || '',
+        user: user || null
+      } as AuthResponse;
     }
 
     return response;
@@ -51,12 +39,24 @@ const authService = {
       userData
     );
 
-    if (response && response.accessToken) {
-      storage.setToken(response.accessToken);
+    // ✅ Backend trả về: { success, message, data: { accessToken, user } }
+    const responseData = response.data;
+    if (responseData && responseData.data) {
+      const { accessToken, user } = responseData.data as any;
       
-      if (response.user) {
-        storage.setUser(response.user);
+      if (accessToken) {
+        storage.setToken(accessToken);
       }
+      
+      if (user) {
+        storage.setUser(user);
+      }
+      
+      // Trả về format tương thích với AuthResponse
+      return {
+        accessToken: accessToken || '',
+        user: user || null
+      } as AuthResponse;
     }
 
     return response;
@@ -64,13 +64,15 @@ const authService = {
 
   logout: async (): Promise<void> => {
     try {
-      // Gọi API logout (không cần refreshToken nữa, backend sẽ xử lý)
+      // ✅ Gọi logout API để xóa session trên server
       await axiosInstance.post(API_ENDPOINTS.LOGOUT);
     } catch (error: any) {
-      // Nếu API fail, vẫn clear storage để đảm bảo logout ở frontend
-      console.warn('Logout API error (continuing with local logout):', error?.message);
+      // ✅ Log error nhưng vẫn tiếp tục logout local
+      if (import.meta.env.DEV) {
+        console.warn('Logout API error (continuing with local logout):', error?.message);
+      }
     } finally {
-      // Luôn clear storage dù API thành công hay thất bại
+      // ✅ Clear tất cả storage (token, user, cart) - cart đã được lưu vào database trước đó
       storage.clearAll();
     }
   },

@@ -1,37 +1,13 @@
 import axiosInstance from './axios';
-
-export interface AdminProductPayload {
-  TenSanPham?: string;
-  MoTa?: string;
-  Gia?: number;
-  KhuyenMai?: number;
-  SoLuong?: number;
-  MaLoaiSanPham?: string;
-  HinhAnhChinh?: string;
-  HinhAnhPhu?: string[];
-  [key: string]: any;
-}
-
-export interface AdminCategoryPayload {
-  TenLoaiSanPham: string;
-}
-
-export interface AdminRolePayload {
-  TenVaiTro: string;
-}
-
-export interface AdminUserPayload {
-  hoten?: string;
-  email?: string;
-  sdt?: string;
-  diaChi?: string;
-  [key: string]: any;
-}
-
-export interface AdminInventoryPayload {
-  amount?: number;
-  quantity?: number;
-}
+import type {
+  AdminProductPayload,
+  AdminCategoryPayload,
+  AdminRolePayload,
+  AdminUserPayload,
+  AdminInventoryPayload,
+  AdminVoucherPayload,
+  AdminUpdateVoucherPayload
+} from '@/types/models';
 
 const adminService = {
   // ==========================
@@ -220,13 +196,7 @@ const adminService = {
   // ==========================
   // VOUCHERS (MÃ GIẢM GIÁ)
   // ==========================
-  createVoucher: (payload: {
-    MaVoucher: string;
-    NoiDung: string;
-    GiaTri: number;
-    SoLuong: number;
-    NgayTao?: string;
-  }) => axiosInstance.post('/admin/vouchers', payload),
+  createVoucher: (payload: AdminVoucherPayload) => axiosInstance.post('/admin/vouchers', payload),
 
   getVouchers: (params?: {
     page?: number;
@@ -242,13 +212,7 @@ const adminService = {
 
   getVoucherById: (id: string) => axiosInstance.get(`/admin/vouchers/${id}`),
 
-  updateVoucher: (id: string, payload: {
-    MaVoucher?: string;
-    NoiDung?: string;
-    GiaTri?: number;
-    SoLuong?: number;
-    NgayTao?: string;
-  }) => axiosInstance.put(`/admin/vouchers/${id}`, payload),
+  updateVoucher: (id: string, payload: AdminUpdateVoucherPayload) => axiosInstance.put(`/admin/vouchers/${id}`, payload),
 
   deleteVoucher: (id: string) => axiosInstance.delete(`/admin/vouchers/${id}`),
 

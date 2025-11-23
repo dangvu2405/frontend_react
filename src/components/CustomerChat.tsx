@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { MessageCircle, X, Send, Loader2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import chatService, { type ChatMessage, type ChatRoom } from '@/services/chatService';
+import chatService from '@/services/chatService';
+import type { ChatMessage, ChatRoom } from '@/types/models';
 import socketService, { type NewMessageEvent } from '@/services/socketService';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
@@ -33,9 +34,9 @@ export default function CustomerChat() {
         const room = await chatService.getOrCreateChatRoom();
         setChatRoom(room);
 
-        // Load messages
-        const { data } = await chatService.getMessages(room._id);
-        setMessages(data);
+        // ✅ Load messages - getMessages trả về { data, pagination }
+        const messagesResult = await chatService.getMessages(room._id);
+        setMessages(messagesResult.data || []);
 
         // Connect to socket and join room
         socketService.connect();

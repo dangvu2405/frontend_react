@@ -21,7 +21,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import chatService, { type ChatRoom, type ChatMessage } from '@/services/chatService';
+import chatService from '@/services/chatService';
+import type { ChatRoom, ChatMessage } from '@/types/models';
 import socketService, { type NewMessageEvent, type NewChatMessageEvent } from '@/services/socketService';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';

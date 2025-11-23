@@ -3,20 +3,7 @@ import { useEffect, useMemo, useState } from "react"
 import { SectionCards } from "@/components/section-cards"
 import { ChartAreaInteractive } from "@/components/chart-area-interactive"
 import adminService from "@/services/adminService"
-
-type SummaryStats = {
-  totalRevenue?: number
-  totalOrders?: number
-  totalProducts?: number
-  totalUsers?: number
-  totalCategories?: number
-}
-
-type ChartItem = {
-  name: string
-  sold: number
-  revenue?: number
-}
+import type { ChartItem, SummaryStats } from "@/types/models"
 
 export default function AdminDashboard() {
   const [loading, setLoading] = useState(true)
@@ -63,8 +50,24 @@ export default function AdminDashboard() {
           totalRevenue: summaryData.totalRevenue || 0,
         })
 
-        const topProductData =
-          ((topProductsRes as any)?.data ?? topProductsRes) || []
+        // Parse topProducts response
+        const topProductsResponseData = topProductsRes?.data
+        let topProductData: any[] = []
+        
+        if (topProductsResponseData) {
+          if (topProductsResponseData && typeof topProductsResponseData === 'object' && !Array.isArray(topProductsResponseData) && 'success' in topProductsResponseData && 'data' in topProductsResponseData) {
+            topProductData = Array.isArray(topProductsResponseData.data) ? topProductsResponseData.data : []
+          } else if (Array.isArray(topProductsResponseData)) {
+            topProductData = topProductsResponseData
+          } else if (topProductsResponseData && typeof topProductsResponseData === 'object' && !Array.isArray(topProductsResponseData) && 'data' in topProductsResponseData) {
+            topProductData = Array.isArray(topProductsResponseData.data) ? topProductsResponseData.data : []
+          }
+        }
+        
+        if (!Array.isArray(topProductData)) {
+          topProductData = []
+        }
+        
         setTopProductsChart(
           topProductData.map((product: any) => ({
             name: product?.TenSanPham ?? "Không tên",
@@ -76,8 +79,24 @@ export default function AdminDashboard() {
           }))
         )
 
-        const monthlyOrdersData =
-          ((monthlyOrdersRes as any)?.data ?? monthlyOrdersRes) || []
+        // Parse monthlyOrders response
+        const monthlyOrdersResponseData = monthlyOrdersRes?.data
+        let monthlyOrdersData: any[] = []
+        
+        if (monthlyOrdersResponseData) {
+          if (monthlyOrdersResponseData && typeof monthlyOrdersResponseData === 'object' && !Array.isArray(monthlyOrdersResponseData) && 'success' in monthlyOrdersResponseData && 'data' in monthlyOrdersResponseData) {
+            monthlyOrdersData = Array.isArray(monthlyOrdersResponseData.data) ? monthlyOrdersResponseData.data : []
+          } else if (Array.isArray(monthlyOrdersResponseData)) {
+            monthlyOrdersData = monthlyOrdersResponseData
+          } else if (monthlyOrdersResponseData && typeof monthlyOrdersResponseData === 'object' && !Array.isArray(monthlyOrdersResponseData) && 'data' in monthlyOrdersResponseData) {
+            monthlyOrdersData = Array.isArray(monthlyOrdersResponseData.data) ? monthlyOrdersResponseData.data : []
+          }
+        }
+        
+        if (!Array.isArray(monthlyOrdersData)) {
+          monthlyOrdersData = []
+        }
+        
         setMonthlyOrdersChart(
           monthlyOrdersData.map((item: any) => ({
             name: item?.month && item?.year
@@ -88,8 +107,24 @@ export default function AdminDashboard() {
           }))
         )
 
-        const topCustomersData =
-          ((topCustomersRes as any)?.data ?? topCustomersRes) || []
+        // Parse topCustomers response
+        const topCustomersResponseData = topCustomersRes?.data
+        let topCustomersData: any[] = []
+        
+        if (topCustomersResponseData) {
+          if (topCustomersResponseData && typeof topCustomersResponseData === 'object' && !Array.isArray(topCustomersResponseData) && 'success' in topCustomersResponseData && 'data' in topCustomersResponseData) {
+            topCustomersData = Array.isArray(topCustomersResponseData.data) ? topCustomersResponseData.data : []
+          } else if (Array.isArray(topCustomersResponseData)) {
+            topCustomersData = topCustomersResponseData
+          } else if (topCustomersResponseData && typeof topCustomersResponseData === 'object' && !Array.isArray(topCustomersResponseData) && 'data' in topCustomersResponseData) {
+            topCustomersData = Array.isArray(topCustomersResponseData.data) ? topCustomersResponseData.data : []
+          }
+        }
+        
+        if (!Array.isArray(topCustomersData)) {
+          topCustomersData = []
+        }
+        
         setTopCustomersChart(
           topCustomersData.map((customer: any, index: number) => ({
             name:

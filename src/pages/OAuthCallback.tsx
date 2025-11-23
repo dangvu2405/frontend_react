@@ -71,21 +71,23 @@ export function OAuthCallback() {
             }
           }
 
-          // Load cart từ database
+          // ✅ Load cart từ database và sync vào localStorage
           try {
-            const cartRes = await cartService.getCart();
-            const cartData = (cartRes as any)?.cart || (cartRes as any)?.data?.cart;
+            // ✅ cartService.getCart() trả về Cart object với Items array
+            const cart = await cartService.getCart();
             
-            if (cartData && cartData.Items && Array.isArray(cartData.Items) && cartData.Items.length > 0) {
-              const mappedCart = cartData.Items.map((item: any) => {
-                const product = item.IdSanPham || item.MaSanPham || {};
+            if (cart && Array.isArray(cart.Items) && cart.Items.length > 0) {
+              // ✅ Map từ database format (Cart.Items) sang localStorage format (CartItem[])
+              const mappedCart = cart.Items.map((item: any) => {
+                const product = typeof item.IdSanPham === 'object' ? item.IdSanPham : null;
+                
                 return {
-                  id: product._id || product.id || item.IdSanPham?._id || item.MaSanPham?._id,
-                  tenSP: product.TenSanPham || item.TenSanPham || 'Sản phẩm',
-                  gia: product.Gia || item.Gia || 0,
-                  giamGia: product.KhuyenMai || 0,
-                  hinhAnh: product.HinhAnhChinh || '',
-                  loaiSP: product.MaLoaiSanPham?.TenLoaiSanPham || '',
+                  id: product?._id || item.IdSanPham?._id || item.MaSanPham?._id || item.MaSanPham || item.id,
+                  tenSP: item.TenSanPham || product?.TenSanPham || item.tenSP || 'Sản phẩm',
+                  gia: item.Gia || product?.Gia || item.gia || 0,
+                  giamGia: product?.KhuyenMai || item.giamGia || 0,
+                  hinhAnh: product?.HinhAnhChinh || item.hinhAnh || '',
+                  loaiSP: product?.MaLoaiSanPham?.TenLoaiSanPham || item.loaiSP || '',
                   quantity: item.SoLuong || item.quantity || 1,
                 };
               });
@@ -93,14 +95,20 @@ export function OAuthCallback() {
               storage.removeCart();
               storage.setCart(mappedCart);
               window.dispatchEvent(new CustomEvent('cart:updated'));
+              
+              if (import.meta.env.DEV) {
+                console.log('✅ Cart loaded from database after OAuth login:', mappedCart.length, 'items');
+              }
             } else {
-              storage.removeCart();
+              if (import.meta.env.DEV) {
+                console.log('ℹ️ No cart in database after OAuth login');
+              }
             }
-          } catch (cartError) {
+          } catch (cartError: any) {
             if (import.meta.env.DEV) {
-              console.error('Error loading cart from database:', cartError);
+              console.error('⚠️ Error loading cart from database after OAuth login:', cartError?.message || cartError);
             }
-            storage.removeCart();
+            // Giữ nguyên localStorage cart nếu load từ database thất bại
           }
 
           toast.success('Đăng nhập thành công!');

@@ -1,92 +1,13 @@
 import axiosInstance from './axios';
-
-export interface TraceEvent {
-  id: string;
-  type: string;
-  title: string;
-  description: string;
-  location: string | null;
-  actor: string | null;
-  timestamp: string;
-  transactionHash: string | null;
-  blockNumber: number | null;
-}
-
-export interface TraceCertificate {
-  id: string;
-  name: string;
-  issuer: string;
-  issuedAt: string;
-  expiresAt: string;
-  ipfsHash: string | null;
-  verificationUrl: string | null;
-  status?: 'VALID' | 'EXPIRED';
-}
-
-export interface TraceProduct {
-  id: string;
-  name: string;
-  sku: string | null;
-  category: string | null;
-  batchId: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface TraceTransport {
-  status: string;
-  carrier: string;
-  trackingCode: string;
-  lastUpdated: string;
-  pickupTime: string | null;
-  eta: string | null;
-  deliveredAt: string | null;
-  history: Array<{
-    id: string;
-    status: string;
-    description: string;
-    location: string | null;
-    timestamp: string;
-  }>;
-}
-
-export interface OnChainProof {
-  latestTransaction: string | null;
-  latestBlock: number | null;
-  merkleRoot: string | null;
-  explorerUrl: string;
-  blockNumber?: number;
-  from?: string;
-  gasUsed?: string;
-  status?: string;
-  txExplorerUrl?: string;
-  blockExplorerUrl?: string;
-  addressExplorerUrl?: string;
-  timestamp?: string;
-}
-
-export interface ProductTrace {
-  verified: boolean;
-  reason?: string;
-  product: TraceProduct;
-  transport: TraceTransport | null;
-  events: TraceEvent[];
-  certificates: TraceCertificate[];
-  onChainProof: OnChainProof;
-  qr: {
-    url: string;
-    payload: {
-      productId: string;
-      batchId: string;
-      checksum: string;
-    };
-  };
-}
-
-export interface TraceLookupParams {
-  productCode?: string;
-  batchCode?: string;
-}
+import type {
+  TraceEvent,
+  TraceCertificate,
+  TraceProduct,
+  TraceTransport,
+  OnChainProof,
+  ProductTrace,
+  TraceLookupParams
+} from '@/types/models';
 
 class TraceService {
   /**

@@ -41,31 +41,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
-
-type Customer = {
-  _id: string
-  HoTen: string
-  Email: string
-  SoDienThoai?: string
-  GioiTinh?: string
-  NgaySinh?: string
-  TrangThai: string
-  MaVaiTro?: string | { _id: string; TenVaiTro: string }
-  createdAt: string
-  orderCount?: number
-  totalRevenue?: number
-}
-
-type Role = {
-  _id: string
-  TenVaiTro: string
-}
-
-type ChartItem = {
-  name: string
-  count?: number
-  revenue?: number
-}
+import type { ChartItem, CustomerWithStats, Role } from "@/types/models"
 
 const currencyFormatter = new Intl.NumberFormat("vi-VN", {
   style: "currency",
@@ -75,7 +51,7 @@ const currencyFormatter = new Intl.NumberFormat("vi-VN", {
 
 export default function AdminCustomersPage() {
   const [loading, setLoading] = useState(true)
-  const [customers, setCustomers] = useState<Customer[]>([])
+  const [customers, setCustomers] = useState<CustomerWithStats[]>([])
   const [roles, setRoles] = useState<Role[]>([])
   const [topCustomersChart, setTopCustomersChart] = useState<ChartItem[]>([])
   const [statusChart, setStatusChart] = useState<ChartItem[]>([])
@@ -94,11 +70,11 @@ export default function AdminCustomersPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isLockDialogOpen, setIsLockDialogOpen] = useState(false)
   const [isRoleDialogOpen, setIsRoleDialogOpen] = useState(false)
-  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
-  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null)
-  const [deletingCustomer, setDeletingCustomer] = useState<Customer | null>(null)
-  const [lockingCustomer, setLockingCustomer] = useState<Customer | null>(null)
-  const [changingRoleCustomer, setChangingRoleCustomer] = useState<Customer | null>(null)
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerWithStats | null>(null)
+  const [editingCustomer, setEditingCustomer] = useState<CustomerWithStats | null>(null)
+  const [deletingCustomer, setDeletingCustomer] = useState<CustomerWithStats | null>(null)
+  const [lockingCustomer, setLockingCustomer] = useState<CustomerWithStats | null>(null)
+  const [changingRoleCustomer, setChangingRoleCustomer] = useState<CustomerWithStats | null>(null)
 
   // Form states
   const [formData, setFormData] = useState({
@@ -116,7 +92,8 @@ export default function AdminCustomersPage() {
   }, [currentPage, statusFilter])
   
   // Filter customers locally by search query
-  const filteredCustomers = customers.filter((customer) => {
+  // Đảm bảo customers luôn là array
+  const filteredCustomers = (Array.isArray(customers) ? customers : []).filter((customer) => {
     // Search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase()
@@ -143,28 +120,102 @@ export default function AdminCustomersPage() {
         adminService.getCustomers({ page: currentPage, limit: pageSize }),
         adminService.getRoles(),
       ])
-      const customersData = (customersRes as any)?.data ?? []
-      const pagination = (customersRes as any)?.pagination
+      
+      // Backend trả về: { success: true, message: "...", data: Customer[], pagination: {...} }
+      // Axios interceptor normalizeResponse đã giữ lại pagination ở cùng level với data
+      const responseData = customersRes?.data
+      
+      let customersData: CustomerWithStats[] = []
+      let pagination: { totalPages?: number; total?: number } | undefined
+
+      // Parse response - normalizeResponse đã giữ lại pagination
+      if (responseData) {
+        // Case 1: responseData là object có success và data (structure chuẩn, pagination được giữ lại)
+        if (responseData && typeof responseData === 'object' && !Array.isArray(responseData) && 'success' in responseData && 'data' in responseData) {
+          if (Array.isArray(responseData.data)) {
+            customersData = responseData.data
+            // pagination ở cùng level với data (đã được normalizeResponse giữ lại)
+            pagination = (responseData as any).pagination
+          }
+        }
+        // Case 2: responseData là array trực tiếp (fallback - không nên xảy ra nếu normalizeResponse hoạt động đúng)
+        else if (Array.isArray(responseData)) {
+          customersData = responseData
+          pagination = undefined
+        }
+        // Case 3: responseData là object nhưng không có success (có thể là data trực tiếp)
+        else if (responseData && typeof responseData === 'object' && !Array.isArray(responseData) && 'data' in responseData) {
+          if (Array.isArray(responseData.data)) {
+            customersData = responseData.data
+            pagination = (responseData as any).pagination
+          }
+        }
+      }
+      
+      // Đảm bảo customersData luôn là array
+      if (!Array.isArray(customersData)) {
+        customersData = []
+      }
       
       // Backend trả về: { success: true, data: { roles: [...] } }
-      const rolesData = (rolesRes as any)?.data?.roles ?? (rolesRes as any)?.roles ?? []
+      const rolesResponseData = rolesRes?.data
+      let rolesData: Role[] = []
+      
+      if (rolesResponseData) {
+        if (rolesResponseData && typeof rolesResponseData === 'object' && !Array.isArray(rolesResponseData) && 'success' in rolesResponseData && 'data' in rolesResponseData) {
+          // data có thể là object có roles hoặc array trực tiếp
+          if (rolesResponseData.data && typeof rolesResponseData.data === 'object' && 'roles' in rolesResponseData.data) {
+            rolesData = Array.isArray(rolesResponseData.data.roles) ? rolesResponseData.data.roles : []
+          } else if (Array.isArray(rolesResponseData.data)) {
+            rolesData = rolesResponseData.data
+          }
+        } else if (Array.isArray(rolesResponseData)) {
+          rolesData = rolesResponseData
+        } else if (rolesResponseData && typeof rolesResponseData === 'object' && !Array.isArray(rolesResponseData)) {
+          // Fallback: tìm roles trong các key khác
+          rolesData = (rolesResponseData as any)?.roles ?? (rolesResponseData as any)?.data?.roles ?? []
+        }
+      }
       
       // Đảm bảo rolesData là array
       if (!Array.isArray(rolesData)) {
         console.warn('rolesData is not an array:', rolesData)
-        setRoles([])
-      } else {
-        setRoles(rolesData)
+        rolesData = []
       }
-
+      
+      setRoles(rolesData)
       setCustomers(customersData)
       if (pagination) {
         setTotalPages(pagination.totalPages || 1)
         setTotal(pagination.total || 0)
       }
+      
       // Update charts with all data (fetch all for charts)
       const allCustomersRes = await adminService.getCustomers({ page: 1, limit: 1000 })
-      const allCustomersData = (allCustomersRes as any)?.data ?? []
+      const allCustomersResponseData = allCustomersRes?.data
+      
+      let allCustomersData: CustomerWithStats[] = []
+      
+      // Parse response tương tự
+      if (allCustomersResponseData) {
+        if (allCustomersResponseData && typeof allCustomersResponseData === 'object' && !Array.isArray(allCustomersResponseData) && 'success' in allCustomersResponseData && 'data' in allCustomersResponseData) {
+          if (Array.isArray(allCustomersResponseData.data)) {
+            allCustomersData = allCustomersResponseData.data
+          }
+        } else if (Array.isArray(allCustomersResponseData)) {
+          allCustomersData = allCustomersResponseData
+        } else if (allCustomersResponseData && typeof allCustomersResponseData === 'object' && !Array.isArray(allCustomersResponseData) && 'data' in allCustomersResponseData) {
+          if (Array.isArray(allCustomersResponseData.data)) {
+            allCustomersData = allCustomersResponseData.data
+          }
+        }
+      }
+      
+      // Đảm bảo allCustomersData luôn là array
+      if (!Array.isArray(allCustomersData)) {
+        allCustomersData = []
+      }
+      
       updateCharts(allCustomersData)
     } catch (err: any) {
       console.error("Error fetching customers:", err)
@@ -174,7 +225,7 @@ export default function AdminCustomersPage() {
     }
   }
 
-  const updateCharts = (customersData: Customer[]) => {
+  const updateCharts = (customersData: CustomerWithStats[]) => {
     // Top customers by revenue
     const topCustomers = [...customersData]
       .sort((a, b) => (b.totalRevenue || 0) - (a.totalRevenue || 0))
@@ -198,7 +249,7 @@ export default function AdminCustomersPage() {
     setStatusChart(Array.from(statusMap.values()))
   }
 
-  const openDetailDialog = (customer: Customer) => {
+  const openDetailDialog = (customer: CustomerWithStats) => {
     setSelectedCustomer(customer)
     setIsDetailDialogOpen(true)
   }
@@ -212,7 +263,7 @@ export default function AdminCustomersPage() {
   }
 
   // Handler functions
-  const openEditDialog = (customer: Customer) => {
+  const openEditDialog = (customer: CustomerWithStats) => {
     setEditingCustomer(customer)
     setFormData({
       hoten: customer.HoTen || "",
@@ -224,17 +275,17 @@ export default function AdminCustomersPage() {
     setIsEditDialogOpen(true)
   }
 
-  const openDeleteDialog = (customer: Customer) => {
+  const openDeleteDialog = (customer: CustomerWithStats) => {
     setDeletingCustomer(customer)
     setIsDeleteDialogOpen(true)
   }
 
-  const openLockDialog = (customer: Customer) => {
+  const openLockDialog = (customer: CustomerWithStats) => {
     setLockingCustomer(customer)
     setIsLockDialogOpen(true)
   }
 
-  const openRoleDialog = (customer: Customer) => {
+  const openRoleDialog = (customer: CustomerWithStats) => {
     setChangingRoleCustomer(customer)
     const roleId = typeof customer.MaVaiTro === 'object' ? customer.MaVaiTro._id : customer.MaVaiTro || ""
     setSelectedRoleId(roleId)

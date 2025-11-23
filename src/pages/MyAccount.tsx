@@ -66,11 +66,13 @@ export default function MyAccountPage() {
   };
 
   const formatOrderList = (response: any) => {
-    // Backend trả về: { success: true, message: "...", data: { donHang: [...] } }
+    // ✅ Backend trả về: { success: true, message: "...", data: { donHang: [...] } }
     // Hoặc có thể là response.data từ axios
     const raw = response?.data?.donHang || response?.donHang || (Array.isArray(response?.data) ? response.data : []);
     if (!Array.isArray(raw)) {
-      console.warn('formatOrderList: raw is not an array', raw);
+      if (import.meta.env.DEV) {
+        console.warn('formatOrderList: raw is not an array', raw);
+      }
       return [];
     }
     return raw.map((order: any) => ({
@@ -175,7 +177,9 @@ export default function MyAccountPage() {
           });
         }
       } catch (err) {
-        console.error('Lỗi khi load dữ liệu tài khoản:', err);
+        if (import.meta.env.DEV) {
+          console.error('Lỗi khi load dữ liệu tài khoản:', err);
+        }
         // Fallback về user từ AuthContext nếu API fail
         if (!isMounted) return;
         if (user) {

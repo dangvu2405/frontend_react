@@ -1,82 +1,114 @@
 import axiosInstance from "./axios";
-
-export interface User {
-  id: string;
-  hoten?: string;
-  username: string;
-  email: string;
-  sdt?: string;
-  diaChi?: string;
-  avatar?: string;
-  role?: string;
-}
-
-export interface UpdateUserData {
-  hoten?: string;
-  email?: string;
-  sdt?: string;
-  diaChi?: string;
-}
-
-export interface ChangePasswordData {
-  oldPassword: string;
-  newPassword: string;
-}
+import type { 
+  ApiItemResponse, 
+  ApiListResponse, 
+  Order, 
+  User, 
+  UserAddress,
+  UpdateUserData,
+  ChangePasswordData
+} from "@/types/models";
 
 export const userService = {
-  // Lấy thông tin user hiện tại
   getCurrentUser: async (): Promise<User> => {
-    const response: any = await axiosInstance.get("/user/me");
-    // Return data from response.data or response itself
-    return response?.data || response;
+    const response = await axiosInstance.get<ApiItemResponse<User>>("/user/me");
+    const responseData = response.data as unknown as ApiItemResponse<User>;
+    if (responseData && 'data' in responseData && responseData.data) {
+      return responseData.data as User;
+    }
+    return responseData as unknown as User;
   },
 
-  // Cập nhật thông tin user
   updateProfile: async (data: UpdateUserData): Promise<User> => {
-    const response: any = await axiosInstance.put("/user/me", data);
-    return response;
+    const response = await axiosInstance.put<ApiItemResponse<User>>("/user/me", data);
+    const responseData = response.data as unknown as ApiItemResponse<User>;
+    if (responseData && 'data' in responseData && responseData.data) {
+      return responseData.data as User;
+    }
+    return responseData as unknown as User;
   },
 
-  // Đổi mật khẩu
   changePassword: async (data: ChangePasswordData): Promise<void> => {
     await axiosInstance.post("/user/changepassword", data);
   },
 
-  // Upload avatar
   uploadAvatar: async (file: File): Promise<User> => {
     const formData = new FormData();
     formData.append("avatar", file);
     
-    const response: any = await axiosInstance.post("/user/uploadAvatar", formData, {
+    const response = await axiosInstance.post<ApiItemResponse<User>>("/user/uploadAvatar", formData, {
       headers: {
         "Content-Type": "multipart/form-data",
       },
     });
-    return response;
+    const responseData = response.data as unknown as ApiItemResponse<User>;
+    if (responseData && 'data' in responseData && responseData.data) {
+      return responseData.data as User;
+    }
+    return responseData as unknown as User;
   },
 
-  // Đơn hàng người dùng
-  getOrders: async (): Promise<{ orders: any[] } | any> => {
-    const response: any = await axiosInstance.get("/user/orderUser");
-    return response;
+  getOrders: async (): Promise<Order[]> => {
+    const response = await axiosInstance.get<ApiItemResponse<{ donHang: Order[] }>>("/user/orderUser");
+    const responseData = response.data;
+    
+    // ✅ Backend trả về: { success, message, data: { donHang: Order[] } }
+    if (responseData && responseData.data) {
+      if (typeof responseData.data === 'object' && 'donHang' in responseData.data) {
+        const orders = (responseData.data as any).donHang;
+        return Array.isArray(orders) ? orders : [];
+      }
+      if (Array.isArray(responseData.data)) {
+        return responseData.data;
+      }
+    }
+    
+    return [];
   },
 
-  // Địa chỉ giao hàng
-  getAddresses: async (): Promise<{ addresses: any[] } | any> => {
-    const response: any = await axiosInstance.get("/user/addess");
-    return response;
+  getAddresses: async (): Promise<UserAddress[]> => {
+    const response = await axiosInstance.get<ApiListResponse<UserAddress>>("/user/address");
+    const responseData = response.data;
+    
+    // ✅ Backend trả về: { success, message, data: { addresses } } hoặc { success, message, data: addresses[] }
+    if (responseData && responseData.data) {
+      if (Array.isArray(responseData.data)) {
+        return responseData.data;
+      }
+      if (typeof responseData.data === 'object' && 'addresses' in responseData.data) {
+        return (responseData.data as any).addresses || [];
+      }
+    }
+    
+    return [];
   },
-  createAddress: async (address: any): Promise<any> => {
-    const response: any = await axiosInstance.post("/user/addess", { address });
-    return response;
+  
+  createAddress: async (address: any): Promise<UserAddress> => {
+    const response = await axiosInstance.post<ApiItemResponse<UserAddress>>("/user/address", address);
+    const responseData = response.data;
+    
+    // ✅ Backend trả về: { success, message, data: address }
+    if (responseData && responseData.data) {
+      return responseData.data as UserAddress;
+    }
+    
+    return responseData as unknown as UserAddress;
   },
-  editAddress: async (id: string, address: any): Promise<any> => {
-    const response: any = await axiosInstance.patch(`/user/addess/${id}`, { address });
-    return response;
+  
+  editAddress: async (id: string, address: any): Promise<UserAddress> => {
+    const response = await axiosInstance.patch<ApiItemResponse<UserAddress>>(`/user/address/${id}`, address);
+    const responseData = response.data;
+    
+    // ✅ Backend trả về: { success, message, data: address }
+    if (responseData && responseData.data) {
+      return responseData.data as UserAddress;
+    }
+    
+    return responseData as unknown as UserAddress;
   },
-  deleteAddress: async (id: string): Promise<any> => {
-    const response: any = await axiosInstance.delete(`/user/addess/${id}`);
-    return response;
+  
+  deleteAddress: async (id: string): Promise<void> => {
+    await axiosInstance.delete<ApiItemResponse<void>>(`/user/address/${id}`);
   },
 };
 

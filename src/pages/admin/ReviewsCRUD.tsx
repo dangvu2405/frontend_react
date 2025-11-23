@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback, useMemo } from "react"
 import adminService from "@/services/adminService"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -57,52 +57,43 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
+import type { Review, ReviewStats, Product, User } from "@/types/models"
+import { getProductImageUrl } from "@/utils/imageUtils"
 
-type Review = {
-  _id: string
-  IdSanPham: {
-    _id: string
-    TenSanPham: string
-    HinhAnhChinh?: string
-    Gia?: number
-  } | string | null
-  IdKhachHang: {
-    _id: string
-    HoTen?: string
-    Email?: string
-    AvatarUrl?: string
-  } | string | null
-  NoiDung: string
-  SoSao: number
-  createdAt: string
-  updatedAt: string
+// ==========================
+// TYPES
+// ==========================
+
+interface ReviewsParams {
+  page?: number
+  limit?: number
+  sortBy?: string
+  sortOrder?: string
+  productId?: string
+  customerId?: string
+  minRating?: number
+  maxRating?: number
 }
 
-type ReviewStats = {
-  summary: {
-    totalReviews: number
-    avgRating: number
-    distribution: {
-      star5: number
-      star4: number
-      star3: number
-      star2: number
-      star1: number
-    }
+interface ReviewsResponse {
+  data?: Review[]
+  reviews?: Review[]
+  pagination?: {
+    totalPages?: number
+    total?: number
   }
-  topReviewedProducts: Array<{
-    productId: string
-    productName: string
-    reviewCount: number
-    avgRating: number
-  }>
-  monthlyStats: Array<{
-    year: number
-    month: number
-    reviewCount: number
-    avgRating: number
-  }>
 }
+
+interface ReviewStatsResponse {
+  summary?: ReviewStats["summary"]
+  data?: {
+    summary?: ReviewStats["summary"]
+  }
+}
+
+// ==========================
+// UTILS
+// ==========================
 
 const currencyFormatter = new Intl.NumberFormat("vi-VN", {
   style: "currency",
@@ -110,7 +101,8 @@ const currencyFormatter = new Intl.NumberFormat("vi-VN", {
   maximumFractionDigits: 0,
 })
 
-const formatDate = (dateString: string) => {
+const formatDate = (dateString: string | undefined): string => {
+  if (!dateString) return "N/A"
   const date = new Date(dateString)
   return date.toLocaleDateString("vi-VN", {
     year: "numeric",
@@ -122,27 +114,86 @@ const formatDate = (dateString: string) => {
 }
 
 const renderStars = (rating: number) => {
+  const validRating = Math.max(1, Math.min(5, Math.round(rating)))
   return (
     <div className="flex items-center gap-1">
       {[1, 2, 3, 4, 5].map((star) => (
         <Star
           key={star}
           className={`h-4 w-4 ${
-            star <= rating
+            star <= validRating
               ? "fill-yellow-400 text-yellow-400"
               : "fill-gray-200 text-gray-200"
           }`}
         />
       ))}
-      <span className="ml-1 text-sm font-medium">{rating}/5</span>
+      <span className="ml-1 text-sm font-medium">{validRating}/5</span>
     </div>
   )
 }
+
+// ==========================
+// HELPER FUNCTIONS
+// ==========================
+
+const getProductInfo = (product: Review["IdSanPham"]) => {
+  if (!product) {
+    return {
+      name: "Sản phẩm không xác định",
+      price: null,
+      imageUrl: null,
+    }
+  }
+  
+  if (typeof product === "string") {
+    return {
+      name: "Đang tải...",
+      price: null,
+      imageUrl: null,
+    }
+  }
+
+  const productObj = product as Product
+  return {
+    name: productObj.TenSanPham || "Sản phẩm không xác định",
+    price: productObj.Gia,
+    imageUrl: productObj.HinhAnhChinh 
+      ? getProductImageUrl(productObj.HinhAnhChinh, true) 
+      : null,
+  }
+}
+
+const getCustomerInfo = (customer: Review["IdKhachHang"]) => {
+  if (!customer) {
+    return {
+      name: "Khách hàng không xác định",
+      email: "",
+    }
+  }
+  
+  if (typeof customer === "string") {
+    return {
+      name: "Đang tải...",
+      email: "",
+    }
+  }
+
+  const customerObj = customer as User
+  return {
+    name: customerObj.HoTen || customerObj.Email || "Khách hàng không xác định",
+    email: customerObj.Email || "",
+  }
+}
+
+// ==========================
+// COMPONENT
+// ==========================
 
 export default function AdminReviewsPage() {
   const [loading, setLoading] = useState(true)
   const [reviews, setReviews] = useState<Review[]>([])
   const [stats, setStats] = useState<ReviewStats | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [total, setTotal] = useState(0)
@@ -151,8 +202,8 @@ export default function AdminReviewsPage() {
   // Filter states
   const [productIdFilter, setProductIdFilter] = useState<string>("")
   const [customerIdFilter, setCustomerIdFilter] = useState<string>("")
-  const [minRating, setMinRating] = useState<string>("")
-  const [maxRating, setMaxRating] = useState<string>("")
+  const [minRating, setMinRating] = useState<string>("all")
+  const [maxRating, setMaxRating] = useState<string>("all")
   const [sortBy, setSortBy] = useState<string>("createdAt")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc")
   const [showFilters, setShowFilters] = useState(false)
@@ -167,74 +218,173 @@ export default function AdminReviewsPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [deletingReview, setDeletingReview] = useState<Review | null>(null)
 
+  // Refresh trigger - dùng để force refresh sau khi xóa
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
+
+  // Build params from filters
+  const reviewsParams = useMemo<ReviewsParams>(() => {
+    const params: ReviewsParams = {
+      page: currentPage,
+      limit: pageSize,
+      sortBy,
+      sortOrder,
+    }
+
+    if (productIdFilter.trim()) {
+      params.productId = productIdFilter.trim()
+    }
+    if (customerIdFilter.trim()) {
+      params.customerId = customerIdFilter.trim()
+    }
+    if (minRating && minRating !== "all") {
+      params.minRating = parseInt(minRating)
+    }
+    if (maxRating && maxRating !== "all") {
+      params.maxRating = parseInt(maxRating)
+    }
+
+    return params
+  }, [currentPage, sortBy, sortOrder, productIdFilter, customerIdFilter, minRating, maxRating, refreshTrigger])
+
+  // Fetch reviews data
   useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+
+        const reviewsRes = await adminService.getReviews(reviewsParams)
+      
+        // Backend trả về: { success: true, message: "...", data: Review[], pagination: {...} }
+        // Axios interceptor normalizeResponse đã giữ lại pagination ở cùng level với data
+        const responseData = reviewsRes?.data
+        
+        let reviewsData: Review[] = []
+        let pagination: { totalPages?: number; total?: number } | undefined
+
+        // Debug log trong development - log trước khi parse
+        if (import.meta.env.DEV) {
+          console.log('📥 Reviews Response Raw:', {
+            hasResponse: !!reviewsRes,
+            responseData: responseData,
+            responseDataType: Array.isArray(responseData) ? 'array' : typeof responseData,
+            responseDataKeys: responseData && !Array.isArray(responseData) && typeof responseData === 'object' ? Object.keys(responseData) : 'N/A (array)',
+            hasSuccess: responseData && !Array.isArray(responseData) && typeof responseData === 'object' ? 'success' in responseData : false,
+            hasData: responseData && !Array.isArray(responseData) && typeof responseData === 'object' ? 'data' in responseData : false,
+            hasPagination: responseData && !Array.isArray(responseData) && typeof responseData === 'object' ? 'pagination' in responseData : false,
+            dataType: responseData && !Array.isArray(responseData) && typeof responseData === 'object' && responseData.data ? typeof responseData.data : 'undefined',
+            dataIsArray: responseData && !Array.isArray(responseData) && typeof responseData === 'object' && responseData.data ? Array.isArray(responseData.data) : false,
+            dataLength: Array.isArray(responseData) 
+              ? responseData.length 
+              : (responseData && !Array.isArray(responseData) && typeof responseData === 'object' && responseData.data && Array.isArray(responseData.data) 
+                  ? responseData.data.length 
+                  : 'N/A'),
+            paginationValue: responseData && !Array.isArray(responseData) && typeof responseData === 'object' ? (responseData as any)?.pagination : undefined
+          })
+        }
+
+        // Parse response - normalizeResponse đã giữ lại pagination
+        if (responseData) {
+          // Case 1: responseData là object có success và data (structure chuẩn, pagination được giữ lại)
+          if (responseData && typeof responseData === 'object' && !Array.isArray(responseData) && 'success' in responseData && 'data' in responseData) {
+            if (Array.isArray(responseData.data)) {
+              reviewsData = responseData.data
+              // pagination ở cùng level với data (đã được normalizeResponse giữ lại)
+              pagination = (responseData as any).pagination
+            } else if (responseData.data && typeof responseData.data === 'object' && 'reviews' in responseData.data) {
+              // Fallback: data là object có reviews
+              reviewsData = Array.isArray(responseData.data.reviews) ? responseData.data.reviews : []
+              pagination = responseData.data.pagination || (responseData as any).pagination
+            }
+          }
+          // Case 2: responseData là array trực tiếp (fallback - không nên xảy ra nếu normalizeResponse hoạt động đúng)
+          else if (Array.isArray(responseData)) {
+          reviewsData = responseData
+            // Pagination bị mất trong trường hợp này
+            pagination = undefined
+          }
+          // Case 3: responseData là object nhưng không có success (có thể là data trực tiếp)
+          else if (responseData && typeof responseData === 'object' && !Array.isArray(responseData) && 'data' in responseData) {
+          if (Array.isArray(responseData.data)) {
+            reviewsData = responseData.data
+              pagination = (responseData as any).pagination
+            }
+          }
+        }
+        
+        // Debug log sau khi parse
+        if (import.meta.env.DEV) {
+          console.log('📥 Reviews Parsed:', {
+            reviewsCount: reviewsData.length,
+            pagination: pagination,
+            totalPages: pagination?.totalPages,
+            total: pagination?.total
+          })
+        }
+
+        setReviews(reviewsData)
+        if (pagination) {
+          setTotalPages(pagination.totalPages || 1)
+          setTotal(pagination.total || 0)
+        }
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : "Không thể tải danh sách đánh giá. Vui lòng thử lại sau."
+        setError(errorMessage)
+        toast.error("Không thể tải danh sách đánh giá")
+      } finally {
+        setLoading(false)
+      }
+    }
+
     fetchData()
+  }, [reviewsParams])
+
+  // Fetch stats (independent from filters)
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const statsRes = await adminService.getReviewStats()
+        const responseData = statsRes?.data
+        
+        // Backend trả về: { success, message, data: ReviewStats }
+        if (responseData?.success && responseData.data) {
+          // Case 1: data là ReviewStats trực tiếp
+          if ('summary' in responseData.data) {
+            setStats(responseData.data as ReviewStats)
+          }
+          // Case 2: data có nested structure
+          else if (typeof responseData.data === 'object' && 'data' in responseData.data) {
+            const nestedData = (responseData.data as any).data
+            if (nestedData && 'summary' in nestedData) {
+              setStats({
+                summary: nestedData.summary,
+                topReviewedProducts: nestedData.topReviewedProducts || [],
+                monthlyStats: nestedData.monthlyStats || []
+              })
+            }
+          }
+        }
+      } catch (err: unknown) {
+        // Không set error vì stats không critical
+        // Stats sẽ được refresh lại khi có refreshTrigger
+      }
+    }
+
     fetchStats()
-  }, [currentPage, sortBy, sortOrder, productIdFilter, customerIdFilter, minRating, maxRating])
+  }, [refreshTrigger])
 
-  const fetchData = async () => {
-    try {
-      setLoading(true)
-      const params: any = {
-        page: currentPage,
-        limit: pageSize,
-        sortBy,
-        sortOrder,
-      }
-
-      if (productIdFilter.trim()) {
-        params.productId = productIdFilter.trim()
-      }
-      if (customerIdFilter.trim()) {
-        params.customerId = customerIdFilter.trim()
-      }
-      if (minRating) {
-        params.minRating = parseInt(minRating)
-      }
-      if (maxRating) {
-        params.maxRating = parseInt(maxRating)
-      }
-
-      const reviewsRes = await adminService.getReviews(params)
-      const reviewsData = (reviewsRes as any)?.data ?? []
-      const pagination = (reviewsRes as any)?.pagination
-
-      setReviews(reviewsData)
-      if (pagination) {
-        setTotalPages(pagination.totalPages || 1)
-        setTotal(pagination.total || 0)
-      }
-    } catch (err: any) {
-      console.error("Error fetching reviews:", err)
-      toast.error("Không thể tải danh sách đánh giá")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const fetchStats = async () => {
-    try {
-      const statsRes = await adminService.getReviewStats()
-      const statsData = (statsRes as any)?.data
-      if (statsData) {
-        setStats(statsData)
-      }
-    } catch (err: any) {
-      console.error("Error fetching stats:", err)
-    }
-  }
-
-  const handleViewReview = (review: Review) => {
+  // Handlers
+  const handleViewReview = useCallback((review: Review) => {
     setViewingReview(review)
     setIsViewDialogOpen(true)
-  }
+  }, [])
 
-  const handleDeleteReview = (review: Review) => {
+  const handleDeleteReview = useCallback((review: Review) => {
     setDeletingReview(review)
     setIsDeleteDialogOpen(true)
-  }
+  }, [])
 
-  const confirmDeleteReview = async () => {
+  const confirmDeleteReview = useCallback(async () => {
     if (!deletingReview) return
 
     try {
@@ -242,15 +392,16 @@ export default function AdminReviewsPage() {
       toast.success("Xóa đánh giá thành công")
       setIsDeleteDialogOpen(false)
       setDeletingReview(null)
-      fetchData()
-      fetchStats()
-    } catch (err: any) {
-      console.error("Error deleting review:", err)
-      toast.error("Không thể xóa đánh giá")
+      // Refresh data bằng cách trigger refresh
+      setCurrentPage(1)
+      setRefreshTrigger(prev => prev + 1)
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Không thể xóa đánh giá"
+      toast.error(errorMessage)
     }
-  }
+  }, [deletingReview])
 
-  const handleDeleteMultiple = async () => {
+  const handleDeleteMultiple = useCallback(async () => {
     if (selectedReviews.size === 0) {
       toast.error("Vui lòng chọn đánh giá cần xóa")
       return
@@ -261,64 +412,118 @@ export default function AdminReviewsPage() {
       toast.success(`Đã xóa ${selectedReviews.size} đánh giá thành công`)
       setSelectedReviews(new Set())
       setIsSelectMode(false)
-      fetchData()
-      fetchStats()
-    } catch (err: any) {
-      console.error("Error deleting multiple reviews:", err)
-      toast.error("Không thể xóa đánh giá")
+      // Refresh data bằng cách trigger refresh
+      setCurrentPage(1)
+      setRefreshTrigger(prev => prev + 1)
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Không thể xóa đánh giá"
+      toast.error(errorMessage)
     }
-  }
+  }, [selectedReviews])
 
-  const handleToggleSelectAll = () => {
+  const handleToggleSelectAll = useCallback(() => {
     if (selectedReviews.size === reviews.length) {
       setSelectedReviews(new Set())
     } else {
       setSelectedReviews(new Set(reviews.map((review) => review._id)))
     }
-  }
+  }, [selectedReviews.size, reviews])
 
-  const handleToggleSelectReview = (reviewId: string) => {
-    const newSelected = new Set(selectedReviews)
-    if (newSelected.has(reviewId)) {
-      newSelected.delete(reviewId)
-    } else {
-      newSelected.add(reviewId)
-    }
-    setSelectedReviews(newSelected)
-  }
+  const handleToggleSelectReview = useCallback((reviewId: string) => {
+    setSelectedReviews((prev) => {
+      const newSelected = new Set(prev)
+      if (newSelected.has(reviewId)) {
+        newSelected.delete(reviewId)
+      } else {
+        newSelected.add(reviewId)
+      }
+      return newSelected
+    })
+  }, [])
 
-  const clearFilters = () => {
+  const clearFilters = useCallback(() => {
     setProductIdFilter("")
     setCustomerIdFilter("")
-    setMinRating("")
-    setMaxRating("")
+    setMinRating("all")
+    setMaxRating("all")
     setCurrentPage(1)
-  }
+  }, [])
 
-  const getProductName = (product: Review["IdSanPham"]): string => {
-    if (!product || typeof product === "string") return "N/A"
-    return product.TenSanPham || "N/A"
-  }
+  // Reset selected when filter changes
+  useEffect(() => {
+    setSelectedReviews(new Set())
+    setIsSelectMode(false)
+  }, [productIdFilter, customerIdFilter, minRating, maxRating, sortBy, sortOrder])
 
-  const getCustomerName = (customer: Review["IdKhachHang"]): string => {
-    if (!customer || typeof customer === "string") return "N/A"
-    return customer.HoTen || customer.Email || "N/A"
-  }
+  // Prepare view dialog content
+  const viewDialogContent = useMemo(() => {
+    if (!viewingReview) return null
 
-  const getCustomerEmail = (customer: Review["IdKhachHang"]): string => {
-    if (!customer || typeof customer === "string") return ""
-    return customer.Email || ""
-  }
-
-  const getProductImage = (product: Review["IdSanPham"]): string => {
-    if (!product || typeof product === "string") return ""
-    return product.HinhAnhChinh || ""
-  }
+    const productInfo = getProductInfo(viewingReview.IdSanPham)
+    const customerInfo = getCustomerInfo(viewingReview.IdKhachHang)
+    
+    return (
+      <div className="space-y-4">
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <Label>Sản phẩm</Label>
+            <div className="mt-2">
+              <div className="font-medium">
+                {productInfo.name}
+              </div>
+              {productInfo.price !== null && productInfo.price !== undefined && (
+                <div className="text-sm text-muted-foreground">
+                  {currencyFormatter.format(productInfo.price)}
+                </div>
+              )}
+            </div>
+          </div>
+          <div>
+            <Label>Khách hàng</Label>
+            <div className="mt-2">
+              <div className="font-medium">
+                {customerInfo.name}
+              </div>
+              {customerInfo.email && (
+                <div className="text-sm text-muted-foreground">
+                  {customerInfo.email}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+        <div>
+          <Label>Đánh giá</Label>
+          <div className="mt-2">{renderStars(viewingReview.SoSao)}</div>
+        </div>
+        <div>
+          <Label>Nội dung đánh giá</Label>
+          <div className="mt-2 p-4 bg-muted rounded-lg">
+            {viewingReview.NoiDung}
+          </div>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <Label>Ngày tạo</Label>
+            <div className="mt-2 text-sm">
+              {formatDate(viewingReview.createdAt)}
+            </div>
+          </div>
+          <div>
+            <Label>Ngày cập nhật</Label>
+            <div className="mt-2 text-sm">
+              {formatDate(viewingReview.updatedAt)}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }, [viewingReview])
 
   return (
     <div className="space-y-6">
       {/* Stats Cards */}
-      {stats && (
+      {stats?.summary && (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -326,7 +531,9 @@ export default function AdminReviewsPage() {
               <BarChart3 className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.summary.totalReviews}</div>
+              <div className="text-2xl font-bold">
+                {stats.summary.totalReviews ?? 0}
+              </div>
               <p className="text-xs text-muted-foreground">Tổng số đánh giá</p>
             </CardContent>
           </Card>
@@ -338,10 +545,10 @@ export default function AdminReviewsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {stats.summary.avgRating.toFixed(2)}
+                {stats.summary.avgRating ? stats.summary.avgRating.toFixed(2) : "0.00"}
               </div>
               <div className="flex items-center gap-1 mt-1">
-                {renderStars(Math.round(stats.summary.avgRating))}
+                {renderStars(Math.round(stats.summary.avgRating ?? 0))}
               </div>
             </CardContent>
           </Card>
@@ -352,11 +559,13 @@ export default function AdminReviewsPage() {
               <Star className="h-4 w-4 text-yellow-400 fill-yellow-400" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.summary.distribution.star5}</div>
+              <div className="text-2xl font-bold">
+                {stats.summary.distribution?.star5 ?? 0}
+              </div>
               <p className="text-xs text-muted-foreground">
                 {stats.summary.totalReviews > 0
                   ? Math.round(
-                      (stats.summary.distribution.star5 / stats.summary.totalReviews) * 100
+                      ((stats.summary.distribution?.star5 ?? 0) / stats.summary.totalReviews) * 100
                     )
                   : 0}
                 % tổng đánh giá
@@ -370,11 +579,13 @@ export default function AdminReviewsPage() {
               <Star className="h-4 w-4 text-gray-400 fill-gray-400" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.summary.distribution.star1}</div>
+              <div className="text-2xl font-bold">
+                {stats.summary.distribution?.star1 ?? 0}
+              </div>
               <p className="text-xs text-muted-foreground">
                 {stats.summary.totalReviews > 0
                   ? Math.round(
-                      (stats.summary.distribution.star1 / stats.summary.totalReviews) * 100
+                      ((stats.summary.distribution?.star1 ?? 0) / stats.summary.totalReviews) * 100
                     )
                   : 0}
                 % tổng đánh giá
@@ -464,15 +675,15 @@ export default function AdminReviewsPage() {
                   <Label htmlFor="minRating">Đánh giá tối thiểu</Label>
                   <Select value={minRating} onValueChange={setMinRating}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Chọn rating" />
+                      <SelectValue placeholder="Chọn số sao tối thiểu" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Tất cả</SelectItem>
-                      <SelectItem value="5">5 sao</SelectItem>
-                      <SelectItem value="4">4 sao trở lên</SelectItem>
-                      <SelectItem value="3">3 sao trở lên</SelectItem>
-                      <SelectItem value="2">2 sao trở lên</SelectItem>
+                      <SelectItem value="all">Tất cả</SelectItem>
                       <SelectItem value="1">1 sao trở lên</SelectItem>
+                      <SelectItem value="2">2 sao trở lên</SelectItem>
+                      <SelectItem value="3">3 sao trở lên</SelectItem>
+                      <SelectItem value="4">4 sao trở lên</SelectItem>
+                      <SelectItem value="5">Chỉ 5 sao</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -480,15 +691,15 @@ export default function AdminReviewsPage() {
                   <Label htmlFor="maxRating">Đánh giá tối đa</Label>
                   <Select value={maxRating} onValueChange={setMaxRating}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Chọn rating" />
+                      <SelectValue placeholder="Chọn số sao tối đa" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Tất cả</SelectItem>
-                      <SelectItem value="5">5 sao</SelectItem>
-                      <SelectItem value="4">4 sao trở xuống</SelectItem>
-                      <SelectItem value="3">3 sao trở xuống</SelectItem>
+                      <SelectItem value="all">Tất cả</SelectItem>
+                      <SelectItem value="1">Chỉ 1 sao</SelectItem>
                       <SelectItem value="2">2 sao trở xuống</SelectItem>
-                      <SelectItem value="1">1 sao</SelectItem>
+                      <SelectItem value="3">3 sao trở xuống</SelectItem>
+                      <SelectItem value="4">4 sao trở xuống</SelectItem>
+                      <SelectItem value="5">5 sao trở xuống</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -526,7 +737,25 @@ export default function AdminReviewsPage() {
 
           {/* Reviews Table */}
           {loading ? (
-            <div className="text-center py-8">Đang tải...</div>
+            <div className="text-center py-8">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+              <p className="mt-2 text-sm text-muted-foreground">Đang tải...</p>
+            </div>
+          ) : error ? (
+            <div className="text-center py-8">
+              <div className="text-destructive mb-2">{error}</div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setError(null)
+                  setCurrentPage(1)
+                  setRefreshTrigger(prev => prev + 1)
+                }}
+              >
+                Thử lại
+              </Button>
+            </div>
           ) : reviews.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               Không có đánh giá nào
@@ -573,107 +802,98 @@ export default function AdminReviewsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {reviews.map((review) => (
-                      <tr
-                        key={review._id}
-                        className="border-t hover:bg-muted/50 transition-colors"
-                      >
-                        {isSelectMode && (
+                    {reviews.map((review) => {
+                      const productInfo = getProductInfo(review.IdSanPham)
+                      const customerInfo = getCustomerInfo(review.IdKhachHang)
+                      
+                      return (
+                        <tr
+                          key={review._id}
+                          className="border-t hover:bg-muted/50 transition-colors"
+                        >
+                          {isSelectMode && (
+                            <td className="px-4 py-3">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleToggleSelectReview(review._id)}
+                              >
+                                {selectedReviews.has(review._id) ? (
+                                  <CheckSquare className="h-4 w-4" />
+                                ) : (
+                                  <Square className="h-4 w-4" />
+                                )}
+                              </Button>
+                            </td>
+                          )}
                           <td className="px-4 py-3">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleToggleSelectReview(review._id)}
-                            >
-                              {selectedReviews.has(review._id) ? (
-                                <CheckSquare className="h-4 w-4" />
-                              ) : (
-                                <Square className="h-4 w-4" />
-                              )}
-                            </Button>
-                          </td>
-                        )}
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-3">
-                            {getProductImage(review.IdSanPham) && (
-                              <img
-                                src={getProductImage(review.IdSanPham)}
-                                alt={getProductName(review.IdSanPham)}
-                                className="w-12 h-12 object-cover rounded"
-                              />
-                            )}
                             <div>
                               <div className="font-medium">
-                                {getProductName(review.IdSanPham)}
+                                {productInfo.name}
                               </div>
-                              {(() => {
-                                const product = review.IdSanPham;
-                                return product &&
-                                  typeof product !== "string" &&
-                                  product.Gia !== undefined ? (
-                                    <div className="text-xs text-muted-foreground">
-                                      {currencyFormatter.format(product.Gia)}
-                                    </div>
-                                  ) : null;
-                              })()}
+                              {productInfo.price !== null && productInfo.price !== undefined && (
+                                <div className="text-xs text-muted-foreground">
+                                  {currencyFormatter.format(productInfo.price)}
+                                </div>
+                              )}
                             </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div>
-                            <div className="font-medium">
-                              {getCustomerName(review.IdKhachHang)}
-                            </div>
-                            {getCustomerEmail(review.IdKhachHang) && (
-                              <div className="text-xs text-muted-foreground">
-                                {getCustomerEmail(review.IdKhachHang)}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div>
+                              <div className="font-medium">
+                                {customerInfo.name}
                               </div>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            {renderStars(review.SoSao)}
-                            <Badge
-                              variant={
-                                review.SoSao >= 4
-                                  ? "default"
-                                  : review.SoSao >= 3
-                                  ? "secondary"
-                                  : "destructive"
-                              }
-                            >
-                              {review.SoSao} sao
-                            </Badge>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="max-w-xs truncate">{review.NoiDung}</div>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-muted-foreground">
-                          {formatDate(review.createdAt)}
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleViewReview(review)}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDeleteReview(review)}
-                              className="text-destructive hover:text-destructive"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                              {customerInfo.email && (
+                                <div className="text-xs text-muted-foreground">
+                                  {customerInfo.email}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              {renderStars(review.SoSao)}
+                              <Badge
+                                variant={
+                                  review.SoSao >= 4
+                                    ? "default"
+                                    : review.SoSao >= 3
+                                    ? "secondary"
+                                    : "destructive"
+                                }
+                              >
+                                {review.SoSao} sao
+                              </Badge>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="max-w-xs truncate">{review.NoiDung}</div>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-muted-foreground">
+                            {formatDate(review.createdAt)}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center justify-end gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleViewReview(review)}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteReview(review)}
+                                className="text-destructive hover:text-destructive"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -718,7 +938,11 @@ export default function AdminReviewsPage() {
               )}
 
               <div className="text-sm text-muted-foreground text-center">
-                Hiển thị {reviews.length} / {total} đánh giá
+                {total > 0 ? (
+                  <>Hiển thị {reviews.length} / {total} đánh giá</>
+                ) : (
+                  <>Không có đánh giá nào</>
+                )}
               </div>
             </div>
           )}
@@ -732,72 +956,7 @@ export default function AdminReviewsPage() {
             <DialogTitle>Chi tiết đánh giá</DialogTitle>
             <DialogDescription>Thông tin chi tiết về đánh giá này</DialogDescription>
           </DialogHeader>
-          {viewingReview && (
-            <div className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <Label>Sản phẩm</Label>
-                  <div className="flex items-center gap-3 mt-2">
-                    {getProductImage(viewingReview.IdSanPham) && (
-                      <img
-                        src={getProductImage(viewingReview.IdSanPham)}
-                        alt={getProductName(viewingReview.IdSanPham)}
-                        className="w-16 h-16 object-cover rounded"
-                      />
-                    )}
-                    <div>
-                      <div className="font-medium">
-                        {getProductName(viewingReview.IdSanPham)}
-                      </div>
-                      {(() => {
-                        const product = viewingReview.IdSanPham;
-                        return product &&
-                          typeof product !== "string" &&
-                          product.Gia !== undefined ? (
-                            <div className="text-sm text-muted-foreground">
-                              {currencyFormatter.format(product.Gia)}
-                            </div>
-                          ) : null;
-                      })()}
-                    </div>
-                  </div>
-                </div>
-                <div>
-                  <Label>Khách hàng</Label>
-                  <div className="mt-2">
-                    <div className="font-medium">
-                      {getCustomerName(viewingReview.IdKhachHang)}
-                    </div>
-                    {getCustomerEmail(viewingReview.IdKhachHang) && (
-                      <div className="text-sm text-muted-foreground">
-                        {getCustomerEmail(viewingReview.IdKhachHang)}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div>
-                <Label>Đánh giá</Label>
-                <div className="mt-2">{renderStars(viewingReview.SoSao)}</div>
-              </div>
-              <div>
-                <Label>Nội dung đánh giá</Label>
-                <div className="mt-2 p-4 bg-muted rounded-lg">
-                  {viewingReview.NoiDung}
-                </div>
-              </div>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <Label>Ngày tạo</Label>
-                  <div className="mt-2 text-sm">{formatDate(viewingReview.createdAt)}</div>
-                </div>
-                <div>
-                  <Label>Ngày cập nhật</Label>
-                  <div className="mt-2 text-sm">{formatDate(viewingReview.updatedAt)}</div>
-                </div>
-              </div>
-            </div>
-          )}
+          {viewDialogContent}
           <DialogFooter>
             <Button
               variant="destructive"
