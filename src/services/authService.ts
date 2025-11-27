@@ -4,7 +4,7 @@ import { storage } from '@/utils/storage';
 import type { LoginCredentials, RegisterData, AuthResponse, ApiItemResponse } from '@/types/models';
 
 const authService = {
-  login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
+  login: async (credentials: LoginCredentials & { 'cf-turnstile-response'?: string }): Promise<AuthResponse> => {
     const response = await axiosInstance.post<ApiItemResponse<{ accessToken: string; user?: AuthResponse['user']; message?: string }>>(
       API_ENDPOINTS.LOGIN,
       credentials
@@ -70,17 +70,16 @@ const authService = {
 
   logout: async (): Promise<void> => {
     try {
-      // ✅ Gọi logout API để xóa session trên server
+      // ✅ Gọi logout API để xóa session trên server (trước khi clear token)
       await axiosInstance.post(API_ENDPOINTS.LOGOUT);
     } catch (error: any) {
       // ✅ Log error nhưng vẫn tiếp tục logout local
       if (import.meta.env.DEV) {
         console.warn('Logout API error (continuing with local logout):', error?.message);
       }
-    } finally {
-      // ✅ Clear tất cả storage (token, user, cart) - cart đã được lưu vào database trước đó
-      storage.clearAll();
     }
+    // ✅ Clear storage sau khi đã gọi API (không dùng finally để tránh clear quá sớm)
+    storage.clearAll();
   },
 
   forgotPassword: async (email: string): Promise<{ message: string }> => {

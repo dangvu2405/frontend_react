@@ -20,6 +20,7 @@ import { cartService } from '@/services/cartService';
 import PaymentSuccess from '@/components/payment-sucess';
 import PaymentFail from '@/components/payment-fail';
 import type { CheckoutResponse, UserAddress } from '@/types/models';
+import { paymentService } from '@/services/paymentService';
 import { 
   getAllProvinces, 
   getDistrictsByProvince, 
@@ -33,7 +34,7 @@ export default function CheckoutPage() {
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [showNewAddress, setShowNewAddress] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'COD' | 'BANK' | 'CARD'>('COD');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'COD' | 'BANK' | 'CARD' | 'VNPAY' | 'MOMO'>('COD');
   const [selectedNote, setSelectedNote] = useState<string>('');
   const [paymentStatus, setPaymentStatus] = useState<'idle' | 'success' | 'fail' | 'processing'>('idle');
   const [newAddress, setNewAddress] = useState<UserAddress>({
@@ -50,6 +51,115 @@ export default function CheckoutPage() {
   const selectedAddress = selectedAddressId
     ? addresses.find((addr) => addr._id === selectedAddressId)
     : null;
+
+  const extractPaymentRedirectUrl = (metadata: any): string | null => {
+    if (!metadata) return null;
+    if (typeof metadata === 'string') {
+      return metadata.startsWith('http') ? metadata : null;
+    }
+
+    const candidates = [
+      'paymentUrl',
+      'payUrl',
+      'deeplink',
+      'deeplinkUrl',
+      'shortLink',
+      'orderUrl',
+      'checkoutUrl',
+      'qrCodeUrl',
+      'url',
+    ];
+
+    for (const key of candidates) {
+      const value = metadata[key];
+      if (typeof value === 'string' && value.startsWith('http')) {
+        return value;
+      }
+    }
+
+    return null;
+  };
+
+  const handleOnlinePayment = async (method: 'VNPAY' | 'MOMO') => {
+    if (!isAuthenticated) {
+      toast.error('Vui lòng đăng nhập để sử dụng phương thức thanh toán này');
+      return;
+    }
+
+    if (cartItems.length === 0) {
+      toast.error('Giỏ hàng trống');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setPaymentStatus('processing');
+
+    try {
+      // Đồng bộ giỏ hàng từ localStorage lên server trước
+      toast.loading('Đang đồng bộ giỏ hàng...', { id: 'sync-cart' });
+      
+      // Đồng bộ toàn bộ giỏ hàng lên server một lần
+      try {
+        await cartService.updateCart({
+          items: cartItems.map(item => ({
+            id: item.productId,
+            quantity: item.quantity || 1,
+            tenSP: item.tenSP,
+            selectedDungTich: item.selectedDungTich,
+          })),
+        });
+      } catch (syncError: any) {
+        if (import.meta.env.DEV) {
+          console.warn('Failed to sync cart:', syncError);
+        }
+        // Nếu updateCart thất bại, thử đồng bộ từng item
+        for (const item of cartItems) {
+          try {
+            await cartService.addToCart({
+              productId: item.productId,
+              quantity: item.quantity,
+              selectedDungTich: item.selectedDungTich,
+            });
+          } catch (itemError: any) {
+            if (import.meta.env.DEV) {
+              console.warn('Failed to sync cart item:', item.productId, itemError);
+            }
+          }
+        }
+      }
+
+      toast.dismiss('sync-cart');
+      toast.loading('Đang khởi tạo thanh toán...', { id: 'create-payment' });
+
+      const apiMethod = method === 'VNPAY' ? 'vnpay' : 'momo';
+      const response = await paymentService.createPayment(apiMethod);
+      const metadata = response?.metadata ?? (response as any)?.data ?? response;
+      const redirectUrl = extractPaymentRedirectUrl(metadata);
+
+      toast.dismiss('create-payment');
+
+      if (!redirectUrl) {
+        throw new Error('Không tìm thấy liên kết thanh toán. Vui lòng thử lại.');
+      }
+
+      toast.success('Đang chuyển hướng tới cổng thanh toán...');
+      window.location.href = redirectUrl;
+    } catch (error: any) {
+      toast.dismiss('sync-cart');
+      toast.dismiss('create-payment');
+      if (import.meta.env.DEV) {
+        console.error('Online payment error:', error);
+      }
+      toast.error(
+        error?.response?.data?.message ||
+        error?.message ||
+        'Không thể khởi tạo giao dịch thanh toán'
+      );
+      setPaymentStatus('fail');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   // Format địa chỉ để hiển thị trong Select
   const formatAddressForSelect = (addr: UserAddress): string => {
@@ -222,6 +332,11 @@ export default function CheckoutPage() {
           return;
         }
         DiaChiPayload = newAddress;
+      }
+
+      if (selectedPaymentMethod === 'VNPAY' || selectedPaymentMethod === 'MOMO') {
+        await handleOnlinePayment(selectedPaymentMethod);
+        return;
       }
 
       setIsSubmitting(true);
@@ -636,6 +751,42 @@ export default function CheckoutPage() {
                     <span className="font-semibold text-foreground">
                       Thẻ tín dụng/Ghi nợ (Khác)
                     </span>
+                  </label>
+                  <label className="flex items-center p-4 border border-border rounded-xl cursor-pointer hover:bg-muted">
+                    <input
+                      type="radio"
+                      name="payment"
+                      className="mr-3"
+                      checked={selectedPaymentMethod === 'VNPAY'}
+                      onChange={() => setSelectedPaymentMethod('VNPAY')}
+                      disabled={!isAuthenticated}
+                    />
+                    <div className="flex flex-col">
+                      <span className="font-semibold text-foreground">VNPay (ATM/QR)</span>
+                      {!isAuthenticated && (
+                        <span className="text-xs text-muted-foreground">
+                          Yêu cầu đăng nhập
+                        </span>
+                      )}
+                    </div>
+                  </label>
+                  <label className="flex items-center p-4 border border-border rounded-xl cursor-pointer hover:bg-muted">
+                    <input
+                      type="radio"
+                      name="payment"
+                      className="mr-3"
+                      checked={selectedPaymentMethod === 'MOMO'}
+                      onChange={() => setSelectedPaymentMethod('MOMO')}
+                      disabled={!isAuthenticated}
+                    />
+                    <div className="flex flex-col">
+                      <span className="font-semibold text-foreground">Ví MoMo</span>
+                      {!isAuthenticated && (
+                        <span className="text-xs text-muted-foreground">
+                          Yêu cầu đăng nhập
+                        </span>
+                      )}
+                    </div>
                   </label>
                   <div>
                     <Label>Ghi chú</Label>

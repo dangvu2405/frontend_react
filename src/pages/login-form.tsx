@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { FormEvent } from "react";
+import React from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
@@ -16,6 +17,21 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 
+declare global {
+  interface Window {
+    turnstile?: {
+      render: (element: HTMLElement, options: {
+        sitekey: string;
+        callback?: (token: string) => void;
+        'error-callback'?: () => void;
+        'expired-callback'?: () => void;
+      }) => string;
+      reset: (widgetId: string) => void;
+      remove: (widgetId: string) => void;
+    };
+  }
+}
+
 export function LoginForm({
   className,
   ...props
@@ -25,9 +41,96 @@ export function LoginForm({
     password: "",
   });
   const [loading, setLoading] = useState(false);
+  const [requiresCaptcha, setRequiresCaptcha] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileWidgetId, setTurnstileWidgetId] = useState<string | null>(null);
+  const [turnstileLoaded, setTurnstileLoaded] = useState(false);
+  const turnstileContainerRef = React.useRef<HTMLDivElement>(null);
+  const scriptLoadedRef = React.useRef(false);
   const { login } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+
+  // Load Cloudflare Turnstile script (chỉ load một lần)
+  useEffect(() => {
+    // Kiểm tra xem script đã được load chưa
+    if (window.turnstile) {
+      setTurnstileLoaded(true);
+      return;
+    }
+
+    // Kiểm tra xem script đã được thêm vào DOM chưa
+    const existingScript = document.querySelector('script[src="https://challenges.cloudflare.com/turnstile/v0/api.js"]');
+    if (existingScript) {
+      // Script đã tồn tại, đợi nó load
+      existingScript.addEventListener('load', () => {
+        setTurnstileLoaded(true);
+      });
+      return;
+    }
+
+    // Chỉ load script nếu chưa được load
+    if (!scriptLoadedRef.current) {
+      scriptLoadedRef.current = true;
+      const script = document.createElement('script');
+      script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
+      script.async = true;
+      script.defer = true;
+      script.id = 'cloudflare-turnstile-script';
+      
+      script.onload = () => {
+        setTurnstileLoaded(true);
+      };
+      
+      script.onerror = () => {
+        scriptLoadedRef.current = false;
+        toast.error('Không thể tải Cloudflare Turnstile. Vui lòng thử lại.');
+      };
+      
+      document.body.appendChild(script);
+    }
+  }, []);
+
+  // Render Turnstile widget khi cần
+  useEffect(() => {
+    if (requiresCaptcha && turnstileLoaded && turnstileContainerRef.current && !turnstileWidgetId && window.turnstile) {
+      const siteKey = import.meta.env.VITE_CLOUDFLARE_TURNSTILE_SITE_KEY || '';
+      if (siteKey) {
+        try {
+          const widgetId = window.turnstile.render(turnstileContainerRef.current, {
+            sitekey: siteKey,
+            callback: (token: string) => {
+              setTurnstileToken(token);
+            },
+            'error-callback': () => {
+              setTurnstileToken(null);
+              toast.error('Lỗi xác minh bảo mật. Vui lòng thử lại.');
+            },
+            'expired-callback': () => {
+              setTurnstileToken(null);
+              toast.warning('Phiên xác minh đã hết hạn. Vui lòng thử lại.');
+            },
+          });
+          setTurnstileWidgetId(widgetId);
+        } catch (error) {
+          if (import.meta.env.DEV) {
+            console.error('Error rendering Turnstile:', error);
+          }
+        }
+      }
+    }
+
+    return () => {
+      if (turnstileWidgetId && window.turnstile) {
+        try {
+          window.turnstile.remove(turnstileWidgetId);
+          setTurnstileWidgetId(null);
+        } catch (e) {
+          // Ignore errors
+        }
+      }
+    };
+  }, [requiresCaptcha, turnstileLoaded, turnstileWidgetId]);
 
   // Xử lý lỗi OAuth từ URL parameters
   useEffect(() => {
@@ -69,12 +172,56 @@ export function LoginForm({
     setLoading(true);
 
     try {
-      await login(formData.username, formData.password);
+      // Gửi turnstile token nếu có
+      const loginPayload: any = {
+        username: formData.username,
+        password: formData.password,
+      };
+      
+      if (requiresCaptcha && turnstileToken) {
+        loginPayload['cf-turnstile-response'] = turnstileToken;
+      }
+
+      await login(formData.username, formData.password, turnstileToken || undefined);
+      
+      // Reset captcha state on success
+      setRequiresCaptcha(false);
+      setTurnstileToken(null);
+      if (turnstileWidgetId && window.turnstile) {
+        try {
+          window.turnstile.remove(turnstileWidgetId);
+        } catch (e) {
+          // Ignore
+        }
+        setTurnstileWidgetId(null);
+      }
+      
       navigate("/");
-    } catch (error) {
-        // console.error("Login error:", error);
-        // const message = (error as any)?.message || "Đăng nhập thất bại";
-        // toast.error(message);
+    } catch (error: any) {
+      const errorData = error?.response?.data || error?.data || {};
+      const message = errorData?.message || "Đăng nhập thất bại";
+      const needsCaptcha = errorData?.requiresCaptcha || false;
+      const failedAttempts = errorData?.failedAttempts || 0;
+
+      if (needsCaptcha && !requiresCaptcha) {
+        setRequiresCaptcha(true);
+        setTurnstileToken(null);
+        toast.warning("Vui lòng hoàn thành xác minh bảo mật để tiếp tục");
+      } else {
+        toast.error(typeof message === 'string' ? message : 'Đăng nhập thất bại');
+        if (failedAttempts > 0 && failedAttempts < 5) {
+          toast.info(`Còn ${5 - failedAttempts} lần thử trước khi tài khoản bị khóa`);
+        }
+        // Reset turnstile nếu có lỗi
+        if (turnstileWidgetId && window.turnstile) {
+          try {
+            window.turnstile.reset(turnstileWidgetId);
+            setTurnstileToken(null);
+          } catch (e) {
+            // Ignore
+          }
+        }
+      }
     } finally {
       setLoading(false);
     }
@@ -141,6 +288,19 @@ export function LoginForm({
                       className="bg-background border-input h-14 text-base px-4"
                     />
                   </Field>
+
+                  {/* Cloudflare Turnstile */}
+                  {requiresCaptcha && (
+                    <Field>
+                      <FieldLabel className="text-base font-semibold mb-2">
+                        Xác minh bảo mật
+                      </FieldLabel>
+                      <div ref={turnstileContainerRef} className="flex justify-center"></div>
+                      <FieldDescription className="text-xs mt-2">
+                        Vui lòng hoàn thành xác minh bảo mật để tiếp tục đăng nhập
+                      </FieldDescription>
+                    </Field>
+                  )}
                 </div>
 
                 <Field>

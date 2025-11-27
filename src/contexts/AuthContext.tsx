@@ -24,7 +24,7 @@ interface AuthContextType {
   loading: boolean;
   isAuthenticated: boolean;
   isAdmin: boolean;
-  login: (username: string, password: string) => Promise<void>;
+  login: (username: string, password: string, turnstileToken?: string) => Promise<void>;
   register: (userData: RegisterData) => Promise<void>;
   logout: () => Promise<void>;
   checkAdminRole: () => boolean;
@@ -241,9 +241,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [user]);
 
-  const login = async (username: string, password: string) => {
+  const login = async (username: string, password: string, turnstileToken?: string) => {
     try {
-      const response = await authService.login({ username, password });
+      const loginPayload: any = { username, password };
+      if (turnstileToken) {
+        loginPayload['cf-turnstile-response'] = turnstileToken;
+      }
+      const response = await authService.login(loginPayload);
       
       if (response && response.accessToken) {
         // Fetch user info with role after login
@@ -353,7 +357,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       toast.success('Đăng nhập thành công!');
     } catch (error: any) {
-      toast.error(error.message || 'Đăng nhập thất bại');
+      // Xử lý error message - có thể là string hoặc object
+      let errorMessage = 'Đăng nhập thất bại';
+      
+      if (typeof error?.message === 'string') {
+        errorMessage = error.message;
+      } else if (error?.response?.data?.message) {
+        const msg = error.response.data.message;
+        errorMessage = typeof msg === 'string' ? msg : (msg?.message || 'Đăng nhập thất bại');
+      } else if (error?.data?.message) {
+        const msg = error.data.message;
+        errorMessage = typeof msg === 'string' ? msg : (msg?.message || 'Đăng nhập thất bại');
+      }
+      
+      toast.error(errorMessage);
       throw error;
     }
   };
@@ -468,7 +485,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const isLoggingOut = useRef(false); // Guard để tránh logout nhiều lần
+
   const logout = async () => {
+    // Tránh logout nhiều lần
+    if (isLoggingOut.current) {
+      return;
+    }
+    isLoggingOut.current = true;
+
     try {
       // ✅ Lưu hearts từ localStorage vào database trước khi logout
       const localHearts = storage.getHearts();
@@ -489,18 +514,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const localCart = storage.getCart();
       if (localCart && localCart.length > 0 && user?.id) {
         try {
-          // ✅ Format cart items để gửi lên backend (bao gồm selectedDungTich)
-          const cartItems = localCart.map(item => ({
-            id: item.productId || item.id.split('::')[0], // Lấy productId từ cart item ID
-            quantity: item.quantity || 1,
-            tenSP: item.tenSP, // Giữ lại để backend có thể dùng nếu cần
-            selectedDungTich: item.selectedDungTich ? {
-              value: item.selectedDungTich.value,
-              label: item.selectedDungTich.label,
-              priceDiff: item.selectedDungTich.priceDiff || 0,
-              sku: item.selectedDungTich.sku,
-            } : undefined,
-          }));
+          // ✅ Format cart items để gửi lên backend (backend mong đợi productId hoặc id)
+          const cartItems = localCart.map(item => {
+            // Lấy productId - có thể từ productId trực tiếp hoặc từ id (format: "productId::volume-xxx")
+            let productId = item.productId;
+            if (!productId && item.id) {
+              // Nếu id có format "productId::volume-xxx", lấy phần trước "::"
+              productId = item.id.includes('::') ? item.id.split('::')[0] : item.id;
+            }
+            
+            return {
+              id: productId, // Backend sẽ tìm productId, IdSanPham, hoặc id
+              productId: productId, // Thêm productId để đảm bảo
+              quantity: item.quantity || 1,
+              tenSP: item.tenSP, // Giữ lại để backend có thể dùng nếu cần
+              selectedDungTich: item.selectedDungTich ? {
+                value: item.selectedDungTich.value,
+                label: item.selectedDungTich.label,
+                priceDiff: item.selectedDungTich.priceDiff || 0,
+                sku: item.selectedDungTich.sku,
+              } : undefined,
+            };
+          });
           
           await cartService.updateCart({ items: cartItems });
           
@@ -516,15 +551,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
       }
       
-      // ✅ Gọi logout API
+      // ✅ Gọi logout API (trước khi clear storage)
       await authService.logout();
       
       // ✅ Clear user state
       setUser(null);
-      
-      // ✅ Xóa cart và hearts trong localStorage sau khi logout
-      storage.removeCart();
-      storage.removeHearts();
       
       // ✅ Dispatch event để update UI
       window.dispatchEvent(new CustomEvent('cart:updated'));
@@ -537,15 +568,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
       // ✅ Vẫn clear user, cart và hearts nếu logout thất bại
       setUser(null);
-      storage.removeCart();
-      storage.removeHearts();
+      storage.clearAll();
       window.dispatchEvent(new CustomEvent('cart:updated'));
       window.dispatchEvent(new CustomEvent('hearts:updated'));
       
       // ✅ Chỉ show error nếu không phải lỗi network thông thường
-      if (error?.message && !error.message.includes('Network Error')) {
+      if (error?.message && !error.message.includes('Network Error') && !error.message.includes('Không có token')) {
         toast.error('Đăng xuất thất bại: ' + error.message);
       }
+    } finally {
+      isLoggingOut.current = false;
     }
   };
 
