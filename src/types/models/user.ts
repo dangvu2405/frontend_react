@@ -18,6 +18,7 @@ export interface Role extends BaseDocument {
  */
 export interface UserAddress {
   _id?: ObjectId;
+  id?: ObjectId;
   HoTen: string;              // Họ và tên người nhận
   SoDienThoai: string;        // Số điện thoại
   DiaChiChiTiet: string;      // Địa chỉ chi tiết (số nhà, tên đường)

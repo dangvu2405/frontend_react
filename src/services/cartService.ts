@@ -7,6 +7,12 @@ export interface UpdateCartData {
     id: string;
     quantity: number;
     tenSP?: string;
+    selectedDungTich?: {
+      value: number;
+      label?: string;
+      priceDiff?: number;
+      sku?: string;
+    };
   }>;
 }
 
@@ -34,6 +40,14 @@ export interface CheckoutPayload {
   };
 }
 
+const createEmptyCart = (): Cart => ({
+  _id: 'local-cart',
+  IdKhachHang: '',
+  Items: [],
+  TongTien: 0,
+  TongSoLuong: 0,
+});
+
 export const cartService = {
   getCart: async (): Promise<Cart> => {
     const response = await axiosInstance.get<ApiItemResponse<{ cart: Cart }>>('/cart/get-cart');
@@ -49,7 +63,7 @@ export const cartService = {
       }
     }
     
-    return { Items: [] } as Cart;
+    return createEmptyCart();
   },
   
   updateCart: async (data: UpdateCartData) => {
@@ -64,7 +78,33 @@ export const cartService = {
       return responseData.data as Cart;
     }
     
-    return { Items: [] } as Cart;
+    return createEmptyCart();
+  },
+
+  addToCart: async (payload: {
+    productId: string;
+    quantity?: number;
+    selectedDungTich?: {
+      value: number;
+      label?: string;
+      priceDiff?: number;
+      sku?: string;
+    };
+    [key: string]: unknown;
+  }): Promise<Cart> => {
+    const response = await axiosInstance.post<ApiItemResponse<{ cart: Cart }>>('/cart/add-to-cart', payload);
+    const responseData = response.data;
+
+    if (responseData?.data) {
+      if (typeof responseData.data === 'object' && 'cart' in responseData.data) {
+        return (responseData.data as any).cart as Cart;
+      }
+      if ((responseData.data as any)._id) {
+        return responseData.data as Cart;
+      }
+    }
+
+    return createEmptyCart();
   },
   
   checkout: async (data: CheckoutPayload): Promise<CheckoutResponse> => {

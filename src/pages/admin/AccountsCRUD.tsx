@@ -4,6 +4,8 @@ import adminService, { type AdminUserPayload } from "@/services/adminService"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import axiosInstance from "@/services/axios"
+import { storage } from "@/utils/storage"
 import {
   Dialog,
   DialogContent,
@@ -77,6 +79,8 @@ export default function AdminAccountsPage() {
     maVaiTro?: string
     gioiTinh?: string
     ngaySinh?: string
+    avatarUrl?: string
+    avatarId?: string
   }>({
     hoten: "",
     email: "",
@@ -87,8 +91,12 @@ export default function AdminAccountsPage() {
     maVaiTro: "",
     gioiTinh: "",
     ngaySinh: "",
+    avatarUrl: "",
+    avatarId: "",
   })
   const [submitting, setSubmitting] = useState(false)
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
+  const [avatarUploading, setAvatarUploading] = useState(false)
   
   // Track if roles have been fetched
   const rolesFetchedRef = useRef(false)
@@ -100,19 +108,43 @@ export default function AdminAccountsPage() {
       try {
         rolesFetchedRef.current = true
         const rolesRes = await adminService.getRoles()
-        // Backend trả về: { success: true, data: { roles: [...] } }
-        const rolesData = (rolesRes as any)?.data?.roles ?? (rolesRes as any)?.roles ?? []
         
-        // Đảm bảo rolesData là array
-        if (!Array.isArray(rolesData)) {
-          console.warn('rolesData is not an array:', rolesData)
-          setRoles([])
+        // Axios interceptor normalize response:
+        // Backend trả về: { success: true, message: "...", data: { roles: [...] } }
+        // Sau normalize: { success: true, message: "...", data: [...] } (roles được extract vào data)
+        // Hoặc nếu không normalize: { success: true, data: { roles: [...] } }
+        const responseData = rolesRes?.data
+        
+        let rolesData: Role[] = []
+        
+        // Case 1: Data đã được normalize (roles array trực tiếp trong data)
+        if (Array.isArray(responseData?.data)) {
+          rolesData = responseData.data
+        }
+        // Case 2: Data chưa được normalize (roles trong data.roles)
+        else if (responseData?.data?.roles && Array.isArray(responseData.data.roles)) {
+          rolesData = responseData.data.roles
+        }
+        // Case 3: Roles trực tiếp trong responseData
+        else if (responseData?.roles && Array.isArray(responseData.roles)) {
+          rolesData = responseData.roles
+        }
+        // Case 4: Fallback - responseData là array trực tiếp
+        else if (Array.isArray(responseData)) {
+          rolesData = responseData
+        }
+        
+        if (rolesData.length > 0) {
+          setRoles(rolesData)
+          console.log('✅ Roles loaded:', rolesData.length, 'roles')
         } else {
-        setRoles(rolesData)
+          console.warn('⚠️ No roles found in response:', responseData)
+          setRoles([])
         }
       } catch (err) {
         rolesFetchedRef.current = false
-        console.error("Error fetching roles:", err)
+        console.error("❌ Error fetching roles:", err)
+        setRoles([])
       }
     }
     fetchRoles()
@@ -351,7 +383,10 @@ export default function AdminAccountsPage() {
       maVaiTro: "",
       gioiTinh: "",
       ngaySinh: "",
+      avatarUrl: "",
+      avatarId: "",
     })
+    setAvatarPreview(null)
     setIsDialogOpen(true)
   }
 
@@ -371,8 +406,94 @@ export default function AdminAccountsPage() {
       maVaiTro: roleId,
       gioiTinh: user.GioiTinh || "",
       ngaySinh: user.NgaySinh ? new Date(user.NgaySinh).toISOString().split('T')[0] : "",
+      avatarUrl: user.AvatarUrl || "",
+      avatarId: user.AvatarId || "",
     })
+    setAvatarPreview(user.AvatarUrl || null)
     setIsDialogOpen(true)
+  }
+
+  const uploadAvatarToCloudinary = async (base64: string) => {
+    try {
+      const token = storage.getToken();
+      if (!token && import.meta.env.DEV) {
+        console.warn('⚠️ No token found in localStorage before upload');
+      }
+
+      const response = await axiosInstance.post('/api/upload', {
+        image: base64,
+      })
+
+      const data = response.data
+      if (!data?.success || !data?.data?.url) {
+        throw new Error(data?.message || "Không thể upload ảnh lên Cloudinary")
+      }
+
+      return {
+        url: data.data.url as string,
+        publicId: data.data.public_id as string,
+      }
+    } catch (error: any) {
+      if (import.meta.env.DEV) {
+        console.error('Upload error:', {
+          message: error?.message,
+          response: error?.response?.data,
+          status: error?.response?.status,
+          token: storage.getToken() ? 'present' : 'missing'
+        });
+      }
+      throw new Error(error?.response?.data?.message || error?.message || "Không thể upload ảnh lên Cloudinary")
+    }
+  }
+
+  const handleAvatarChange = (file: File | null) => {
+    if (!file) {
+      setAvatarPreview(null)
+      setFormData(prev => ({ ...prev, avatarUrl: "", avatarId: "" }))
+      return
+    }
+    
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error("Vui lòng chọn file ảnh")
+      return
+    }
+    
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Kích thước ảnh không được vượt quá 5MB")
+      return
+    }
+    
+    const reader = new FileReader()
+    reader.onload = async (e) => {
+      const result = e.target?.result as string
+      setAvatarPreview(result)
+      setAvatarUploading(true)
+
+      try {
+        const uploaded = await uploadAvatarToCloudinary(result)
+        setFormData(prev => ({
+          ...prev,
+          avatarUrl: uploaded.url,
+          avatarId: uploaded.publicId,
+        }))
+        toast.success("Upload ảnh đại diện thành công")
+      } catch (error: any) {
+        console.error("Error uploading avatar:", error)
+        toast.error(error.message || "Không thể upload ảnh")
+        setAvatarPreview(null)
+        setFormData(prev => ({ ...prev, avatarUrl: "", avatarId: "" }))
+      } finally {
+        setAvatarUploading(false)
+      }
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const removeAvatar = () => {
+    setAvatarPreview(null)
+    setFormData(prev => ({ ...prev, avatarUrl: "", avatarId: "" }))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -487,6 +608,14 @@ export default function AdminAccountsPage() {
       
       if (formData.ngaySinh) {
         payload.ngaySinh = formData.ngaySinh;
+      }
+      
+      if (formData.avatarUrl) {
+        payload.avatarUrl = formData.avatarUrl;
+      }
+      
+      if (formData.avatarId) {
+        payload.avatarId = formData.avatarId;
       }
       
       if (editingUser) {
@@ -887,7 +1016,7 @@ export default function AdminAccountsPage() {
 
       {/* Create/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingUser ? "Chỉnh sửa tài khoản" : "Thêm tài khoản mới"}
@@ -897,36 +1026,92 @@ export default function AdminAccountsPage() {
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Avatar Upload Section */}
             <div className="space-y-2">
-              <Label htmlFor="hoten">Họ tên *</Label>
-              <Input
-                id="hoten"
-                value={formData.hoten}
-                onChange={(e) => setFormData({ ...formData, hoten: e.target.value })}
-                placeholder="Nhập họ tên (2-100 ký tự)"
-                minLength={2}
-                maxLength={100}
-                required
-              />
-              <p className="text-xs text-muted-foreground">
-                Từ 2 đến 100 ký tự
-              </p>
+              <Label>Ảnh đại diện</Label>
+              <div className="flex items-center gap-4">
+                <div className="relative w-32 h-32 border-2 border-dashed border-border rounded-full overflow-hidden bg-muted flex items-center justify-center">
+                  {avatarPreview ? (
+                    <>
+                      <img 
+                        src={avatarPreview} 
+                        alt="Avatar preview" 
+                        className="w-full h-full object-cover"
+                      />
+                      {!avatarUploading && (
+                        <button
+                          type="button"
+                          onClick={removeAvatar}
+                          className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-destructive/90"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </>
+                  ) : (
+                    <span className="text-xs text-muted-foreground text-center px-2">Chưa có ảnh</span>
+                  )}
+                  {avatarUploading && (
+                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                      <span className="text-xs text-white">Đang tải...</span>
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1">
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] || null
+                      handleAvatarChange(file)
+                    }}
+                    className="cursor-pointer"
+                    disabled={avatarUploading}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Chọn ảnh đại diện (JPG, PNG, tối đa 5MB)
+                  </p>
+                  {formData.avatarUrl && (
+                    <p className="text-xs text-blue-600 mt-1">
+                      Ảnh đã được upload
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="email">Email *</Label>
-              <Input
-                id="email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value.toLowerCase() })}
-                placeholder="example@email.com"
-                required
-              />
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="hoten">Họ tên *</Label>
+                <Input
+                  id="hoten"
+                  value={formData.hoten}
+                  onChange={(e) => setFormData({ ...formData, hoten: e.target.value })}
+                  placeholder="Nhập họ tên (2-100 ký tự)"
+                  minLength={2}
+                  maxLength={100}
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  Từ 2 đến 100 ký tự
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="email">Email *</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value.toLowerCase() })}
+                  placeholder="example@email.com"
+                  required
+                />
+              </div>
             </div>
 
             {!editingUser ? (
-              <>
+              <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="tenDangNhap">Tên đăng nhập *</Label>
                   <Input
@@ -958,9 +1143,9 @@ export default function AdminAccountsPage() {
                     Tối thiểu 6 ký tự
                   </p>
                 </div>
-              </>
+              </div>
             ) : (
-              <>
+              <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="tenDangNhap">Tên đăng nhập</Label>
                   <Input
@@ -990,90 +1175,107 @@ export default function AdminAccountsPage() {
                     Để trống nếu không thay đổi (tối thiểu 6 ký tự)
                   </p>
                 </div>
-              </>
+              </div>
             )}
 
-            <div className="space-y-2">
-              <Label htmlFor="sdt">Số điện thoại {!editingUser && '*'}</Label>
-              <Input
-                id="sdt"
-                type="tel"
-                value={formData.sdt}
-                onChange={(e) => {
-                  // Chỉ cho phép nhập số
-                  const value = e.target.value.replace(/\D/g, '')
-                  setFormData({ ...formData, sdt: value })
-                }}
-                placeholder="0123456789"
-                maxLength={10}
-                required={!editingUser}
-              />
-              <p className="text-xs text-muted-foreground">
-                {!editingUser ? 'Bắt buộc, đúng 10 chữ số' : 'Đúng 10 chữ số (để trống nếu không thay đổi)'}
-              </p>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="space-y-2">
+                <Label htmlFor="sdt">Số điện thoại {!editingUser && '*'}</Label>
+                <Input
+                  id="sdt"
+                  type="tel"
+                  value={formData.sdt}
+                  onChange={(e) => {
+                    // Chỉ cho phép nhập số
+                    const value = e.target.value.replace(/\D/g, '')
+                    setFormData({ ...formData, sdt: value })
+                  }}
+                  placeholder="0123456789"
+                  maxLength={10}
+                  required={!editingUser}
+                />
+                <p className="text-xs text-muted-foreground">
+                  {!editingUser ? 'Bắt buộc, đúng 10 chữ số' : 'Đúng 10 chữ số'}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="gioiTinh">Giới tính</Label>
+                <Select
+                  value={formData.gioiTinh}
+                  onValueChange={(value) => setFormData({ ...formData, gioiTinh: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chọn giới tính" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="male">Nam</SelectItem>
+                    <SelectItem value="female">Nữ</SelectItem>
+                    <SelectItem value="other">Khác</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="ngaySinh">Ngày sinh</Label>
+                <Input
+                  id="ngaySinh"
+                  type="date"
+                  value={formData.ngaySinh}
+                  onChange={(e) => setFormData({ ...formData, ngaySinh: e.target.value })}
+                />
+              </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="gioiTinh">Giới tính</Label>
-              <Select
-                value={formData.gioiTinh}
-                onValueChange={(value) => setFormData({ ...formData, gioiTinh: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn giới tính" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="male">Nam</SelectItem>
-                  <SelectItem value="female">Nữ</SelectItem>
-                  <SelectItem value="other">Khác</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="maVaiTro">Vai trò *</Label>
+                {roles.length === 0 ? (
+                  <div className="space-y-2">
+                    <Select disabled>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Đang tải vai trò..." />
+                      </SelectTrigger>
+                    </Select>
+                    <p className="text-xs text-destructive">
+                      ⚠️ Chưa có vai trò nào. Vui lòng tạo vai trò trước khi thêm tài khoản.
+                    </p>
+                  </div>
+                ) : (
+                  <Select
+                    value={formData.maVaiTro}
+                    onValueChange={(value) => setFormData({ ...formData, maVaiTro: value })}
+                    required
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Chọn vai trò" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {roles.map((role) => (
+                        <SelectItem key={role._id} value={role._id}>
+                          {role.TenVaiTro}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="ngaySinh">Ngày sinh</Label>
-              <Input
-                id="ngaySinh"
-                type="date"
-                value={formData.ngaySinh}
-                onChange={(e) => setFormData({ ...formData, ngaySinh: e.target.value })}
-              />
-            </div>
-
-
-            <div className="space-y-2">
-              <Label htmlFor="maVaiTro">Vai trò *</Label>
-              <Select
-                value={formData.maVaiTro}
-                onValueChange={(value) => setFormData({ ...formData, maVaiTro: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn vai trò" />
-                </SelectTrigger>
-                <SelectContent>
-                  {roles.map((role) => (
-                    <SelectItem key={role._id} value={role._id}>
-                      {role.TenVaiTro}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="trangThai">Trạng thái *</Label>
-              <Select
-                value={formData.trangThai}
-                onValueChange={(value) => setFormData({ ...formData, trangThai: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Chọn trạng thái" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Hoạt động</SelectItem>
-                  <SelectItem value="inactive">Đã khóa</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="space-y-2">
+                <Label htmlFor="trangThai">Trạng thái *</Label>
+                <Select
+                  value={formData.trangThai}
+                  onValueChange={(value) => setFormData({ ...formData, trangThai: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Chọn trạng thái" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Hoạt động</SelectItem>
+                    <SelectItem value="inactive">Đã khóa</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             <DialogFooter>

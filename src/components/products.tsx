@@ -3,14 +3,18 @@
  * Hiển thị danh sách sản phẩm với bố cục giống Shopee
  */
 
-import { memo, useCallback, useState, useEffect } from "react"
-import type { Product, RatingStats } from "@/types/models"
+import { memo, useCallback, useState, useEffect, useMemo } from "react"
+import type { Product, ProductVolumeOption, RatingStats } from "@/types/models"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { useNavigate } from "react-router-dom"
-import { Star, ShoppingCart } from "lucide-react"
-import { getProductImageUrl } from "@/utils/imageUtils"
+import { Star, ShoppingCart, Heart } from "lucide-react"
+import { getCloudinaryProductImageUrl } from "@/utils/imageUtils"
 import { reviewService } from "@/services/reviewService"
+import { storage } from "@/utils/storage"
+import { heartService } from "@/services/heartService"
+import { useAuth } from "@/contexts/AuthContext"
+import { toast } from "sonner"
 
 type PaginationProps = {
   currentPage: number
@@ -26,7 +30,8 @@ type ProductsGridProps = {
   showCategoryBadge?: boolean
   showSoldQuantity?: boolean
   showAddToCartButton?: boolean
-  onAddToCart?: (product: Product) => void
+  showVolumeOptions?: boolean
+  onAddToCart?: (product: Product, selectedVolume?: ProductVolumeOption) => void
   pagination?: PaginationProps
   showPagination?: boolean
 }
@@ -37,10 +42,11 @@ const FALLBACK_IMAGE =
 // ProductCard component - Style Shopee
 type ProductCardProps = {
   product: Product;
-  onAddToCart?: (product: Product) => void;
+  onAddToCart?: (product: Product, selectedVolume?: ProductVolumeOption) => void;
   showCategoryBadge: boolean;
   showSoldQuantity: boolean;
   showAddToCartButton: boolean;
+  showVolumeOptions?: boolean;
   onProductClick: (productId: string) => void;
 }
 
@@ -50,13 +56,38 @@ const ProductCard = memo(({
   showCategoryBadge, 
   showSoldQuantity, 
   showAddToCartButton,
+  showVolumeOptions = true,
   onProductClick
 }: ProductCardProps) => {
+  const { isAuthenticated } = useAuth();
   const [rating, setRating] = useState<RatingStats | null>(null);
   const [loadingRating, setLoadingRating] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [isTogglingHeart, setIsTogglingHeart] = useState(false);
 
   // Get product ID (support both normalized and original)
   const productId = (product as any).id || (product as any)._id || '';
+  
+  // Load heart status from localStorage
+  useEffect(() => {
+    if (productId) {
+      setIsFavorite(storage.isHeart(productId));
+    }
+  }, [productId]);
+
+  // Listen for hearts:updated event
+  useEffect(() => {
+    const handleHeartsUpdate = () => {
+      if (productId) {
+        setIsFavorite(storage.isHeart(productId));
+      }
+    };
+    
+    window.addEventListener('hearts:updated', handleHeartsUpdate);
+    return () => {
+      window.removeEventListener('hearts:updated', handleHeartsUpdate);
+    };
+  }, [productId]);
   
   // Fetch rating stats cho sản phẩm
   useEffect(() => {
@@ -64,10 +95,34 @@ const ProductCard = memo(({
     const fetchRating = async () => {
       try {
         setLoadingRating(true);
+        
+        // Debug: Log API call
+        if (import.meta.env.DEV) {
+          console.log('⭐ [ProductsGrid] Fetching rating stats...', { productId });
+        }
+        
         const stats = await reviewService.getProductRatingStats(productId);
+        
+        // Debug: Log API response
+        if (import.meta.env.DEV) {
+          console.log('⭐ [ProductsGrid] Rating stats received:', { productId, stats });
+        }
+        
         setRating(stats);
-      } catch (error) {
-        // Nếu không có rating, set default
+      } catch (error: any) {
+        // Handle 401/403/404 gracefully - rating stats might not require auth or might not exist
+        const status = error?.response?.status || error?.status;
+        if (status === 401 || status === 403 || status === 404) {
+          // Silently set default stats for unauthorized/not found
+          if (import.meta.env.DEV) {
+            console.debug('⭐ [ProductsGrid] Rating stats not available (401/403/404), using defaults', { productId, status });
+          }
+        } else if (import.meta.env.DEV) {
+          // Only log non-auth errors in dev mode
+          console.warn('⭐ [ProductsGrid] Error fetching rating stats:', { productId, error });
+        }
+        
+        // Set default rating stats
         setRating({
           avgRating: 0,
           totalReviews: 0,
@@ -84,129 +139,231 @@ const ProductCard = memo(({
     fetchRating();
   }, [productId]);
 
-  // Support both normalized and original field names
+  // Support both normalized và original field names
   const productAny = product as any;
+  const volumeOptions = useMemo<ProductVolumeOption[]>(() => {
+    const rawOptions = productAny.DungTichOptions || productAny.dungTichOptions;
+    let normalized: ProductVolumeOption[] = Array.isArray(rawOptions) ? rawOptions.filter(Boolean) : [];
+
+    normalized = normalized
+      .map((option: any) => {
+        const value = Number(option?.value ?? option?.Value);
+        if (!Number.isFinite(value) || value <= 0) return null;
+        return {
+          value,
+          label: option?.label || option?.Label || `${value} ml`,
+          priceDiff: Number(option?.priceDiff ?? option?.PriceDiff) || 0,
+          stockDiff: Number(option?.stockDiff ?? option?.StockDiff) || 0,
+          sku: option?.sku || option?.SKU,
+          isDefault: Boolean(option?.isDefault ?? option?.IsDefault),
+        };
+      })
+      .filter(Boolean) as ProductVolumeOption[];
+
+    if (!normalized.length) {
+      const fallback = Number(productAny.DungTich ?? productAny.dungTich ?? 0);
+      if (fallback > 0) {
+        normalized = [{ value: fallback, label: `${fallback} ml`, isDefault: true }];
+      } else {
+        normalized = [{ value: 100, label: '100 ml', isDefault: true }];
+      }
+    }
+
+    if (!normalized.some(option => option.isDefault) && normalized.length) {
+      normalized[0].isDefault = true;
+    }
+
+    return normalized;
+  }, [productId, productAny.DungTichOptions, productAny.DungTich, productAny.dungTich]);
+
+  const [selectedVolume, setSelectedVolume] = useState<ProductVolumeOption>(
+    volumeOptions.find(opt => opt.isDefault) || volumeOptions[0]
+  );
+
+  useEffect(() => {
+    setSelectedVolume(volumeOptions.find(opt => opt.isDefault) || volumeOptions[0]);
+  }, [productId, volumeOptions]);
+
   const isSoldOut = Number(productAny.soLuong ?? productAny.SoLuong ?? 0) <= 0;
   const discount = Number(productAny.giamGia ?? productAny.KhuyenMai ?? 0);
-  const price = Number(productAny.gia ?? productAny.Gia ?? 0);
-  const discountedPrice = discount > 0 ? Math.round(price * (1 - discount / 100)) : price;
+  const basePrice = Number(productAny.gia ?? productAny.Gia ?? 0);
+  const variantBasePrice = basePrice + (selectedVolume?.priceDiff || 0);
+  const discountedPrice = discount > 0 ? Math.round(variantBasePrice * (1 - discount / 100)) : variantBasePrice;
   const soldCount = Number(productAny.daBan ?? productAny.DaBan ?? 0);
   const avgRating = rating?.avgRating || 0;
   const reviewCount = rating?.totalReviews || 0;
-
-  // Render stars
-  const renderStars = (rating: number) => {
-    const fullStars = Math.floor(rating);
-    const hasHalfStar = rating % 1 >= 0.5;
-    
-    return (
-      <div className="flex items-center gap-0.5">
-        {[1, 2, 3, 4, 5].map((star) => (
-          <Star
-            key={star}
-            className={`w-3.5 h-3.5 ${
-              star <= fullStars
-                ? 'text-primary fill-primary'
-                : star === fullStars + 1 && hasHalfStar
-                ? 'text-primary fill-primary opacity-50'
-                : 'text-muted fill-muted'
-            }`}
-          />
-        ))}
-      </div>
-    );
-  };
+  const formattedVolume = selectedVolume?.label || (selectedVolume ? `${selectedVolume.value} ml` : null);
 
   return (
-    <Card
-      className="group relative overflow-hidden hover:shadow-lg transition-all duration-200 border border-border bg-card cursor-pointer rounded-sm flex flex-col h-full"
+    <div
+      className="w-full bg-white dark:bg-card rounded-3xl shadow-lg p-3 flex flex-col h-full group cursor-pointer hover:shadow-xl transition-all duration-200"
       onClick={() => onProductClick(productId)}
     >
-      <CardContent className="p-0 flex flex-col h-full">
-        {/* Hình ảnh sản phẩm - Style Shopee */}
-        <div className="relative aspect-square overflow-hidden bg-muted">
+      {/* Image Section */}
+      <div className="relative bg-gray-100 dark:bg-muted rounded-2xl mb-3 overflow-hidden aspect-square">
+        {/* Favorite button */}
+        <button
+          onClick={async (e) => {
+            e.stopPropagation();
+            if (isTogglingHeart) return;
+            
+            setIsTogglingHeart(true);
+            const newFavoriteState = !isFavorite;
+            
+            try {
+              if (newFavoriteState) {
+                // Thêm vào yêu thích
+                storage.addHeart(productId);
+                
+                // Nếu đã đăng nhập, sync với database
+                if (isAuthenticated) {
+                  try {
+                    await heartService.addHeart(productId);
+                  } catch (error: any) {
+                    // Nếu lỗi, vẫn giữ trong localStorage
+                    console.error('Error adding heart to database:', error);
+                  }
+                }
+              } else {
+                // Xóa khỏi yêu thích
+                storage.removeHeart(productId);
+                
+                // Nếu đã đăng nhập, sync với database
+                if (isAuthenticated) {
+                  try {
+                    await heartService.removeHeart(productId);
+                  } catch (error: any) {
+                    // Nếu lỗi, vẫn xóa khỏi localStorage
+                    console.error('Error removing heart from database:', error);
+                  }
+                }
+              }
+              
+              setIsFavorite(newFavoriteState);
+            } catch (error) {
+              console.error('Error toggling heart:', error);
+            } finally {
+              setIsTogglingHeart(false);
+            }
+          }}
+          disabled={isTogglingHeart}
+          className="absolute top-3 right-3 w-9 h-9 bg-white dark:bg-card rounded-full flex items-center justify-center shadow-md hover:scale-110 transition-transform z-10 disabled:opacity-50"
+        >
+          <Heart
+            className={`w-5 h-5 ${isFavorite ? 'fill-red-500 text-red-500' : 'text-gray-400 dark:text-muted-foreground'}`}
+          />
+        </button>
+
+        {/* Badge giảm giá - góc trên bên trái */}
+        {discount > 0 && (
+          <div className="absolute top-3 left-3 bg-destructive text-destructive-foreground text-xs font-semibold px-2 py-1 rounded-full z-10">
+            -{discount}%
+          </div>
+        )}
+
           <img
-            src={getProductImageUrl(productAny.hinhAnhChinh || productAny.hinhAnh || productAny.HinhAnhChinh || '', true) || FALLBACK_IMAGE}
+            src={(() => {
+              const imagePath = productAny.hinhAnhChinh || productAny.hinhAnh || productAny.HinhAnhChinh || '';
+              // Nếu là URL đầy đủ (http/https), sử dụng trực tiếp
+              if (imagePath && (imagePath.startsWith('http://') || imagePath.startsWith('https://'))) {
+                return imagePath;
+              }
+              // Sử dụng getCloudinaryProductImageUrl để xử lý Cloudinary path (bao gồm luxury_perfume_images/)
+              return getCloudinaryProductImageUrl(imagePath) || FALLBACK_IMAGE;
+            })()}
             alt={productAny.tenSP || productAny.TenSanPham || 'Sản phẩm'}
             className="w-full h-full object-cover"
             onError={(event) => {
               event.currentTarget.src = FALLBACK_IMAGE
             }}
           />
-          {/* Badge giảm giá - góc trên bên trái */}
-          {discount > 0 && (
-            <div className="absolute top-0 left-0 bg-destructive text-destructive-foreground text-xs font-semibold px-2 py-1 rounded-br-sm">
-              -{discount}%
-            </div>
-          )}
+
           {/* Overlay khi hết hàng */}
           {isSoldOut && (
-            <div className="absolute inset-0 bg-foreground/50 flex items-center justify-center">
-              <span className="bg-foreground text-background px-3 py-1 rounded text-sm font-medium">
+          <div className="absolute inset-0 bg-foreground/50 rounded-2xl flex items-center justify-center">
+            <span className="bg-foreground text-background px-4 py-2 rounded-lg text-sm font-medium">
                 Hết hàng
               </span>
             </div>
           )}
         </div>
 
-        {/* Thông tin sản phẩm - Style Shopee */}
-        <div className="p-2.5 flex flex-col flex-1">
-          {/* Tên sản phẩm - 2 dòng, truncate */}
-          <h3 className="text-sm text-card-foreground line-clamp-2 min-h-[2.5rem] mb-1.5 leading-tight">
+      {/* Product Info */}
+      <div className="space-y-2 flex flex-col flex-1">
+        {/* Title and Rating */}
+        <div className="flex items-start justify-between gap-2">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-foreground flex-1 leading-tight">
             {productAny.tenSP || productAny.TenSanPham || 'Sản phẩm'}
-          </h3>
-
-          {/* Rating và số lượng đã bán */}
-          <div className="flex items-center gap-2 mb-2">
+          </h2>
             {avgRating > 0 && (
-              <>
-                {renderStars(avgRating)}
-                <span className="text-xs text-muted-foreground">({reviewCount})</span>
-              </>
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <Star className="w-4 h-4 fill-teal-500 text-teal-500" />
+              <span className="text-sm font-semibold text-gray-700 dark:text-foreground">
+                {avgRating.toFixed(1)}
+              </span>
+            </div>
             )}
-            {avgRating === 0 && reviewCount === 0 && (
-              <span className="text-xs text-muted-foreground/70">Chưa có đánh giá</span>
-            )}
-          </div>
+        </div>
 
-          {/* Số lượng đã bán */}
-          {showSoldQuantity && soldCount > 0 && (
-            <div className="text-xs text-muted-foreground mb-2">
-              Đã bán {soldCount.toLocaleString('vi-VN')}
+        {/* Description */}
+        <p className="text-gray-500 dark:text-muted-foreground text-xs leading-snug line-clamp-2">
+          {productAny.moTa || productAny.MoTa || 'Chưa có mô tả sản phẩm...'}
+        </p>
+        {showVolumeOptions && formattedVolume && (
+          <p className="text-[11px] font-semibold text-teal-600 dark:text-teal-400">
+            Dung tích: {formattedVolume}
+          </p>
+        )}
+
+        {/* Volume Selection */}
+        {showVolumeOptions && volumeOptions.length > 0 && (
+          <div className="flex gap-1.5 flex-wrap">
+            {volumeOptions.map((option) => (
+              <button
+                key={`${productId}-volume-${option.value}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedVolume(option);
+                }}
+                className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
+                  Number(selectedVolume?.value) === Number(option.value)
+                    ? 'bg-teal-600 text-white shadow-md'
+                    : 'bg-white dark:bg-card text-gray-700 dark:text-foreground border-2 border-gray-200 dark:border-border hover:border-teal-300'
+                }`}
+              >
+                {option.label || `${option.value} ml`}
+              </button>
+            ))}
             </div>
           )}
 
-          {/* Giá sản phẩm */}
-          <div className="mb-2">
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-destructive font-bold text-base">
+        {/* Price and Add to Cart */}
+        <div className="flex items-center justify-between gap-2 pt-1 mt-auto">
+          <div className="text-xl font-bold text-gray-900 dark:text-foreground">
               {discountedPrice.toLocaleString("vi-VN")}₫
-              </span>
             {discount > 0 && (
-                <span className="text-muted-foreground/70 text-xs line-through">
-                {price.toLocaleString("vi-VN")}₫
+              <span className="text-xs text-muted-foreground line-through ml-1.5">
+                {variantBasePrice.toLocaleString("vi-VN")}₫
                 </span>
             )}
             </div>
-          </div>
-
-          {/* Button thêm giỏ hàng - Style Shopee */}
           {showAddToCartButton && (
-            <Button
-              className="mt-auto w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium py-2 text-sm rounded-sm shadow-sm transition-colors"
-              disabled={isSoldOut || !onAddToCart}
+            <button
               onClick={(e) => {
-                e.stopPropagation()
-                onAddToCart?.(product)
+                e.stopPropagation();
+                if (!isSoldOut && onAddToCart) {
+                  onAddToCart(product, selectedVolume);
+                }
               }}
+              disabled={isSoldOut || !onAddToCart}
+              className="px-3 py-2 bg-white dark:bg-card text-teal-600 dark:text-teal-400 border-2 border-teal-600 dark:border-teal-500 rounded-full hover:bg-teal-600 hover:text-white dark:hover:bg-teal-600 dark:hover:text-white transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:text-teal-600 flex items-center justify-center aspect-square"
             >
-              <ShoppingCart className="w-4 h-4 mr-1.5" />
-              {isSoldOut ? "Hết hàng" : "Thêm vào giỏ"}
-            </Button>
+              <ShoppingCart className="w-4 h-4" />
+            </button>
           )}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 });
 
@@ -216,10 +373,11 @@ function ProductsGridComponent({
   products,
   loading,
   emptyMessage = "Không có sản phẩm nào",
-  className = "grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6",
+  className = "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 2xl:grid-cols-6 gap-3 lg:gap-4",
   showCategoryBadge = true,
   showSoldQuantity = true,
   showAddToCartButton = true,
+  showVolumeOptions = true,
   onAddToCart,
   pagination,
   showPagination = false,
@@ -351,6 +509,7 @@ function ProductsGridComponent({
             showCategoryBadge={showCategoryBadge}
             showSoldQuantity={showSoldQuantity}
             showAddToCartButton={showAddToCartButton}
+            showVolumeOptions={showVolumeOptions}
             onProductClick={handleProductClick}
           />
           );

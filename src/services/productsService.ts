@@ -1,6 +1,48 @@
 import axiosInstance from "./axios";
 import { apiCache } from "@/utils/apiCache";
-import type { ApiItemResponse, ApiListResponse, Pagination, Product } from "@/types/models";
+import type { ApiItemResponse, ApiListResponse, Pagination, Product, ProductVolumeOption } from "@/types/models";
+
+const normalizeVolumeOptions = (options?: ProductVolumeOption[], fallbackVolume?: number | null): ProductVolumeOption[] => {
+  let normalized: ProductVolumeOption[] = Array.isArray(options) ? options.filter(Boolean) : [];
+
+  if (!normalized.length && fallbackVolume) {
+    normalized = [{
+      value: fallbackVolume,
+      label: `${fallbackVolume} ml`,
+      isDefault: true,
+    }];
+  }
+
+  normalized = normalized.map((option, index) => {
+    const value = Number(option.value);
+    if (!Number.isFinite(value) || value < 0) return null;
+
+    return {
+      value,
+      label: option.label || `${value} ml`,
+      priceDiff: option.priceDiff || 0,
+      stockDiff: option.stockDiff || 0,
+      sku: option.sku,
+      isDefault: option.isDefault ?? index === 0,
+    };
+  }).filter(Boolean) as ProductVolumeOption[];
+
+  if (!normalized.some(option => option.isDefault) && normalized.length) {
+    normalized[0].isDefault = true;
+  }
+
+  return normalized;
+};
+
+const normalizeProduct = (product: Product): Product => {
+  const options = normalizeVolumeOptions(product.DungTichOptions, product.DungTich);
+  const derivedVolume = options.find(opt => opt.isDefault)?.value;
+  return {
+    ...product,
+    DungTichOptions: options,
+    DungTich: product.DungTich ?? derivedVolume,
+  };
+};
 
 export const productsService = {
   getAllProducts: async (params?: { page?: number; limit?: number }): Promise<{ products: Product[]; pagination?: Pagination }> => {
@@ -12,8 +54,16 @@ export const productsService = {
         return cached;
       }
 
+      if (import.meta.env.DEV) {
+        console.log('[productsService] Fetching products with params:', params);
+      }
+
       const response = await axiosInstance.get<ApiListResponse<Product>>("/api/products", { params });
       const responseData = response.data as any;
+
+      if (import.meta.env.DEV) {
+        console.log('[productsService] Raw response for getAllProducts:', responseData);
+      }
       
       let products: Product[] = [];
       let pagination: Pagination | undefined = undefined;
@@ -39,7 +89,7 @@ export const productsService = {
       }
       
       const result = {
-        products: products ?? [],
+        products: (products ?? []).map(normalizeProduct),
         pagination: pagination
       };
 
@@ -62,8 +112,16 @@ export const productsService = {
         return cached;
       }
 
+      if (import.meta.env.DEV) {
+        console.log(`[productsService] Fetching product detail: ${id}`);
+      }
+
       const response = await axiosInstance.get<ApiItemResponse<Product>>(`/api/products/${id}`);
       const responseData = response.data as any;
+
+      if (import.meta.env.DEV) {
+        console.log('[productsService] Raw response for getProductById:', responseData);
+      }
       
       let product: Product | null = null;
       
@@ -81,10 +139,12 @@ export const productsService = {
       }
 
       if (product) {
-        apiCache.set(cacheKey, product, 10 * 60 * 1000);
+        const normalizedProduct = normalizeProduct(product);
+        apiCache.set(cacheKey, normalizedProduct, 10 * 60 * 1000);
+        return normalizedProduct;
       }
 
-      return product;
+      return null;
     } catch (error: any) {
       if (import.meta.env.DEV) {
         console.error(`Error fetching product ${id}:`, error);

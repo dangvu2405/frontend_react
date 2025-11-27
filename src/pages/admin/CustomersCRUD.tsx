@@ -695,11 +695,13 @@ export default function AdminCustomersPage() {
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Ngày đăng ký</p>
                 <p className="text-sm">
-                  {new Date(selectedCustomer.createdAt).toLocaleDateString("vi-VN", {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                  })}
+                  {selectedCustomer?.createdAt
+                    ? new Date(selectedCustomer.createdAt).toLocaleDateString("vi-VN", {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      })
+                    : "—"}
                 </p>
               </div>
             </div>

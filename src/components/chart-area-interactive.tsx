@@ -20,8 +20,8 @@ import { Skeleton } from "@/components/ui/skeleton"
 
 type TopProductChartItem = {
   name: string
-  sold: number
-  revenue?: number
+  sold?: number | null
+  revenue?: number | null
 }
 
 type ChartAreaInteractiveProps = {
@@ -59,8 +59,8 @@ export function ChartAreaInteractive({
 
     return data.map((item) => ({
       name: item.name,
-      sold: item.sold,
-      revenue: item.revenue ?? 0,
+      sold: Number(item.sold ?? 0),
+      revenue: Number(item.revenue ?? 0),
     }))
   }, [data])
 

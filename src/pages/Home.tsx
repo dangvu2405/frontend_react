@@ -4,9 +4,9 @@ import { Link } from 'react-router-dom';
 import { Sparkles, ShieldCheck, Truck, HeadphonesIcon } from 'lucide-react';
 import { lazy, Suspense, useState, useEffect, useCallback } from 'react';
 import { productsService } from '@/services/productsService';
-import type { Product } from '@/types/models';
+import type { Product, ProductVolumeOption } from '@/types/models';
 import { toast } from 'sonner';
-import { storage, type CartItem } from '@/utils/storage';
+import { storage, type CartItemInput } from '@/utils/storage';
 import { getCloudinaryProductImageUrl, getVideoUrl } from '@/utils/imageUtils';
 
 const ProductsGrid = lazy(async () => {
@@ -43,24 +43,26 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [canPlayHero, setCanPlayHero] = useState(false);
 
-  const handleAddToCart = useCallback((product: Product | any) => {
-    // Support both normalized (camelCase) and original (PascalCase) formats
+  const handleAddToCart = useCallback((product: Product | any, selectedVolume?: ProductVolumeOption) => {
     const productAny = product as any;
-    const productId = productAny.id || productAny._id || '';
-    const productName = productAny.tenSP || productAny.TenSanPham || 'Sản phẩm';
-    const productPrice = productAny.gia || productAny.Gia || 0;
-    const productDiscount = productAny.giamGia || productAny.KhuyenMai || 0;
-    const productImage = productAny.hinhAnhChinh || productAny.hinhAnh || productAny.HinhAnhChinh || '';
+    const productId = productAny._id || productAny.id || '';
+    if (!productId) return;
+    const productName = productAny.TenSanPham || productAny.tenSP || 'Sản phẩm';
+    const productPrice = Number(productAny.Gia ?? productAny.gia ?? 0);
+    const productDiscount = Number(productAny.KhuyenMai ?? productAny.giamGia ?? 0);
+    const productImage = productAny.HinhAnhChinh || productAny.hinhAnh || '';
     const productCategory = productAny.loaiSP || (typeof productAny.MaLoaiSanPham === 'object' ? productAny.MaLoaiSanPham?.TenLoaiSanPham : '') || 'Nước hoa';
+    const options = Array.isArray(productAny.DungTichOptions) ? productAny.DungTichOptions : undefined;
 
-    const item: CartItem = {
-      id: productId,
+    const item: CartItemInput = {
+      productId: String(productId),
       tenSP: productName,
-      gia: productPrice,
+      basePrice: productPrice,
       giamGia: productDiscount,
       hinhAnh: productImage,
       loaiSP: productCategory,
-      quantity: 1,
+      selectedDungTich: selectedVolume,
+      volumeOptions: options,
     };
     storage.addCartItem(item, 1);
     window.dispatchEvent(new CustomEvent('cart:updated'));
@@ -94,9 +96,25 @@ export default function HomePage() {
             KhuyenMai: discountPercent,
             SoLuong: Number(p.SoLuong || 0),
             DaBan: Number(p.DaBan || 0),
-            HinhAnhChinh: getCloudinaryProductImageUrl(p.HinhAnhChinh),
+            DungTich: p.DungTich,
+            DungTichOptions: Array.isArray(p.DungTichOptions) ? p.DungTichOptions : (p.DungTich ? [{ value: p.DungTich, label: `${p.DungTich} ml`, isDefault: true }] : []),
+            HinhAnhChinh: (() => {
+              const img = p.HinhAnhChinh || '';
+              // Nếu là URL đầy đủ, sử dụng trực tiếp
+              if (img && (img.startsWith('http://') || img.startsWith('https://'))) {
+                return img;
+              }
+              // Nếu là path Cloudinary, sử dụng getCloudinaryProductImageUrl
+              return getCloudinaryProductImageUrl(img);
+            })(),
             HinhAnhPhu: Array.isArray(p.HinhAnhPhu) 
-              ? p.HinhAnhPhu.map((img: string) => getCloudinaryProductImageUrl(img))
+              ? p.HinhAnhPhu.map((img: string) => {
+                  // Nếu là URL đầy đủ, sử dụng trực tiếp
+                  if (img && (img.startsWith('http://') || img.startsWith('https://'))) {
+                    return img;
+                  }
+                  return getCloudinaryProductImageUrl(img);
+                })
               : [],
             MaLoaiSanPham: p.MaLoaiSanPham || (typeof p.MaLoaiSanPham === 'object' ? p.MaLoaiSanPham : null),
             id: p._id || p.id || `product-${index}`,
@@ -106,11 +124,30 @@ export default function HomePage() {
             giamGia: discountPercent,
             soLuong: Number(p.SoLuong || 0),
             daBan: Number(p.DaBan || 0),
-            hinhAnhChinh: getCloudinaryProductImageUrl(p.HinhAnhChinh),
+            dungTich: p.DungTich,
+            dungTichOptions: Array.isArray(p.DungTichOptions) ? p.DungTichOptions : (p.DungTich ? [{ value: p.DungTich, label: `${p.DungTich} ml`, isDefault: true }] : []),
+            hinhAnhChinh: (() => {
+              const img = p.HinhAnhChinh || '';
+              if (img && (img.startsWith('http://') || img.startsWith('https://'))) {
+                return img;
+              }
+              return getCloudinaryProductImageUrl(img);
+            })(),
             hinhAnhPhu: Array.isArray(p.HinhAnhPhu) 
-              ? p.HinhAnhPhu.map((img: string) => getCloudinaryProductImageUrl(img))
+              ? p.HinhAnhPhu.map((img: string) => {
+                  if (img && (img.startsWith('http://') || img.startsWith('https://'))) {
+                    return img;
+                  }
+                  return getCloudinaryProductImageUrl(img);
+                })
               : [],
-            hinhAnh: getCloudinaryProductImageUrl(p.HinhAnhChinh),
+            hinhAnh: (() => {
+              const img = p.HinhAnhChinh || '';
+              if (img && (img.startsWith('http://') || img.startsWith('https://'))) {
+                return img;
+              }
+              return getCloudinaryProductImageUrl(img);
+            })(),
             loaiSP: typeof p.MaLoaiSanPham === 'object' ? p.MaLoaiSanPham?.TenLoaiSanPham : 'Nước hoa',
           };
           
@@ -244,6 +281,7 @@ export default function HomePage() {
               className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6"
               showSoldQuantity={true}
               showAddToCartButton={true}
+              showVolumeOptions={true}
               onAddToCart={handleAddToCart}
             />
           </Suspense>

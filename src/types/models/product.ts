@@ -6,8 +6,6 @@
 import type { BaseDocument, ObjectId } from './common';
 import type { User } from './user';
 
-import type { ObjectId } from './common';
-
 /**
  * Category - Danh mục sản phẩm
  * ⚠️ Backend LoaiSanPham schema không có timestamps, nên không extend BaseDocument
@@ -21,11 +19,22 @@ export interface Category {
 /**
  * Product - Sản phẩm trong hệ thống
  */
+export interface ProductVolumeOption {
+  value: number;
+  label: string;
+  priceDiff?: number;
+  stockDiff?: number;
+  sku?: string;
+  isDefault?: boolean;
+}
+
 export interface Product extends BaseDocument {
   TenSanPham: string;              // Tên sản phẩm
   MaLoaiSanPham: Category | ObjectId; // ID danh mục
   Gia: number;                      // Giá gốc
   KhuyenMai: number;                // Phần trăm giảm giá (0-100)
+  DungTich?: number;                // Dung tích mặc định (ml) - giữ để tương thích
+  DungTichOptions?: ProductVolumeOption[]; // Danh sách dung tích
   MoTa: string;                     // Mô tả sản phẩm
   SoLuong: number;                  // Số lượng tồn kho
   DaBan: number;                    // Số lượng đã bán
@@ -34,6 +43,21 @@ export interface Product extends BaseDocument {
   HinhAnhPhu: string[];             // Danh sách URL ảnh phụ
   GiaSauKhuyenMai?: number;         // Giá sau khi giảm (tính toán)
   ConHang?: boolean;                // Còn hàng hay không (tính toán)
+  // Legacy/compatibility fields from older API responses
+  id?: ObjectId;
+  MaSanPham?: string | ObjectId;
+  tenSP?: string;
+  gia?: number;
+  giamGia?: number;
+  loaiSP?: string;
+  hinhAnh?: string;
+  hinhAnhChinh?: string;
+  hinhAnhPhu?: string[];
+  dungTich?: number;
+  dungTichOptions?: ProductVolumeOption[];
+  soLuong?: number;
+  moTa?: string;
+  LoSanXuat?: string;
 }
 
 /**

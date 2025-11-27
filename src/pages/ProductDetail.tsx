@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MainLayout } from '@/layouts/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { productsService } from '@/services/productsService';
-import type { Product } from '@/types/models';
-import { storage, type CartItem } from '@/utils/storage';
+import type { Product, ProductVolumeOption } from '@/types/models';
+import { storage, type CartItemInput } from '@/utils/storage';
 import { reviewService, type RatingStats } from '@/services/reviewService';
 import { toast } from 'sonner';
 import { 
@@ -21,12 +21,15 @@ import {
 import { ProductsGrid } from '@/components/products';
 import { ProductReviews } from '@/components/ProductReviews';
 import { getCloudinaryProductImageUrl } from '@/utils/imageUtils';
+import { heartService } from '@/services/heartService';
+import { useAuth } from '@/contexts/AuthContext';
 
 const FALLBACK_IMAGE = 'https://placehold.co/600x600/E5E5EA/000?text=No+Image';
 
 export default function ProductDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   
   const [product, setProduct] = useState<Product | null>(null);
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
@@ -34,6 +37,66 @@ export default function ProductDetailPage() {
   const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState(0);
   const [ratingStats, setRatingStats] = useState<RatingStats | null>(null);
+  const [selectedVolume, setSelectedVolume] = useState<ProductVolumeOption | undefined>(undefined);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [isTogglingHeart, setIsTogglingHeart] = useState(false);
+
+  const volumeOptions = useMemo<ProductVolumeOption[]>(() => {
+    if (!product) return [];
+    const rawOptions = product.DungTichOptions;
+    let normalized = Array.isArray(rawOptions) ? rawOptions.filter(Boolean) : [];
+    if (!normalized.length) {
+      const fallback = product.DungTich;
+      if (fallback && Number(fallback) > 0) {
+        normalized = [{ value: Number(fallback), label: `${fallback} ml`, isDefault: true }];
+      }
+    }
+    if (!normalized.length) return [];
+    if (!normalized.some(opt => opt.isDefault)) {
+      normalized[0].isDefault = true;
+    }
+    return normalized;
+  }, [product]);
+
+  useEffect(() => {
+    if (!volumeOptions.length) {
+      setSelectedVolume(undefined);
+      return;
+    }
+    setSelectedVolume(volumeOptions.find(opt => opt.isDefault) || volumeOptions[0]);
+  }, [volumeOptions]);
+
+  const productId = useMemo(() => {
+    if (product?._id) return String(product._id);
+    return id || '';
+  }, [product?._id, id]);
+
+  useEffect(() => {
+    if (!productId) {
+      setIsFavorite(false);
+      return;
+    }
+    setIsFavorite(storage.isHeart(productId));
+  }, [productId]);
+
+  useEffect(() => {
+    const handleHeartsUpdate = () => {
+      if (productId) {
+        setIsFavorite(storage.isHeart(productId));
+      }
+    };
+
+    window.addEventListener('hearts:updated', handleHeartsUpdate);
+    return () => window.removeEventListener('hearts:updated', handleHeartsUpdate);
+  }, [productId]);
+
+  const shareUrl = useMemo(() => {
+    if (!productId) return typeof window !== 'undefined' ? window.location.href : '';
+    if (typeof window !== 'undefined') {
+      return `${window.location.origin}/products/${productId}`;
+    }
+    return `/products/${productId}`;
+  }, [productId]);
 
   // Fetch product detail
   useEffect(() => {
@@ -152,45 +215,126 @@ export default function ProductDetailPage() {
       ? product.MaLoaiSanPham.TenLoaiSanPham
       : 'Nước hoa';
 
-    const item: CartItem = {
-      id: product._id,
+    const item: CartItemInput = {
+      productId: String(product._id),
       tenSP: product.TenSanPham,
-      gia: product.Gia,
+      basePrice: product.Gia,
       giamGia: product.KhuyenMai || 0,
       hinhAnh: product.HinhAnhChinh,
       loaiSP: categoryName,
-      quantity: quantity,
+      selectedDungTich: selectedVolume || volumeOptions[0],
+      volumeOptions: volumeOptions.length ? volumeOptions : undefined,
     };
 
     storage.addCartItem(item, quantity);
     window.dispatchEvent(new CustomEvent('cart:updated'));
     toast.success(`Đã thêm ${quantity} sản phẩm vào giỏ hàng`);
-  }, [product, quantity]);
+  }, [product, quantity, selectedVolume, volumeOptions]);
 
   const handleBuyNow = () => {
     handleAddToCart();
     navigate('/cart');
   };
 
-  const handleAddToCartRelated = useCallback((relatedProduct: Product) => {
+  const handleAddToCartRelated = useCallback((relatedProduct: Product, selectedVolumeOption?: ProductVolumeOption) => {
     // Lấy category name
     const categoryName = typeof relatedProduct.MaLoaiSanPham === 'object' && relatedProduct.MaLoaiSanPham
       ? relatedProduct.MaLoaiSanPham.TenLoaiSanPham
       : 'Nước hoa';
 
-    const item: CartItem = {
-      id: relatedProduct._id,
+    const options = relatedProduct.DungTichOptions && relatedProduct.DungTichOptions.length
+      ? relatedProduct.DungTichOptions
+      : (relatedProduct.DungTich ? [{ value: relatedProduct.DungTich, label: `${relatedProduct.DungTich} ml`, isDefault: true }] : []);
+    const defaultSelection = selectedVolumeOption || options.find(opt => opt.isDefault) || options[0];
+
+    const item: CartItemInput = {
+      productId: String(relatedProduct._id),
       tenSP: relatedProduct.TenSanPham,
-      gia: relatedProduct.Gia,
+      basePrice: relatedProduct.Gia,
       giamGia: relatedProduct.KhuyenMai || 0,
       hinhAnh: relatedProduct.HinhAnhChinh,
       loaiSP: categoryName,
-      quantity: 1,
+      selectedDungTich: defaultSelection,
+      volumeOptions: options.length ? options : undefined,
     };
     storage.addCartItem(item, 1);
     window.dispatchEvent(new CustomEvent('cart:updated'));
     toast.success('Đã thêm vào giỏ hàng');
   }, []);
+
+  const handleToggleHeart = useCallback(async () => {
+    if (!productId || !product || isTogglingHeart) return;
+
+    const nextState = !isFavorite;
+    setIsTogglingHeart(true);
+
+    try {
+      if (nextState) {
+        storage.addHeart(productId);
+        if (isAuthenticated) {
+          try {
+            await heartService.addHeart(productId);
+          } catch (error) {
+            if (import.meta.env.DEV) {
+              console.error('Không thể đồng bộ yêu thích lên server:', error);
+            }
+          }
+        }
+        toast.success('Đã thêm vào danh sách yêu thích');
+      } else {
+        storage.removeHeart(productId);
+        if (isAuthenticated) {
+          try {
+            await heartService.removeHeart(productId);
+          } catch (error) {
+            if (import.meta.env.DEV) {
+              console.error('Không thể xoá yêu thích trên server:', error);
+            }
+          }
+        }
+        toast.success('Đã bỏ khỏi danh sách yêu thích');
+      }
+      setIsFavorite(nextState);
+    } catch (error) {
+      toast.error('Không thể cập nhật danh sách yêu thích');
+    } finally {
+      setIsTogglingHeart(false);
+    }
+  }, [isAuthenticated, isFavorite, isTogglingHeart, product, productId]);
+
+  const handleShareProduct = useCallback(async () => {
+    if (!product || !productId) return;
+
+    const url = shareUrl || (typeof window !== 'undefined' ? window.location.href : '');
+    const shareData = {
+      title: product.TenSanPham,
+      text: product.MoTa || 'Xem sản phẩm này trên cửa hàng của chúng tôi',
+      url,
+    };
+
+    try {
+      if (typeof navigator !== 'undefined' && navigator.share) {
+        await navigator.share(shareData);
+        toast.success('Đã mở hộp thoại chia sẻ');
+        return;
+      }
+
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        toast.success('Đã sao chép link sản phẩm');
+        return;
+      }
+
+      if (typeof window !== 'undefined') {
+        window.prompt('Sao chép đường dẫn sản phẩm:', url);
+        toast.success('Link sản phẩm đã sẵn sàng để sao chép');
+      }
+    } catch (error: any) {
+      if (error?.name !== 'AbortError') {
+        toast.error('Không thể chia sẻ sản phẩm');
+      }
+    }
+  }, [product, productId, shareUrl]);
 
   if (loading) {
     return (
@@ -212,9 +356,11 @@ export default function ProductDetailPage() {
   // ✅ Tính toán từ data đúng format
   const isSoldOut = product.SoLuong <= 0;
   const discount = product.KhuyenMai || 0;
-  const price = product.Gia;
-  const discountedPrice = discount > 0 ? Math.round(price * (1 - discount / 100)) : price;
-  const savings = price - discountedPrice;
+  const basePrice = product.Gia;
+  const variantBasePrice = basePrice + (selectedVolume?.priceDiff || 0);
+  const discountedPrice = discount > 0 ? Math.round(variantBasePrice * (1 - discount / 100)) : variantBasePrice;
+  const savings = Math.max(0, variantBasePrice - discountedPrice);
+  const volumeText = selectedVolume?.label || (product.DungTich ? `${Number.isInteger(product.DungTich) ? product.DungTich : parseFloat(product.DungTich.toFixed(2).replace(/\.?0+$/, ''))} ml` : null);
   
   // Lấy category name
   const categoryName = typeof product.MaLoaiSanPham === 'object' && product.MaLoaiSanPham
@@ -357,7 +503,36 @@ export default function ProductDetailPage() {
                 <span className="text-muted-foreground">
                   Đã bán: <span className="font-semibold text-foreground">{product.DaBan}</span>
                 </span>
+                {volumeText && (
+                  <>
+                    <div className="h-4 w-px bg-border" />
+                    <span className="text-muted-foreground">
+                      Dung tích: <span className="font-semibold text-foreground">{volumeText}</span>
+                    </span>
+                  </>
+                )}
               </div>
+
+              {volumeOptions.length > 0 && (
+                <div>
+                  <p className="text-sm text-muted-foreground mb-2">Dung tích</p>
+                  <div className="flex flex-wrap gap-2">
+                    {volumeOptions.map((option) => (
+                      <button
+                        key={`detail-volume-${option.value}`}
+                        onClick={() => setSelectedVolume(option)}
+                        className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                          Number(selectedVolume?.value) === Number(option.value)
+                            ? 'bg-teal-600 text-white shadow-md'
+                            : 'bg-white dark:bg-card text-gray-700 dark:text-foreground border-2 border-gray-200 dark:border-border hover:border-teal-300'
+                        }`}
+                      >
+                        {option.label || `${option.value} ml`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Price */}
               <Card className="bg-muted/30">
@@ -369,7 +544,7 @@ export default function ProductDetailPage() {
                       </span>
                       {discount > 0 && (
                         <span className="text-xl text-muted-foreground line-through">
-                          {price.toLocaleString('vi-VN')}₫
+                          {variantBasePrice.toLocaleString('vi-VN')}₫
                         </span>
                       )}
                     </div>
@@ -455,10 +630,24 @@ export default function ProductDetailPage() {
 
               {/* Secondary Actions */}
               <div className="flex gap-3">
-                <Button variant="outline" size="icon" className="h-12 w-12">
-                  <Heart className="h-5 w-5" />
+                <Button
+                  variant={isFavorite ? 'default' : 'outline'}
+                  size="icon"
+                  className={`h-12 w-12 ${isFavorite ? 'bg-red-50 text-red-500 hover:bg-red-100 dark:bg-red-500/20 dark:text-red-300' : ''}`}
+                  onClick={handleToggleHeart}
+                  disabled={isTogglingHeart}
+                  aria-label={isFavorite ? 'Bỏ yêu thích' : 'Thêm vào yêu thích'}
+                  aria-pressed={isFavorite}
+                >
+                  <Heart className={`h-5 w-5 ${isFavorite ? 'fill-red-500 text-red-500' : ''}`} />
                 </Button>
-                <Button variant="outline" size="icon" className="h-12 w-12">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-12 w-12"
+                  onClick={handleShareProduct}
+                  aria-label="Chia sẻ sản phẩm"
+                >
                   <Share2 className="h-5 w-5" />
                 </Button>
               </div>
@@ -479,13 +668,6 @@ export default function ProductDetailPage() {
                 </div>
               </div>
 
-              <Button
-                variant="secondary"
-                className="w-full justify-center"
-                onClick={() => navigate(`/products/${product._id}/trace`)}
-              >
-                Xem nguồn gốc & chứng nhận trên blockchain
-              </Button>
             </div>
           </div>
 
@@ -504,6 +686,10 @@ export default function ProductDetailPage() {
                         <span className="font-medium">Danh mục:</span>
                         <span>{categoryName}</span>
                       </div>
+                    <div className="flex justify-between py-2 border-b border-border">
+                      <span className="font-medium">Dung tích:</span>
+                      <span>{volumeText || '—'}</span>
+                    </div>
                       <div className="flex justify-between py-2 border-b border-border">
                         <span className="font-medium">Tình trạng:</span>
                         <span>{isSoldOut ? 'Hết hàng' : 'Còn hàng'}</span>

@@ -4,7 +4,7 @@
  */
 
 import type { BaseDocument, ObjectId } from './common';
-import type { Product } from './product';
+import type { Product, ProductVolumeOption } from './product';
 
 /**
  * OrderProduct - Sản phẩm trong đơn hàng
@@ -16,6 +16,7 @@ export interface OrderProduct {
   Gia?: number;                     // Giá tại thời điểm đặt
   ThanhTien?: number;               // Thành tiền (Gia * SoLuong)
   GiaTaiThoiDiemDat?: number;       // Giá tại thời điểm đặt hàng
+  SelectedDungTich?: ProductVolumeOption;
   [key: string]: unknown;           // Cho phép thêm field khác
 }
 

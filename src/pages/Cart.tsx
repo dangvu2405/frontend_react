@@ -1,18 +1,31 @@
 import { MainLayout } from '@/layouts/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Link } from 'react-router-dom';
 import { Minus, Plus, Trash2, ShoppingBag } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { storage, type CartItem } from '@/utils/storage';
-import { cartService } from '@/services/cartService';
-import { useAuth } from '@/contexts/AuthContext';
+import { getCloudinaryProductImageUrl } from '@/utils/imageUtils';
+import { toast } from 'sonner';
+
 export default function CartPage() {
-  const { isAuthenticated } = useAuth();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
+  // Chỉ load cart từ localStorage, không sync từ database
   useEffect(() => {
     setCartItems(storage.getCart());
+    
+    // Lắng nghe event khi cart được cập nhật (từ các component khác)
+    const handleCartUpdate = () => {
+      setCartItems(storage.getCart());
+    };
+    
+    window.addEventListener('cart:updated', handleCartUpdate);
+    
+    return () => {
+      window.removeEventListener('cart:updated', handleCartUpdate);
+    };
   }, []);
 
   const subtotal = useMemo(() => {
@@ -49,45 +62,19 @@ export default function CartPage() {
     setCartItems(next);
     window.dispatchEvent(new CustomEvent('cart:updated'));
   };
-  const getCart = async () => {
-    try {
-      // ✅ cartService.getCart() trả về Cart object với Items array
-      const cart = await cartService.getCart();
-      
-      if (cart && Array.isArray(cart.Items) && cart.Items.length > 0) {
-        // Map Cart.Items sang format CartItem
-        const mappedItems = cart.Items.map((item: any) => {
-          // item có thể là CartItem từ backend (IdSanPham, TenSanPham, Gia, SoLuong, ThanhTien)
-          const product = typeof item.IdSanPham === 'object' ? item.IdSanPham : null;
-          
-          return {
-            id: product?._id || item.IdSanPham?._id || item.MaSanPham?._id || item.MaSanPham || item.id,
-            tenSP: item.TenSanPham || product?.TenSanPham || item.tenSP || 'Sản phẩm',
-            gia: item.Gia || product?.Gia || item.gia || 0,
-            giamGia: product?.KhuyenMai || item.giamGia || 0,
-            hinhAnh: product?.HinhAnhChinh || item.hinhAnh || '',
-            loaiSP: product?.MaLoaiSanPham?.TenLoaiSanPham || item.loaiSP || '',
-            quantity: item.SoLuong || item.quantity || 1,
-          };
-        });
-        setCartItems(mappedItems);
-      } else {
-        // Nếu cart rỗng, fallback to localStorage cart
-        setCartItems(storage.getCart());
-      }
-    } catch (error) {
-      if (import.meta.env.DEV) {
-        console.error('Error fetching cart:', error);
-      }
-      // Fallback to localStorage cart
-      setCartItems(storage.getCart());
-    }
+
+  const handleVolumeChange = (cartItemId: string, value: string) => {
+    const target = cartItems.find((item) => item.id === cartItemId);
+    if (!target || !target.volumeOptions) return;
+    const option = target.volumeOptions.find((opt) => String(opt?.value) === value);
+    if (!option) return;
+
+    storage.updateCartItemVolume(cartItemId, option);
+    const updated = storage.getCart();
+    setCartItems(updated);
+    window.dispatchEvent(new CustomEvent('cart:updated'));
+    toast.success('Đã cập nhật dung tích');
   };
-  useEffect(() => {
-    if(isAuthenticated) {
-      getCart();
-    }
-  }, [isAuthenticated]);
   return (
     <MainLayout>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -112,65 +99,111 @@ export default function CartPage() {
           <div className="grid lg:grid-cols-3 gap-8">
             {/* Cart Items */}
             <div className="lg:col-span-2 space-y-4">
-              {cartItems.map((item) => (
-                <Card key={item.id}>
-                  <CardContent className="p-4">
-                    <div className="flex gap-4">
-                      <img
-                        src={item.hinhAnh || 'https://placehold.co/100x100/E5E5EA/000?text=No+Image'}
-                        alt={item.tenSP}
-                        className="w-24 h-24 rounded-lg object-cover"
-                        onError={(e) => {
-                          (e.currentTarget as HTMLImageElement).src = 'https://placehold.co/100x100/E5E5EA/000?text=No+Image';
-                        }}
-                      />
-                      <div className="flex-1">
-                        <p className="text-xs text-muted-foreground mb-1">{item.loaiSP || 'Nước hoa'}</p>
-                        <h3 className="font-bold text-foreground mb-2">{item.tenSP}</h3>
-                        <p className="text-primary font-bold">
-                          {(() => {
-                            const unit = Number(item.gia) || 0;
-                            const discount = Number(item.giamGia) || 0;
-                            const finalUnit = discount > 0 ? Math.round(unit * (discount ? (1 - discount / 100) : 1)) : unit;
-                            return finalUnit.toLocaleString('vi-VN') + 'đ';
-                          })()}
-                        </p>
-                      </div>
-                      <div className="flex flex-col items-end justify-between">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                          onClick={() => handleRemove(item.id)}
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </Button>
-                        <div className="flex items-center gap-2">
+              {cartItems.map((item) => {
+                const discount = Number(item.giamGia) || 0;
+                const basePrice = Number(item.gia) || 0;
+                const finalPrice = discount > 0 ? Math.round(basePrice * (1 - discount / 100)) : basePrice;
+                const imageUrl = getCloudinaryProductImageUrl(item.hinhAnh || '') || 'https://placehold.co/200x200/E5E5EA/000?text=No+Image';
+
+                return (
+                  <Card key={item.id}>
+                    <CardContent className="p-4">
+                      <div className="flex gap-4">
+                        <div className="relative flex-shrink-0">
+                          <img
+                            src={imageUrl}
+                            alt={item.tenSP}
+                            className="w-28 h-28 rounded-lg object-contain bg-gray-50 border border-border"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).src = 'https://placehold.co/200x200/E5E5EA/000?text=No+Image';
+                            }}
+                          />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-muted-foreground mb-1">{item.loaiSP || 'Nước hoa'}</p>
+                          <h3 className="font-bold text-foreground mb-2 line-clamp-2">{item.tenSP}</h3>
+                          
+                          {/* Hiển thị dung tích đã chọn */}
+                          {item.selectedDungTich && (
+                            <div className="mb-2">
+                              <p className="text-xs text-muted-foreground">
+                                Dung tích:{' '}
+                                <span className="font-medium text-foreground">
+                                  {item.selectedDungTich.label || `${item.selectedDungTich.value} ml`}
+                                </span>
+                              </p>
+                            </div>
+                          )}
+                          
+                          {/* Select để thay đổi dung tích nếu có nhiều options */}
+                          {item.volumeOptions && item.volumeOptions.length > 1 && (
+                            <div className="mb-2 w-full max-w-xs">
+                              <Select
+                                value={String(item.selectedDungTich?.value ?? item.volumeOptions[0]?.value ?? '')}
+                                onValueChange={(value) => handleVolumeChange(item.id, value)}
+                              >
+                                <SelectTrigger className="h-8 text-xs">
+                                  <SelectValue placeholder="Chọn dung tích" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {item.volumeOptions.map((option) => (
+                                    <SelectItem
+                                      key={`${item.id}-${option?.value ?? 'default'}`}
+                                      value={String(option?.value ?? '')}
+                                    >
+                                      {option?.label || `${option?.value} ml`}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+                          
+                          <p className="text-primary font-bold text-lg">
+                            {finalPrice.toLocaleString('vi-VN')}đ
+                            {discount > 0 && (
+                              <span className="ml-2 text-sm text-muted-foreground line-through">
+                                {basePrice.toLocaleString('vi-VN')}đ
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                        <div className="flex flex-col items-end justify-between gap-2">
                           <Button
-                            variant="outline"
+                            variant="ghost"
                             size="icon"
-                            className="h-8 w-8 border-border"
-                            onClick={() => handleDecrease(item.id)}
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8"
+                            onClick={() => handleRemove(item.id)}
                           >
-                            <Minus className="w-4 h-4" />
+                            <Trash2 className="w-4 h-4" />
                           </Button>
-                          <span className="w-8 text-center font-semibold">
-                            {item.quantity}
-                          </span>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-8 w-8 border-border"
-                            onClick={() => handleIncrease(item.id)}
-                          >
-                            <Plus className="w-4 h-4" />
-                          </Button>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8 border-border"
+                              onClick={() => handleDecrease(item.id)}
+                            >
+                              <Minus className="w-4 h-4" />
+                            </Button>
+                            <span className="w-8 text-center font-semibold text-sm">
+                              {item.quantity}
+                            </span>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8 border-border"
+                              onClick={() => handleIncrease(item.id)}
+                            >
+                              <Plus className="w-4 h-4" />
+                            </Button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
 
             {/* Order Summary */}

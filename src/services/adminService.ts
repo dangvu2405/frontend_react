@@ -220,4 +220,14 @@ const adminService = {
 };
 
 export default adminService;
+export type {
+  AdminProductPayload,
+  AdminProductVolumeOptionPayload,
+  AdminCategoryPayload,
+  AdminRolePayload,
+  AdminUserPayload,
+  AdminInventoryPayload,
+  AdminVoucherPayload,
+  AdminUpdateVoucherPayload,
+} from '@/types/models';
 

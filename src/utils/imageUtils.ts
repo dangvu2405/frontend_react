@@ -197,9 +197,41 @@ export const getAvatarUrl = (
   options?: { width?: number; height?: number; quality?: number }
 ): string | undefined => {
   if (!avatarPath) return undefined;
-  if (isHttpUrl(avatarPath)) return avatarPath;
-  if (isLocalUploadPath(avatarPath)) return buildLocalUrl(avatarPath);
+  
+  // Nếu đã là full URL (http/https), trả về trực tiếp
+  if (isHttpUrl(avatarPath)) {
+    // Nếu là Cloudinary URL, có thể thêm transformations
+    if (avatarPath.includes('cloudinary.com')) {
+      // Nếu đã có transformations, giữ nguyên
+      if (avatarPath.includes('/image/upload/')) {
+        return avatarPath;
+      }
+      // Nếu chưa có transformations, thêm vào
+      if (CLOUDINARY_IMAGE_BASE && options) {
+        const transforms = joinTransforms([
+          'fill',
+          `w_${options.width || 200}`,
+          `h_${options.height || 200}`,
+          `q_${options.quality || 80}`,
+          'f_auto',
+        ]);
+        // Extract public_id từ URL
+        const urlParts = avatarPath.split('/image/upload/');
+        if (urlParts.length > 1) {
+          const publicId = urlParts[1].split('.')[0]; // Remove extension
+          return `${CLOUDINARY_IMAGE_BASE}/${transforms}/${publicId}`;
+        }
+      }
+    }
+    return avatarPath;
+  }
+  
+  // Nếu là local upload path
+  if (isLocalUploadPath(avatarPath)) {
+    return buildLocalUrl(avatarPath);
+  }
 
+  // Xử lý Cloudinary public_id hoặc path
   if (CLOUDINARY_IMAGE_BASE) {
     const transforms = joinTransforms([
       'fill',
@@ -210,10 +242,14 @@ export const getAvatarUrl = (
     ]);
 
     let cleanPath = removeExtension(stripLeadingSlash(avatarPath));
-    if (!cleanPath.startsWith('avatars/')) cleanPath = `avatars/${cleanPath}`;
+    // Nếu path không có folder prefix, thêm avatars/
+    if (!cleanPath.includes('/') && !cleanPath.startsWith('avatars/')) {
+      cleanPath = `avatars/${cleanPath}`;
+    }
     return `${CLOUDINARY_IMAGE_BASE}/${transforms}/${cleanPath}`;
   }
 
+  // Fallback: local uploads
   let cleanPath = stripLeadingSlash(avatarPath);
   if (!cleanPath.startsWith('uploads/')) cleanPath = `uploads/${cleanPath}`;
   return `${DEFAULT_API_BASE}/${cleanPath}`;
@@ -249,6 +285,8 @@ export const getVideoUrl = (
 
 export const getCloudinaryProductImageUrl = (imageName: string): string => {
   if (!imageName) return PLACEHOLDER_IMAGE;
+  
+  // Nếu là URL đầy đủ (http/https), sử dụng trực tiếp
   if (isHttpUrl(imageName)) {
     const extractedId = extractCloudinaryPublicId(imageName);
     if (!extractedId) {
@@ -256,6 +294,14 @@ export const getCloudinaryProductImageUrl = (imageName: string): string => {
     }
     imageName = extractedId;
   }
+  
+  // Nếu là path từ luxury_perfume_images (Cloudinary public_id), xử lý như Cloudinary path
+  if (imageName.startsWith('luxury_perfume_images/')) {
+    // Đây là Cloudinary public_id, xử lý như path Cloudinary bình thường
+    const normalized = stripLeadingSlash(imageName);
+    return `${CLOUDINARY_IMAGE_BASE}/w_500,h_500,c_fill,f_auto,q_auto/${normalized}`;
+  }
+  
   if (isLocalUploadPath(imageName)) return buildLocalUrl(imageName);
   if (!CLOUDINARY_IMAGE_BASE) return buildLocalUrl(imageName);
 

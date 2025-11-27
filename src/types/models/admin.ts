@@ -11,16 +11,27 @@
  * AdminProductPayload - Payload tạo/cập nhật sản phẩm
  * Dùng cho API POST /admin/products và PUT /admin/products/:id
  */
+export interface AdminProductVolumeOptionPayload {
+  value: number;
+  label?: string;
+  priceDiff?: number;
+  stockDiff?: number;
+  sku?: string;
+  isDefault?: boolean;
+}
+
 export interface AdminProductPayload {
   TenSanPham?: string;        // Tên sản phẩm
-  MoTa?: string;               // Mô tả
-  Gia?: number;                // Giá
-  KhuyenMai?: number;          // Phần trăm giảm giá
-  SoLuong?: number;            // Số lượng
-  MaLoaiSanPham?: string;      // ID danh mục
-  HinhAnhChinh?: string;       // URL ảnh chính
-  HinhAnhPhu?: string[];       // Danh sách URL ảnh phụ
-  [key: string]: any;          // Cho phép thêm các field khác
+  MoTa?: string;              // Mô tả
+  Gia?: number;               // Giá
+  KhuyenMai?: number;         // Phần trăm giảm giá
+  DungTich?: number;          // (Deprecated) Dung tích legacy
+  DungTichOptions?: AdminProductVolumeOptionPayload[]; // Danh sách dung tích
+  SoLuong?: number;           // Số lượng
+  MaLoaiSanPham?: string;     // ID danh mục
+  HinhAnhChinh?: string;      // URL ảnh chính
+  HinhAnhPhu?: string[];      // Danh sách URL ảnh phụ
+  [key: string]: any;         // Cho phép thêm các field khác
 }
 
 /**

@@ -57,9 +57,15 @@ export const reviewService = {
   },
 
   // Tạo đánh giá mới
-  createReview: async (data: CreateReviewData) => {
+  createReview: async (data: CreateReviewData): Promise<Review> => {
     const response = await axiosInstance.post<ApiItemResponse<Review>>('/api/reviews', data);
-    return response.data;
+    const responseData = response.data;
+
+    if (responseData?.success && responseData.data) {
+      return responseData.data as Review;
+    }
+
+    throw new Error(responseData?.message || 'Không thể tạo đánh giá');
   },
 
   // Lấy đánh giá của user cho sản phẩm

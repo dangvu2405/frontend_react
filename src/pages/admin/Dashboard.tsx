@@ -5,6 +5,34 @@ import { ChartAreaInteractive } from "@/components/chart-area-interactive"
 import adminService from "@/services/adminService"
 import type { ChartItem, SummaryStats } from "@/types/models"
 
+const unwrapResponse = (payload: unknown): any => {
+  if (!payload) return null
+  if (typeof payload === "object" && payload !== null && "data" in payload) {
+    const data = (payload as any).data
+    // Avoid infinite loop if data references itself
+    if (data !== payload) {
+      return unwrapResponse(data)
+    }
+  }
+  return payload
+}
+
+const toArray = (payload: unknown): any[] => {
+  const data = unwrapResponse(payload)
+  return Array.isArray(data) ? data : []
+}
+
+const normalizeSummary = (payload: unknown): SummaryStats => {
+  const data = unwrapResponse(payload) ?? {}
+  return {
+    totalProducts: Number((data as any)?.totalProducts ?? 0),
+    totalCategories: Number((data as any)?.totalCategories ?? 0),
+    totalUsers: Number((data as any)?.totalUsers ?? 0),
+    totalOrders: Number((data as any)?.totalOrders ?? 0),
+    totalRevenue: Number((data as any)?.totalRevenue ?? 0),
+  }
+}
+
 export default function AdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [summaryStats, setSummaryStats] = useState<SummaryStats | null>(null)
@@ -39,35 +67,10 @@ export default function AdminDashboard() {
 
         if (!isMounted) return
 
-        const summaryData =
-          (summaryRes as any)?.data ?? (summaryRes as SummaryStats) ?? {}
+        setSummaryStats(normalizeSummary(summaryRes))
 
-        setSummaryStats({
-          totalProducts: summaryData.totalProducts,
-          totalCategories: summaryData.totalCategories,
-          totalUsers: summaryData.totalUsers,
-          totalOrders: summaryData.totalOrders || 0,
-          totalRevenue: summaryData.totalRevenue || 0,
-        })
+        const topProductData = toArray(topProductsRes)
 
-        // Parse topProducts response
-        const topProductsResponseData = topProductsRes?.data
-        let topProductData: any[] = []
-        
-        if (topProductsResponseData) {
-          if (topProductsResponseData && typeof topProductsResponseData === 'object' && !Array.isArray(topProductsResponseData) && 'success' in topProductsResponseData && 'data' in topProductsResponseData) {
-            topProductData = Array.isArray(topProductsResponseData.data) ? topProductsResponseData.data : []
-          } else if (Array.isArray(topProductsResponseData)) {
-            topProductData = topProductsResponseData
-          } else if (topProductsResponseData && typeof topProductsResponseData === 'object' && !Array.isArray(topProductsResponseData) && 'data' in topProductsResponseData) {
-            topProductData = Array.isArray(topProductsResponseData.data) ? topProductsResponseData.data : []
-          }
-        }
-        
-        if (!Array.isArray(topProductData)) {
-          topProductData = []
-        }
-        
         setTopProductsChart(
           topProductData.map((product: any) => ({
             name: product?.TenSanPham ?? "Không tên",
@@ -79,24 +82,7 @@ export default function AdminDashboard() {
           }))
         )
 
-        // Parse monthlyOrders response
-        const monthlyOrdersResponseData = monthlyOrdersRes?.data
-        let monthlyOrdersData: any[] = []
-        
-        if (monthlyOrdersResponseData) {
-          if (monthlyOrdersResponseData && typeof monthlyOrdersResponseData === 'object' && !Array.isArray(monthlyOrdersResponseData) && 'success' in monthlyOrdersResponseData && 'data' in monthlyOrdersResponseData) {
-            monthlyOrdersData = Array.isArray(monthlyOrdersResponseData.data) ? monthlyOrdersResponseData.data : []
-          } else if (Array.isArray(monthlyOrdersResponseData)) {
-            monthlyOrdersData = monthlyOrdersResponseData
-          } else if (monthlyOrdersResponseData && typeof monthlyOrdersResponseData === 'object' && !Array.isArray(monthlyOrdersResponseData) && 'data' in monthlyOrdersResponseData) {
-            monthlyOrdersData = Array.isArray(monthlyOrdersResponseData.data) ? monthlyOrdersResponseData.data : []
-          }
-        }
-        
-        if (!Array.isArray(monthlyOrdersData)) {
-          monthlyOrdersData = []
-        }
-        
+        const monthlyOrdersData = toArray(monthlyOrdersRes)
         setMonthlyOrdersChart(
           monthlyOrdersData.map((item: any) => ({
             name: item?.month && item?.year
@@ -107,24 +93,7 @@ export default function AdminDashboard() {
           }))
         )
 
-        // Parse topCustomers response
-        const topCustomersResponseData = topCustomersRes?.data
-        let topCustomersData: any[] = []
-        
-        if (topCustomersResponseData) {
-          if (topCustomersResponseData && typeof topCustomersResponseData === 'object' && !Array.isArray(topCustomersResponseData) && 'success' in topCustomersResponseData && 'data' in topCustomersResponseData) {
-            topCustomersData = Array.isArray(topCustomersResponseData.data) ? topCustomersResponseData.data : []
-          } else if (Array.isArray(topCustomersResponseData)) {
-            topCustomersData = topCustomersResponseData
-          } else if (topCustomersResponseData && typeof topCustomersResponseData === 'object' && !Array.isArray(topCustomersResponseData) && 'data' in topCustomersResponseData) {
-            topCustomersData = Array.isArray(topCustomersResponseData.data) ? topCustomersResponseData.data : []
-          }
-        }
-        
-        if (!Array.isArray(topCustomersData)) {
-          topCustomersData = []
-        }
-        
+        const topCustomersData = toArray(topCustomersRes)
         setTopCustomersChart(
           topCustomersData.map((customer: any, index: number) => ({
             name:

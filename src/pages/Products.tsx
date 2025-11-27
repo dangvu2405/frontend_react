@@ -21,10 +21,10 @@ import {
 import { Search, SlidersHorizontal, X } from 'lucide-react';
 import { Suspense, useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { productsService } from '@/services/productsService';
-import type { Product, Category } from '@/types/models';
+import type { Product, Category, ProductVolumeOption } from '@/types/models';
 import adminService from '@/services/adminService';
 import { toast } from 'sonner';
-import { storage, type CartItem } from '@/utils/storage';
+import { storage, type CartItemInput } from '@/utils/storage';
 import { getCloudinaryProductImageUrl } from '@/utils/imageUtils';
 import { ProductsGrid } from '@/components/products';
 
@@ -48,20 +48,21 @@ export default function ProductsPage() {
   const [stockFilter, setStockFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('default');
 
-  const handleAddToCart = useCallback((product: Product) => {
+  const handleAddToCart = useCallback((product: Product, selectedVolume?: ProductVolumeOption) => {
     // Lấy category name
     const categoryName = typeof product.MaLoaiSanPham === 'object' && product.MaLoaiSanPham
       ? product.MaLoaiSanPham.TenLoaiSanPham
       : 'Nước hoa';
 
-    const item: CartItem = {
-      id: product._id,
+    const item: CartItemInput = {
+      productId: String(product._id || (product as any).id),
       tenSP: product.TenSanPham,
-      gia: product.Gia,
+      basePrice: product.Gia,
       giamGia: product.KhuyenMai || 0,
       hinhAnh: product.HinhAnhChinh,
       loaiSP: categoryName,
-      quantity: 1,
+      selectedDungTich: selectedVolume,
+      volumeOptions: product.DungTichOptions,
     };
     storage.addCartItem(item, 1);
     window.dispatchEvent(new CustomEvent('cart:updated'));

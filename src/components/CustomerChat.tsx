@@ -171,9 +171,9 @@ export default function CustomerChat() {
                   >
                     {!isOwn && (
                       <Avatar className="h-8 w-8">
-                        <AvatarImage src={message.SenderId.AvatarUrl} />
+                        <AvatarImage src={message.SenderId.AvatarUrl ?? undefined} />
                         <AvatarFallback>
-                          {message.SenderId.HoTen.charAt(0)}
+                          {message.SenderId.HoTen?.charAt(0) || 'C'}
                         </AvatarFallback>
                       </Avatar>
                     )}
@@ -192,7 +192,7 @@ export default function CustomerChat() {
                           isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'
                         )}
                       >
-                        {format(new Date(message.createdAt), 'HH:mm', { locale: vi })}
+                        {format(new Date(message.createdAt ?? new Date().toISOString()), 'HH:mm', { locale: vi })}
                       </p>
                     </div>
                     {isOwn && (

@@ -5,13 +5,19 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
-import { User, Package, Heart, Settings, LogOut, MapPin, CreditCard, FileText, Camera, Loader2 } from 'lucide-react';
+import { User, Package, Heart, Settings, LogOut, MapPin, CreditCard, FileText, Camera, Loader2, X } from 'lucide-react';
 import { useEffect, useState, useRef } from 'react';
 import type { FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { userService } from '@/services/userService';
+import { heartService } from '@/services/heartService';
 import { toast } from 'sonner';
 import { API_BASE_URL } from '@/constants';
+import { ProductsGrid } from '@/components/products';
+import type { Product } from '@/types/models';
+import { getCloudinaryProductImageUrl } from '@/utils/imageUtils';
+import { storage } from '@/utils/storage';
+import { cartService } from '@/services/cartService';
 
 export default function MyAccountPage() {
   const { user, isAuthenticated, logout } = useAuth();
@@ -22,6 +28,8 @@ export default function MyAccountPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
   const [isOrderDetailOpen, setIsOrderDetailOpen] = useState(false);
+  const [favoriteProducts, setFavoriteProducts] = useState<Product[]>([]);
+  const [loadingFavorites, setLoadingFavorites] = useState(false);
   const [profileForm, setProfileForm] = useState({
     fullName: user?.fullName || '',
     email: user?.email || '',
@@ -202,6 +210,108 @@ export default function MyAccountPage() {
       isMounted = false;
     };
   }, [user]);
+
+  // Fetch favorite products when wishlist tab is active
+  useEffect(() => {
+    if (activeTab === 'wishlist' && user) {
+      fetchFavoriteProducts();
+    }
+  }, [activeTab, user]);
+
+  const fetchFavoriteProducts = async () => {
+    try {
+      setLoadingFavorites(true);
+      const hearts = await heartService.getUserHearts();
+      
+      // Extract products from hearts
+      const products: Product[] = hearts
+        .map((heart: any) => {
+          const product = heart.MaSanPham;
+          if (!product) return null;
+          
+          // Normalize product data
+          return {
+            _id: product._id || product.id,
+            id: product._id || product.id,
+            TenSanPham: product.TenSanPham || product.tenSP || '',
+            tenSP: product.TenSanPham || product.tenSP || '',
+            Gia: product.Gia || product.gia || 0,
+            gia: product.Gia || product.gia || 0,
+            KhuyenMai: product.KhuyenMai || product.giamGia || 0,
+            giamGia: product.KhuyenMai || product.giamGia || 0,
+            HinhAnhChinh: product.HinhAnhChinh || product.hinhAnh || '',
+            hinhAnhChinh: product.HinhAnhChinh || product.hinhAnh || '',
+            DungTich: product.DungTich || product.dungTich,
+            DungTichOptions: product.DungTichOptions || product.dungTichOptions || [],
+            SoLuong: product.SoLuong || product.soLuong || 0,
+            soLuong: product.SoLuong || product.soLuong || 0,
+            MoTa: product.MoTa || product.moTa || '',
+            moTa: product.MoTa || product.moTa || '',
+          } as Product;
+        })
+        .filter(Boolean) as Product[];
+      
+      setFavoriteProducts(products);
+    } catch (error: any) {
+      console.error('Error fetching favorite products:', error);
+      toast.error(error?.message || 'Không thể tải danh sách sản phẩm yêu thích');
+    } finally {
+      setLoadingFavorites(false);
+    }
+  };
+
+  const handleAddToCart = async (product: Product, selectedVolume?: any) => {
+    try {
+      const productId = product._id || product.id;
+      if (!productId) {
+        toast.error('Không tìm thấy mã sản phẩm');
+        return;
+      }
+
+      const quantity = 1;
+      const finalPrice = (product.Gia || product.gia || 0) + (selectedVolume?.priceDiff || 0);
+      
+      await cartService.addToCart({
+        productId,
+        quantity,
+        tenSP: product.TenSanPham || product.tenSP || '',
+        basePrice: product.Gia || product.gia || 0,
+        giamGia: product.KhuyenMai || product.giamGia || 0,
+        hinhAnh: product.HinhAnhChinh || product.hinhAnhChinh || '',
+        loaiSP: '',
+        selectedDungTich: selectedVolume,
+        volumeOptions: product.DungTichOptions || product.dungTichOptions || [],
+      });
+
+      toast.success('Đã thêm vào giỏ hàng');
+      window.dispatchEvent(new CustomEvent('cart:updated'));
+    } catch (error: any) {
+      toast.error(error?.message || 'Không thể thêm vào giỏ hàng');
+    }
+  };
+
+  const handleRemoveFavorite = async (productId: string) => {
+    try {
+      // Remove from localStorage
+      storage.removeHeart(productId);
+      
+      // Remove from database if authenticated
+      if (isAuthenticated) {
+        await heartService.removeHeart(productId);
+      }
+      
+      // Update local state
+      setFavoriteProducts(prev => prev.filter(p => (p._id || p.id) !== productId));
+      
+      // Dispatch event
+      window.dispatchEvent(new CustomEvent('hearts:updated'));
+      
+      toast.success('Đã xóa khỏi danh sách yêu thích');
+    } catch (error: any) {
+      console.error('Error removing favorite:', error);
+      toast.error(error?.message || 'Không thể xóa khỏi danh sách yêu thích');
+    }
+  };
 
   // 🏠 thêm địa chỉ — tối ưu: sử dụng response từ API thay vì gọi lại
   const addAddress = async (e?: FormEvent) => {
@@ -781,17 +891,130 @@ export default function MyAccountPage() {
             )}
 
             {activeTab === 'wishlist' && (
-              <Card className="border border-border bg-background">
-                <CardContent className="p-6">
-                  <h2 className="text-xl font-semibold text-foreground mb-4">
-                    Sản phẩm yêu thích
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-semibold text-foreground">
+                    Sản phẩm yêu thích ({favoriteProducts.length})
                   </h2>
-                  <div className="text-center py-12">
-                    <Heart className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
-                    <p className="text-muted-foreground">Chưa có sản phẩm yêu thích nào</p>
+                </div>
+                
+                {loadingFavorites ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
                   </div>
-                </CardContent>
-              </Card>
+                ) : favoriteProducts.length === 0 ? (
+                  <Card className="border border-border bg-background">
+                    <CardContent className="p-6">
+                      <div className="text-center py-12">
+                        <Heart className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
+                        <p className="text-muted-foreground">Chưa có sản phẩm yêu thích nào</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="space-y-3">
+                    {favoriteProducts.map((product) => {
+                      const productId = String(product._id || product.id || '');
+                      if (!productId) {
+                        return null;
+                      }
+                      const imagePath = product.HinhAnhChinh || product.hinhAnhChinh || '';
+                      const imageUrl = imagePath && (imagePath.startsWith('http://') || imagePath.startsWith('https://'))
+                        ? imagePath
+                        : getCloudinaryProductImageUrl(imagePath);
+                      
+                      const basePrice = product.Gia || product.gia || 0;
+                      const discount = product.KhuyenMai || product.giamGia || 0;
+                      const finalPrice = basePrice * (1 - discount / 100);
+                      
+                      return (
+                        <Card 
+                          key={productId} 
+                          className="border border-border bg-background group hover:shadow-md transition-all cursor-pointer"
+                          onClick={() => navigate(`/products/${productId}`)}
+                        >
+                          <CardContent className="p-4">
+                            <div className="flex items-center gap-4">
+                              {/* Product Image */}
+                              <div className="relative w-24 h-24 sm:w-32 sm:h-32 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                                <img
+                                  src={imageUrl || 'https://placehold.co/300x300/E5E5EA/000?text=No+Image'}
+                                  alt={product.TenSanPham || product.tenSP || 'Sản phẩm'}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).src = 'https://placehold.co/300x300/E5E5EA/000?text=No+Image';
+                                  }}
+                                />
+                              </div>
+                              
+                              {/* Product Info */}
+                              <div className="flex-1 min-w-0">
+                                <h3 className="font-semibold text-foreground mb-2 line-clamp-2 hover:text-primary transition-colors">
+                                  {product.TenSanPham || product.tenSP || 'Sản phẩm'}
+                                </h3>
+                                
+                                <div className="flex items-center gap-3 mb-2">
+                                  <p className="text-lg font-bold text-primary">
+                                    {finalPrice.toLocaleString('vi-VN')}₫
+                                  </p>
+                                  {discount > 0 && (
+                                    <>
+                                      <p className="text-sm text-muted-foreground line-through">
+                                        {basePrice.toLocaleString('vi-VN')}₫
+                                      </p>
+                                      <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/10 text-red-600 border border-red-500/30">
+                                        -{discount}%
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
+                                
+                                {/* Dung tích nếu có */}
+                                {(product.DungTich || (product.DungTichOptions && product.DungTichOptions.length > 0)) && (
+                                  <p className="text-xs text-muted-foreground mb-2">
+                                    Dung tích: {
+                                      product.DungTichOptions && product.DungTichOptions.length > 0
+                                        ? product.DungTichOptions.map((opt: any) => `${opt.value || opt.Value || 0}ml`).join(', ')
+                                        : `${product.DungTich || product.dungTich || 0}ml`
+                                    }
+                                  </p>
+                                )}
+                                
+                                {/* Action Buttons */}
+                                <div className="flex items-center gap-2 mt-3">
+                                  <Button
+                                    size="sm"
+                                    className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleAddToCart(product);
+                                    }}
+                                  >
+                                    <Package className="w-4 h-4 mr-2" />
+                                    Thêm vào giỏ
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="border-destructive text-destructive hover:bg-destructive/10"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleRemoveFavorite(productId);
+                                    }}
+                                  >
+                                    <X className="w-4 h-4 mr-2" />
+                                    Xóa
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             )}
 
             {activeTab === 'settings' && (

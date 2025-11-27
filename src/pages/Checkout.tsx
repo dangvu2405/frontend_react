@@ -47,6 +47,9 @@ export default function CheckoutPage() {
   });
   const [voucherCode, setVoucherCode] = useState('');
   const [voucherDiscountPct, setVoucherDiscountPct] = useState<number>(0);
+  const selectedAddress = selectedAddressId
+    ? addresses.find((addr) => addr._id === selectedAddressId)
+    : null;
 
   // Format địa chỉ để hiển thị trong Select
   const formatAddressForSelect = (addr: UserAddress): string => {
@@ -224,11 +227,21 @@ export default function CheckoutPage() {
       setIsSubmitting(true);
       setPaymentStatus('processing');
 
+      // Format cartItems thành format backend yêu cầu
+      const formattedSanPham = cartItems.map(item => ({
+        MaSanPham: item.productId,
+        SoLuong: item.quantity,
+        Gia: item.gia,
+        TenSanPham: item.tenSP,
+        HinhAnhChinh: item.hinhAnh,
+        selectedDungTich: item.selectedDungTich,
+      }));
+
       let checkoutResult: CheckoutResponse | null = null;
       try {
         const response = await cartService.checkout({
           DiaChi: DiaChiPayload,
-          SanPham: cartItems,
+          SanPham: formattedSanPham,
           TongTien: total,
           PhuongThucThanhToan: selectedPaymentMethod,
           GhiChu: selectedNote,
@@ -351,14 +364,37 @@ export default function CheckoutPage() {
                 <div className="space-y-4">
                   {addresses.length > 0 && !showNewAddress && (
                     <div className="space-y-4">
-                      <div>
-                        <Label>Chọn địa chỉ giao hàng</Label>
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-2 text-base font-semibold text-foreground">
+                          <MapPin className="w-4 h-4 text-primary" />
+                          Chọn địa chỉ giao hàng
+                        </Label>
                         <Select
                           value={selectedAddressId || undefined}
                           onValueChange={(value) => setSelectedAddressId(value || null)}
                         >
-                          <SelectTrigger className="w-full h-12 bg-background border-input rounded-xl">
-                            <SelectValue placeholder="Chọn địa chỉ giao hàng" />
+                          <SelectTrigger className="w-full h-12 bg-background border-input rounded-xl hover:border-primary/50 transition-colors text-left">
+                            {selectedAddress ? (
+                              <div
+                                data-slot="select-value"
+                                className="flex items-center gap-2 flex-wrap text-sm"
+                              >
+                                <span className="font-semibold truncate max-w-[50%]">
+                                  {selectedAddress.HoTen}
+                                </span>
+                                <span className="text-muted-foreground">·</span>
+                                <span className="text-muted-foreground">
+                                  {selectedAddress.SoDienThoai}
+                                </span>
+                                {selectedAddress.MacDinh && (
+                                  <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/30">
+                                    Mặc định
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <SelectValue placeholder="Chọn địa chỉ giao hàng" />
+                            )}
                           </SelectTrigger>
                           <SelectContent>
                       {addresses.map((addr) => (
@@ -384,23 +420,29 @@ export default function CheckoutPage() {
                           </SelectContent>
                         </Select>
                       </div>
-                      {selectedAddressId && (
-                        <div className="p-4 rounded-xl border border-border bg-muted/30">
-                          {(() => {
-                            const selectedAddr = addresses.find(addr => addr._id === selectedAddressId);
-                            if (!selectedAddr) return null;
-                            return (
-                              <div className="text-sm">
-                                <p className="font-semibold text-foreground mb-1">
-                                  {selectedAddr.HoTen} · {selectedAddr.SoDienThoai}
+                      {selectedAddress && (
+                        <div className="p-4 rounded-xl border border-primary/20 bg-primary/5 shadow-sm">
+                          <div className="flex items-start gap-3">
+                            <MapPin className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+                            <div className="flex-1 space-y-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="font-semibold text-foreground">
+                                  {selectedAddress.HoTen}
                                 </p>
-                                <p className="text-foreground mb-1">{selectedAddr.DiaChiChiTiet}</p>
-                                <p className="text-muted-foreground">
-                                  {[selectedAddr.PhuongXa, selectedAddr.QuanHuyen, selectedAddr.TinhThanh].filter(Boolean).join(', ')}
-                                </p>
+                                <span className="text-muted-foreground">·</span>
+                                <p className="text-muted-foreground">{selectedAddress.SoDienThoai}</p>
+                                {selectedAddress.MacDinh && (
+                                  <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/30">
+                                    Mặc định
+                                  </span>
+                                )}
                               </div>
-                            );
-                          })()}
+                              <p className="text-foreground">{selectedAddress.DiaChiChiTiet}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {[selectedAddress.PhuongXa, selectedAddress.QuanHuyen, selectedAddress.TinhThanh].filter(Boolean).join(', ')}
+                              </p>
+                            </div>
+                          </div>
                         </div>
                       )}
                       <Button variant="outline" className="border-border w-full" onClick={() => setShowNewAddress(true)}>

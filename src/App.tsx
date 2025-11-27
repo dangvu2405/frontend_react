@@ -10,6 +10,7 @@ const ProductsPage = lazy(() => import('./pages/Products'));
 const ProductDetailPage = lazy(() => import('./pages/ProductDetail'));
 const CartPage = lazy(() => import('./pages/Cart'));
 const CheckoutPage = lazy(() => import('./pages/Checkout'));
+const OrdersPage = lazy(() => import('./pages/Orders'));
 const MyAccountPage = lazy(() => import('./pages/MyAccount'));
 const AboutPage = lazy(() => import('./pages/About'));
 const ContactPage = lazy(() => import('./pages/Contact'));
@@ -18,12 +19,9 @@ const SupportPage = lazy(() => import('./pages/Support'));
 const LoginForm = lazy(() => import('./pages/login-form').then(m => ({ default: m.LoginForm })));
 const SignupForm = lazy(() => import('./pages/signup-form').then(m => ({ default: m.SignupForm })));
 const ForgotPasswordPage = lazy(() => import('./pages/forgot-password'));
-const ProductTracePage = lazy(() => import('./pages/ProductTrace'));
-const TraceLookupPage = lazy(() => import('./pages/TraceLookup'));
 const OAuthCallback = lazy(() => import('./pages/OAuthCallback').then(m => ({ default: m.OAuthCallback })));
 const PrivacyPage = lazy(() => import('./pages/Privacy'));
 const TermsPage = lazy(() => import('./pages/Terms'));
-const DebugImageUtilsPage = lazy(() => import('./pages/debug/DebugImageUtils'));
 
 // Admin pages - lazy load (heavier)
 const AdminLayout = lazy(() => import('./pages/admin/Layout'));
@@ -34,7 +32,6 @@ const AdminCustomersPage = lazy(() => import('./pages/admin/CustomersCRUD'));
 const AdminAccountsPage = lazy(() => import('./pages/admin/AccountsCRUD'));
 const AdminReviewsPage = lazy(() => import('./pages/admin/ReviewsCRUD'));
 const AdminVouchersPage = lazy(() => import('./pages/admin/VouchersCRUD'));
-const AdminSupplyChainPage = lazy(() => import('./pages/admin/SupplyChainManagement'));
 const AdminChatPage = lazy(() => import('./pages/admin/Chat'));
 const AdminSettingsPage = lazy(() => import('./pages/admin/Settings'));
 
@@ -60,11 +57,10 @@ function App() {
               <Route path="/" element={<HomePage />} />
               <Route path="/products" element={<ProductsPage />} />
               <Route path="/products/:id" element={<ProductDetailPage />} />
-              <Route path="/products/:id/trace" element={<ProductTracePage />} />
               <Route path="/cart" element={<CartPage />} />
               <Route path="/checkout" element={<CheckoutPage />} />
+              <Route path="/orders" element={<OrdersPage />} />
               <Route path="/my-account" element={<MyAccountPage />} />
-              <Route path="/trace-lookup" element={<TraceLookupPage />} />
               
               {/* Info Pages */}
               <Route path="/about" element={<AboutPage />} />
@@ -73,9 +69,6 @@ function App() {
               <Route path="/support" element={<SupportPage />} />
               <Route path="/privacy" element={<PrivacyPage />} />
               <Route path="/terms" element={<TermsPage />} />
-              {import.meta.env.DEV && (
-                <Route path="/debug-img" element={<DebugImageUtilsPage />} />
-              )}
               
               {/* Auth Pages */}
               <Route path="/login" element={<LoginForm />} />
@@ -93,7 +86,6 @@ function App() {
                   <Route path="accounts" element={<AdminAccountsPage />} />
                   <Route path="reviews" element={<AdminReviewsPage />} />
                   <Route path="vouchers" element={<AdminVouchersPage />} />
-                  <Route path="supply-chain" element={<AdminSupplyChainPage />} />
                   <Route path="chat" element={<AdminChatPage />} />
                   <Route path="settings" element={<AdminSettingsPage />} />
                 </Route>

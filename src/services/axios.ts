@@ -24,6 +24,10 @@ const FALLBACK_DATA_KEYS = [
   'vouchers',
   'session',
   'sessions',
+  'role',
+  'roles',
+  'category',
+  'categories',
 ] as const;
 
 type NormalizablePayload<T> = ApiResponse<T> | Record<string, unknown> | undefined | null;

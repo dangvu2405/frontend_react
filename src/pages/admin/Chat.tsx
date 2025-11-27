@@ -65,7 +65,7 @@ export default function AdminChatPage() {
             ? {
                 ...room,
                 UnreadCount: {
-                  ...room.UnreadCount,
+                  customer: room.UnreadCount?.customer ?? 0,
                   admin: data.unreadCount,
                 },
                 LastMessage: data.message.Message,
@@ -152,7 +152,13 @@ export default function AdminChatPage() {
       setChatRooms((prev) =>
         prev.map((room) =>
           room._id === selectedRoom._id
-            ? { ...room, UnreadCount: { ...room.UnreadCount, admin: 0 } }
+            ? {
+                ...room,
+                UnreadCount: {
+                  customer: room.UnreadCount?.customer ?? 0,
+                  admin: 0,
+                },
+              }
             : room
         )
       );
@@ -304,8 +310,8 @@ export default function AdminChatPage() {
     }
   };
 
-  const formatMessageTime = (date: string) => {
-    const messageDate = new Date(date);
+  const formatMessageTime = (date?: string | null) => {
+    const messageDate = date ? new Date(date) : new Date();
     if (isToday(messageDate)) {
       return format(messageDate, 'HH:mm', { locale: vi });
     } else if (isYesterday(messageDate)) {
@@ -315,8 +321,8 @@ export default function AdminChatPage() {
     }
   };
 
-  const formatConversationTime = (date: string) => {
-    const messageDate = new Date(date);
+  const formatConversationTime = (date?: string | null) => {
+    const messageDate = date ? new Date(date) : new Date();
     if (isToday(messageDate)) {
       return format(messageDate, 'HH:mm', { locale: vi });
     } else if (isYesterday(messageDate)) {
@@ -362,7 +368,7 @@ export default function AdminChatPage() {
             <div className="divide-y divide-border">
               {filteredRooms.map((room) => {
                 const isSelected = selectedRoom?._id === room._id;
-                const hasUnread = room.UnreadCount.admin > 0;
+                const hasUnread = (room.UnreadCount?.admin ?? 0) > 0;
                 
                 return (
                   <div
@@ -389,7 +395,7 @@ export default function AdminChatPage() {
                     <div className="flex items-start gap-3">
                       <div className="relative">
                         <Avatar className="h-12 w-12">
-                          <AvatarImage src={room.CustomerId.AvatarUrl} />
+                          <AvatarImage src={room.CustomerId.AvatarUrl ?? undefined} />   
                           <AvatarFallback className="bg-primary/20 text-primary font-semibold">
                             {room.CustomerId.HoTen.charAt(0).toUpperCase()}
                           </AvatarFallback>
@@ -431,7 +437,7 @@ export default function AdminChatPage() {
                           )}
                           {hasUnread && (
                             <div className="h-5 w-5 rounded-full bg-primary flex items-center justify-center text-xs font-bold text-primary-foreground flex-shrink-0">
-                              {room.UnreadCount.admin > 9 ? '9+' : room.UnreadCount.admin}
+                              {(room.UnreadCount?.admin ?? 0) > 9 ? '9+' : (room.UnreadCount?.admin ?? 0)}
                             </div>
                           )}
                         </div>
@@ -479,7 +485,7 @@ export default function AdminChatPage() {
             <div className="h-16 border-b border-border flex items-center justify-between px-4 bg-background">
               <div className="flex items-center gap-3">
                 <Avatar className="h-10 w-10">
-                  <AvatarImage src={selectedRoom.CustomerId.AvatarUrl} />
+                  <AvatarImage src={selectedRoom.CustomerId.AvatarUrl ?? undefined} />   
                   <AvatarFallback className="bg-primary/20 text-primary font-semibold">
                     {selectedRoom.CustomerId.HoTen.charAt(0).toUpperCase()}
                   </AvatarFallback>
@@ -551,8 +557,9 @@ export default function AdminChatPage() {
                     const isOwn = message.SenderType === 'admin';
                     const prevMessage = index > 0 ? messages[index - 1] : null;
                     const showAvatar = !prevMessage || prevMessage.SenderType !== message.SenderType;
-                    const showTime = !prevMessage || 
-                      new Date(message.createdAt).getTime() - new Date(prevMessage.createdAt).getTime() > 300000; // 5 minutes
+                    const currentTimestamp = message.createdAt ? new Date(message.createdAt).getTime() : Date.now();
+                    const previousTimestamp = prevMessage?.createdAt ? new Date(prevMessage.createdAt).getTime() : 0;
+                    const showTime = !prevMessage || currentTimestamp - previousTimestamp > 300000; // 5 minutes
                     
                     // Create unique key combining _id, index, and timestamp to avoid duplicates
                     const uniqueKey = `${message._id}-${index}-${message.createdAt}`;
@@ -576,7 +583,7 @@ export default function AdminChatPage() {
                             <div className="w-8 flex-shrink-0">
                               {showAvatar ? (
                                 <Avatar className="h-8 w-8">
-                                  <AvatarImage src={message.SenderId.AvatarUrl} />
+                                  <AvatarImage src={message.SenderId.AvatarUrl ?? undefined} />                                                                          
                                   <AvatarFallback className="bg-primary/20 text-primary text-xs">
                                     {message.SenderId.HoTen.charAt(0).toUpperCase()}
                                   </AvatarFallback>
@@ -606,7 +613,7 @@ export default function AdminChatPage() {
                                 isOwn ? 'text-primary-foreground' : 'text-muted-foreground'
                               )}
                             >
-                              {format(new Date(message.createdAt), 'HH:mm', { locale: vi })}
+                              {format(new Date(message.createdAt ?? new Date().toISOString()), 'HH:mm', { locale: vi })}
                             </p>
                           </div>
                           {isOwn && (

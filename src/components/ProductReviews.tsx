@@ -11,6 +11,21 @@ interface ProductReviewsProps {
   productId: string;
 }
 
+const getReviewerName = (reviewer: Review['IdKhachHang']): string => {
+  if (reviewer && typeof reviewer === 'object') {
+    return reviewer.HoTen || 'Khách hàng';
+  }
+  if (typeof reviewer === 'string' && reviewer.trim()) {
+    return reviewer;
+  }
+  return 'Khách hàng';
+};
+
+const getReviewDate = (date?: string | null): string => {
+  if (!date) return new Date().toISOString();
+  return date;
+};
+
 export function ProductReviews({ productId }: ProductReviewsProps) {
   const { isAuthenticated } = useAuth();
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -261,15 +276,15 @@ export function ProductReviews({ productId }: ProductReviewsProps) {
             <div className="flex items-start gap-4">
               <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                 <span className="text-lg font-bold text-primary">
-                  {myReview.IdKhachHang.HoTen.charAt(0).toUpperCase()}
+                  {getReviewerName(myReview.IdKhachHang).charAt(0).toUpperCase()}
                 </span>
               </div>
               <div className="flex-1">
                 <div className="flex items-center justify-between mb-2">
                   <div>
-                    <p className="font-semibold">{myReview.IdKhachHang.HoTen}</p>
+                    <p className="font-semibold">{getReviewerName(myReview.IdKhachHang)}</p>
                     <p className="text-sm text-muted-foreground">
-                      {new Date(myReview.createdAt).toLocaleDateString('vi-VN')}
+                      {new Date(getReviewDate(myReview.createdAt)).toLocaleDateString('vi-VN')}
                     </p>
                   </div>
                   <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">
@@ -305,8 +320,8 @@ export function ProductReviews({ productId }: ProductReviewsProps) {
                 return null;
               }
               
-              const customerName = review.IdKhachHang?.HoTen || 'Khách hàng';
-              const reviewDate = review.createdAt || new Date().toISOString();
+              const customerName = getReviewerName(review.IdKhachHang);
+              const reviewDate = getReviewDate(review.createdAt);
               const stars = review.SoSao || 5;
               const content = review.NoiDung || '';
               

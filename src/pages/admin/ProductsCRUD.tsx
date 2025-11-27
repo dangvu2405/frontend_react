@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react"
 import { ChartAreaInteractive } from "@/components/chart-area-interactive"
-import adminService, { type AdminProductPayload } from "@/services/adminService"
+import adminService, { type AdminProductPayload, type AdminProductVolumeOptionPayload } from "@/services/adminService"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -53,6 +53,65 @@ const currencyFormatter = new Intl.NumberFormat("vi-VN", {
   maximumFractionDigits: 0,
 })
 
+const createDefaultVolumeOption = (value = 100): AdminProductVolumeOptionPayload => ({
+  value,
+  label: `${value} ml`,
+  isDefault: false,
+  priceDiff: 0,
+  stockDiff: 0,
+})
+
+const ensureVolumeOptionList = (
+  options?: AdminProductVolumeOptionPayload[],
+  fallbackVolume?: number | null,
+): AdminProductVolumeOptionPayload[] => {
+  let normalized: AdminProductVolumeOptionPayload[] = Array.isArray(options) ? options.filter(Boolean) : []
+
+  if (!normalized.length && fallbackVolume) {
+    normalized = [{
+      value: fallbackVolume,
+      label: `${fallbackVolume} ml`,
+      isDefault: true,
+      priceDiff: 0,
+      stockDiff: 0,
+    }]
+  }
+
+  if (!normalized.length) {
+    normalized = [createDefaultVolumeOption(100)]
+  }
+
+  normalized = normalized.map((option) => {
+    const value = Number(option.value) || 0
+    return {
+      value,
+      label: option.label?.trim() || `${value} ml`,
+      priceDiff: Number(option.priceDiff) || 0,
+      stockDiff: Number(option.stockDiff) || 0,
+      sku: option.sku?.trim() || undefined,
+      isDefault: Boolean(option.isDefault),
+    }
+  })
+
+  if (!normalized.some((option) => option.isDefault) && normalized.length) {
+    normalized[0].isDefault = true
+  } else {
+    let defaultSet = false
+    normalized = normalized.map((option) => {
+      if (option.isDefault && !defaultSet) {
+        defaultSet = true
+        return { ...option, isDefault: true }
+      }
+      return { ...option, isDefault: false }
+    })
+    if (!defaultSet && normalized.length) {
+      normalized[0].isDefault = true
+    }
+  }
+
+  return normalized
+}
+
 export default function AdminProductsPage() {
   const [loading, setLoading] = useState(true)
   const [products, setProducts] = useState<Product[]>([])
@@ -86,11 +145,67 @@ export default function AdminProductsPage() {
     Gia: 0,
     KhuyenMai: 0,
     SoLuong: 0,
+    DungTichOptions: ensureVolumeOptionList(),
     MaLoaiSanPham: "",
     HinhAnhChinh: "",
     HinhAnhPhu: [],
   })
   const [submitting, setSubmitting] = useState(false)
+
+  const updateVolumeOptions = (updater: AdminProductVolumeOptionPayload[] | ((prev: AdminProductVolumeOptionPayload[]) => AdminProductVolumeOptionPayload[])) => {
+    setFormData((prev) => {
+      const previousOptions = prev.DungTichOptions ?? ensureVolumeOptionList([], prev.DungTich ?? null)
+      const nextOptions = typeof updater === "function" ? updater(previousOptions) : updater
+      return {
+        ...prev,
+        DungTichOptions: ensureVolumeOptionList(nextOptions, prev.DungTich ?? null),
+      }
+    })
+  }
+
+  const handleAddVolumeOption = () => {
+    updateVolumeOptions((prev) => [
+      ...prev,
+      createDefaultVolumeOption(100 + prev.length * 10),
+    ])
+  }
+
+  const handleRemoveVolumeOption = (index: number) => {
+    updateVolumeOptions((prev) => {
+      if (prev.length <= 1) {
+        toast.error("Cần ít nhất một dung tích")
+        return prev
+      }
+      const next = prev.filter((_, idx) => idx !== index)
+      return next
+    })
+  }
+
+  const handleVolumeOptionChange = (
+    index: number,
+    field: keyof AdminProductVolumeOptionPayload,
+    value: string | number,
+  ) => {
+    updateVolumeOptions((prev) =>
+      prev.map((option, idx) =>
+        idx === index
+          ? {
+              ...option,
+              [field]: field === "value" || field === "priceDiff" || field === "stockDiff" ? Number(value) : value,
+            }
+          : option,
+      ),
+    )
+  }
+
+  const handleSetDefaultVolumeOption = (index: number) => {
+    updateVolumeOptions((prev) =>
+      prev.map((option, idx) => ({
+        ...option,
+        isDefault: idx === index,
+      })),
+    )
+  }
   
   // Image preview states
   const [mainImagePreview, setMainImagePreview] = useState<string>("")
@@ -369,7 +484,7 @@ export default function AdminProductsPage() {
       categoryMap.set(categoryName, { name: categoryName, sold: 0, revenue: 0 })
     }
     const catData = categoryMap.get(categoryName)!
-    catData.sold += product.DaBan
+    catData.sold = (catData.sold ?? 0) + product.DaBan
     catData.revenue = (catData.revenue ?? 0) + product.DaBan * product.Gia
     })
     setCategorySalesChart(Array.from(categoryMap.values()))
@@ -393,7 +508,8 @@ export default function AdminProductsPage() {
       else if (price >= 2000000) rangeIndex = 2
       else if (price >= 1000000) rangeIndex = 1
       
-      priceRanges[rangeIndex].sold += product.DaBan
+      const targetRange = priceRanges[rangeIndex] || priceRanges[0]
+      targetRange.sold = (targetRange.sold ?? 0) + product.DaBan
     })
     setPriceTrendChart(priceRanges)
   }
@@ -411,6 +527,7 @@ export default function AdminProductsPage() {
       Gia: 0,
       KhuyenMai: 0,
       SoLuong: 0,
+      DungTichOptions: ensureVolumeOptionList(),
       MaLoaiSanPham: "",
       HinhAnhChinh: "",
       HinhAnhPhu: [],
@@ -430,12 +547,14 @@ export default function AdminProductsPage() {
   const openEditDialog = (product: Product) => {
     setEditingProduct(product)
     const hinhAnhPhu = product.HinhAnhPhu || []
+    const normalizedVolumes = ensureVolumeOptionList(product.DungTichOptions as AdminProductVolumeOptionPayload[] | undefined, product.DungTich ?? null)
     setFormData({
       TenSanPham: product.TenSanPham,
       MoTa: product.MoTa || "",
       Gia: product.Gia,
       KhuyenMai: product.KhuyenMai || 0,
       SoLuong: product.SoLuong,
+      DungTichOptions: normalizedVolumes,
       // MaLoaiSanPham: ObjectId của LoaiSanPham trong database
       // Nếu đã populate thì lấy _id, nếu chưa thì đã là string (ObjectId)
       MaLoaiSanPham: typeof product.MaLoaiSanPham === "string" 
@@ -630,12 +749,35 @@ export default function AdminProductsPage() {
     try {
       setSubmitting(true)
       
+      const sanitizedVolumeOptions = ensureVolumeOptionList(formData.DungTichOptions, formData.DungTich ?? null)
+        .map((option) => ({
+          ...option,
+          value: Math.max(0, Number(option.value) || 0),
+          label: option.label?.trim() || `${option.value} ml`,
+          priceDiff: Number(option.priceDiff) || 0,
+          stockDiff: Number(option.stockDiff) || 0,
+          sku: option.sku?.trim() || undefined,
+        }))
+        .filter((option) => option.value > 0)
+
+      if (!sanitizedVolumeOptions.length) {
+        toast.error("Vui lòng thêm ít nhất một dung tích hợp lệ")
+        return
+      }
+
+      const defaultVolume = sanitizedVolumeOptions.find((option) => option.isDefault) || sanitizedVolumeOptions[0]
+      sanitizedVolumeOptions.forEach((option) => {
+        option.isDefault = option === defaultVolume
+      })
+
       // Prepare payload - đảm bảo đúng kiểu dữ liệu
       const payload: AdminProductPayload = {
         TenSanPham: formData.TenSanPham.trim(),
         MoTa: formData.MoTa?.trim() || "",
         Gia: Number(formData.Gia) || 0,
         KhuyenMai: Number(formData.KhuyenMai) || 0,
+        DungTich: defaultVolume?.value,
+        DungTichOptions: sanitizedVolumeOptions,
         SoLuong: Number(formData.SoLuong) || 0,
         MaLoaiSanPham: formData.MaLoaiSanPham, // ObjectId của LoaiSanPham
         HinhAnhChinh: formData.HinhAnhChinh?.trim() || "",
@@ -1017,7 +1159,7 @@ export default function AdminProductsPage() {
 
       {/* Create/Edit Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingProduct ? "Chỉnh sửa sản phẩm" : "Thêm sản phẩm mới"}
@@ -1027,7 +1169,7 @@ export default function AdminProductsPage() {
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-3">
               <div className="space-y-2">
                 <Label htmlFor="TenSanPham">Tên sản phẩm *</Label>
                 <Input
@@ -1074,18 +1216,20 @@ export default function AdminProductsPage() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="MoTa">Mô tả</Label>
-              <Textarea
-                id="MoTa"
-                value={formData.MoTa}
-                onChange={(e) => setFormData({ ...formData, MoTa: e.target.value })}
-                rows={3}
-              />
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="space-y-2 md:col-span-3">
+                <Label htmlFor="MoTa">Mô tả</Label>
+                <Textarea
+                  id="MoTa"
+                  value={formData.MoTa}
+                  onChange={(e) => setFormData({ ...formData, MoTa: e.target.value })}
+                  rows={3}
+                />
+              </div>
             </div>
 
             {/* Image Upload Section */}
-            <div className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label>Ảnh chính *</Label>
                 <div className="flex items-center gap-4">
@@ -1221,6 +1365,175 @@ export default function AdminProductsPage() {
                   }}
                   required
                 />
+              </div>
+            </div>
+
+            {/* DungTichOptions Section */}
+            <div className="space-y-4 border-t pt-4">
+              <div className="flex items-center justify-between">
+                <Label className="text-base font-semibold">Dung tích sản phẩm *</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAddVolumeOption}
+                  className="flex items-center gap-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  Thêm dung tích
+                </Button>
+              </div>
+              
+              <p className="text-xs text-muted-foreground">
+                Thêm các dung tích có sẵn cho sản phẩm. Ít nhất một dung tích là bắt buộc.
+              </p>
+
+              <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
+                {formData.DungTichOptions && formData.DungTichOptions.length > 0 ? (
+                  formData.DungTichOptions.map((option, index) => (
+                    <div
+                      key={index}
+                      className={`p-4 border rounded-lg space-y-3 ${
+                        option.isDefault ? 'border-primary bg-primary/5' : 'border-border'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Label className="text-sm font-medium">
+                            Dung tích {index + 1}
+                            {option.isDefault && (
+                              <span className="ml-2 text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded">
+                                Mặc định
+                              </span>
+                            )}
+                          </Label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleSetDefaultVolumeOption(index)}
+                            disabled={option.isDefault}
+                            className="h-8 text-xs"
+                          >
+                            {option.isDefault ? 'Đã chọn' : 'Đặt mặc định'}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRemoveVolumeOption(index)}
+                            disabled={formData.DungTichOptions && formData.DungTichOptions.length <= 1}
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="grid gap-3 md:grid-cols-5">
+                        <div className="space-y-2">
+                          <Label htmlFor={`volume-value-${index}`} className="text-xs">
+                            Dung tích (ml) *
+                          </Label>
+                          <Input
+                            id={`volume-value-${index}`}
+                            type="number"
+                            min="1"
+                            value={option.value || ''}
+                            onChange={(e) =>
+                              handleVolumeOptionChange(index, 'value', Number(e.target.value) || 0)
+                            }
+                            required
+                            className="h-9"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor={`volume-label-${index}`} className="text-xs">
+                            Nhãn hiển thị
+                          </Label>
+                          <Input
+                            id={`volume-label-${index}`}
+                            type="text"
+                            value={option.label || ''}
+                            onChange={(e) =>
+                              handleVolumeOptionChange(index, 'label', e.target.value)
+                            }
+                            placeholder={`${option.value || 0} ml`}
+                            className="h-9"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor={`volume-priceDiff-${index}`} className="text-xs">
+                            Chênh lệch giá (VNĐ)
+                          </Label>
+                          <Input
+                            id={`volume-priceDiff-${index}`}
+                            type="number"
+                            value={option.priceDiff || 0}
+                            onChange={(e) =>
+                              handleVolumeOptionChange(
+                                index,
+                                'priceDiff',
+                                Number(e.target.value) || 0
+                              )
+                            }
+                            placeholder="0"
+                            className="h-9"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor={`volume-stockDiff-${index}`} className="text-xs">
+                            Chênh lệch tồn kho
+                          </Label>
+                          <Input
+                            id={`volume-stockDiff-${index}`}
+                            type="number"
+                            value={option.stockDiff || 0}
+                            onChange={(e) =>
+                              handleVolumeOptionChange(
+                                index,
+                                'stockDiff',
+                                Number(e.target.value) || 0
+                              )
+                            }
+                            placeholder="0"
+                            className="h-9"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor={`volume-sku-${index}`} className="text-xs">
+                            SKU
+                          </Label>
+                          <Input
+                            id={`volume-sku-${index}`}
+                            type="text"
+                            value={option.sku || ''}
+                            onChange={(e) =>
+                              handleVolumeOptionChange(index, 'sku', e.target.value)
+                            }
+                            placeholder="Mã SKU"
+                            className="h-9"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="text-xs text-muted-foreground space-y-1">
+                        <p>• Giá = Giá cơ bản + Chênh lệch giá</p>
+                        <p>• Tồn kho = Tồn kho cơ bản + Chênh lệch</p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="p-4 border border-dashed border-border rounded-lg text-center text-sm text-muted-foreground">
+                    Chưa có dung tích nào. Nhấn "Thêm dung tích" để thêm.
+                  </div>
+                )}
               </div>
             </div>
 

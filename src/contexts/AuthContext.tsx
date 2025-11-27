@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import authService from '@/services/authService';
 import { userService } from '@/services/userService';
 import { cartService } from '@/services/cartService';
+import { heartService } from '@/services/heartService';
 import { storage } from '@/utils/storage';
 import { toast } from 'sonner';
 
@@ -248,6 +249,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // Fetch user info with role after login
         await fetchUserInfo();
         
+        // ✅ Xóa cart và hearts cũ trong localStorage trước khi load từ database
+        storage.removeCart();
+        storage.removeHearts();
+        
+        // ✅ Load hearts từ database và sync vào localStorage
+        try {
+          const heartProductIds = await heartService.getUserHeartProductIds();
+          if (heartProductIds && heartProductIds.length > 0) {
+            storage.setHearts(heartProductIds);
+            if (import.meta.env.DEV) {
+              console.log('✅ Hearts loaded from database after login:', heartProductIds.length, 'products');
+            }
+          }
+        } catch (heartError: any) {
+          if (import.meta.env.DEV) {
+            console.error('⚠️ Error loading hearts from database:', heartError?.message || heartError);
+          }
+        }
+        
         // ✅ Load cart từ database và sync vào localStorage
         try {
           // ✅ cartService.getCart() trả về Cart object với Items array
@@ -259,19 +279,55 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               // item có thể là CartItem từ backend (IdSanPham, TenSanPham, Gia, SoLuong, ThanhTien)
               const product = typeof item.IdSanPham === 'object' ? item.IdSanPham : null;
               
+              // Xử lý selectedDungTich từ DB
+              const selectedDungTich = item.SelectedDungTich ? {
+                value: Number(item.SelectedDungTich.value) || 0,
+                label: item.SelectedDungTich.label || `${item.SelectedDungTich.value || 0} ml`,
+                priceDiff: Number(item.SelectedDungTich.priceDiff) || 0,
+                stockDiff: Number(item.SelectedDungTich.stockDiff) || 0,
+                sku: item.SelectedDungTich.sku,
+                isDefault: Boolean(item.SelectedDungTich.isDefault),
+              } : undefined;
+              
+              // Xử lý volumeOptions từ product
+              const volumeOptions = product?.DungTichOptions && Array.isArray(product.DungTichOptions)
+                ? product.DungTichOptions.map((opt: any) => ({
+                    value: Number(opt.value) || 0,
+                    label: opt.label || `${opt.value || 0} ml`,
+                    priceDiff: Number(opt.priceDiff) || 0,
+                    stockDiff: Number(opt.stockDiff) || 0,
+                    sku: opt.sku,
+                    isDefault: Boolean(opt.isDefault),
+                  }))
+                : undefined;
+              
+              // Tính basePrice từ gia và selectedDungTich
+              const finalPrice = Number(item.Gia) || Number(product?.Gia) || 0;
+              const basePrice = selectedDungTich && selectedDungTich.priceDiff
+                ? finalPrice - selectedDungTich.priceDiff
+                : finalPrice;
+              
+              // Tạo cart item ID với volume
+              const cartItemId = selectedDungTich
+                ? `${product?._id || item.IdSanPham?._id || item.MaSanPham?._id || item.MaSanPham || item.id}::volume-${selectedDungTich.value}`
+                : `${product?._id || item.IdSanPham?._id || item.MaSanPham?._id || item.MaSanPham || item.id}::default`;
+              
               return {
-                id: product?._id || item.IdSanPham?._id || item.MaSanPham?._id || item.MaSanPham || item.id,
+                id: cartItemId,
+                productId: product?._id || item.IdSanPham?._id || item.MaSanPham?._id || item.MaSanPham || item.id,
                 tenSP: item.TenSanPham || product?.TenSanPham || item.tenSP || 'Sản phẩm',
-                gia: item.Gia || product?.Gia || item.gia || 0,
+                gia: finalPrice,
+                basePrice,
                 giamGia: product?.KhuyenMai || item.giamGia || 0,
                 hinhAnh: product?.HinhAnhChinh || item.hinhAnh || '',
                 loaiSP: product?.MaLoaiSanPham?.TenLoaiSanPham || item.loaiSP || '',
                 quantity: item.SoLuong || item.quantity || 1,
+                selectedDungTich,
+                volumeOptions,
               };
             });
             
-            // ✅ Xóa cart cũ trong localStorage và set cart mới từ database
-            storage.removeCart();
+            // ✅ Set cart mới từ database vào localStorage
             storage.setCart(mappedCart);
             
             // ✅ Dispatch event để update UI
@@ -281,12 +337,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               console.log('✅ Cart loaded from database after login:', mappedCart.length, 'items');
             }
           } else {
-            // ✅ Nếu không có cart trong database, giữ nguyên localStorage cart (có thể là guest cart)
-            // Hoặc xóa nếu muốn reset hoàn toàn
-            // storage.removeCart();
-            
+            // ✅ Nếu không có cart trong database, giữ cart rỗng (đã xóa ở trên)
             if (import.meta.env.DEV) {
-              console.log('ℹ️ No cart in database, keeping localStorage cart');
+              console.log('ℹ️ No cart in database, cart cleared');
             }
           }
         } catch (cartError: any) {
@@ -294,7 +347,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           if (import.meta.env.DEV) {
             console.error('⚠️ Error loading cart from database:', cartError?.message || cartError);
           }
-          // Giữ nguyên localStorage cart nếu load từ database thất bại
+          // Cart đã được xóa ở trên, không cần làm gì thêm
         }
       }
       
@@ -313,6 +366,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // ✅ Fetch user info with role after register
         await fetchUserInfo();
         
+        // ✅ Xóa cart và hearts cũ trong localStorage trước khi load từ database
+        storage.removeCart();
+        storage.removeHearts();
+        
+        // ✅ Load hearts từ database và sync vào localStorage (tương tự login)
+        try {
+          const heartProductIds = await heartService.getUserHeartProductIds();
+          if (heartProductIds && heartProductIds.length > 0) {
+            storage.setHearts(heartProductIds);
+            if (import.meta.env.DEV) {
+              console.log('✅ Hearts loaded from database after register:', heartProductIds.length, 'products');
+            }
+          }
+        } catch (heartError: any) {
+          if (import.meta.env.DEV) {
+            console.error('⚠️ Error loading hearts from database:', heartError?.message || heartError);
+          }
+        }
+        
         // ✅ Load cart từ database và sync vào localStorage (tương tự login)
         try {
           const cart = await cartService.getCart();
@@ -322,18 +394,54 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             const mappedCart = cart.Items.map((item: any) => {
               const product = typeof item.IdSanPham === 'object' ? item.IdSanPham : null;
               
+              // Xử lý selectedDungTich từ DB
+              const selectedDungTich = item.SelectedDungTich ? {
+                value: Number(item.SelectedDungTich.value) || 0,
+                label: item.SelectedDungTich.label || `${item.SelectedDungTich.value || 0} ml`,
+                priceDiff: Number(item.SelectedDungTich.priceDiff) || 0,
+                stockDiff: Number(item.SelectedDungTich.stockDiff) || 0,
+                sku: item.SelectedDungTich.sku,
+                isDefault: Boolean(item.SelectedDungTich.isDefault),
+              } : undefined;
+              
+              // Xử lý volumeOptions từ product
+              const volumeOptions = product?.DungTichOptions && Array.isArray(product.DungTichOptions)
+                ? product.DungTichOptions.map((opt: any) => ({
+                    value: Number(opt.value) || 0,
+                    label: opt.label || `${opt.value || 0} ml`,
+                    priceDiff: Number(opt.priceDiff) || 0,
+                    stockDiff: Number(opt.stockDiff) || 0,
+                    sku: opt.sku,
+                    isDefault: Boolean(opt.isDefault),
+                  }))
+                : undefined;
+              
+              // Tính basePrice từ gia và selectedDungTich
+              const finalPrice = Number(item.Gia) || Number(product?.Gia) || 0;
+              const basePrice = selectedDungTich && selectedDungTich.priceDiff
+                ? finalPrice - selectedDungTich.priceDiff
+                : finalPrice;
+              
+              // Tạo cart item ID với volume
+              const cartItemId = selectedDungTich
+                ? `${product?._id || item.IdSanPham?._id || item.MaSanPham?._id || item.MaSanPham || item.id}::volume-${selectedDungTich.value}`
+                : `${product?._id || item.IdSanPham?._id || item.MaSanPham?._id || item.MaSanPham || item.id}::default`;
+              
               return {
-                id: product?._id || item.IdSanPham?._id || item.MaSanPham?._id || item.MaSanPham || item.id,
+                id: cartItemId,
+                productId: product?._id || item.IdSanPham?._id || item.MaSanPham?._id || item.MaSanPham || item.id,
                 tenSP: item.TenSanPham || product?.TenSanPham || item.tenSP || 'Sản phẩm',
-                gia: item.Gia || product?.Gia || item.gia || 0,
+                gia: finalPrice,
+                basePrice,
                 giamGia: product?.KhuyenMai || item.giamGia || 0,
                 hinhAnh: product?.HinhAnhChinh || item.hinhAnh || '',
                 loaiSP: product?.MaLoaiSanPham?.TenLoaiSanPham || item.loaiSP || '',
                 quantity: item.SoLuong || item.quantity || 1,
+                selectedDungTich,
+                volumeOptions,
               };
             });
             
-            storage.removeCart();
             storage.setCart(mappedCart);
             window.dispatchEvent(new CustomEvent('cart:updated'));
             
@@ -342,13 +450,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             }
           } else {
             if (import.meta.env.DEV) {
-              console.log('ℹ️ No cart in database after register');
+              console.log('ℹ️ No cart in database after register, cart cleared');
             }
           }
         } catch (cartError: any) {
           if (import.meta.env.DEV) {
             console.error('⚠️ Error loading cart from database after register:', cartError?.message || cartError);
           }
+          // Cart đã được xóa ở trên, không cần làm gì thêm
         }
       }
       
@@ -361,15 +470,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = async () => {
     try {
+      // ✅ Lưu hearts từ localStorage vào database trước khi logout
+      const localHearts = storage.getHearts();
+      if (localHearts && localHearts.length > 0 && user?.id) {
+        try {
+          await heartService.syncHearts(localHearts);
+          if (import.meta.env.DEV) {
+            console.log('✅ Hearts saved to database before logout:', localHearts.length, 'products');
+          }
+        } catch (heartError: any) {
+          if (import.meta.env.DEV) {
+            console.error('⚠️ Error saving hearts to database before logout:', heartError?.message || heartError);
+          }
+        }
+      }
+      
       // ✅ Lưu cart từ localStorage vào database trước khi logout
       const localCart = storage.getCart();
       if (localCart && localCart.length > 0 && user?.id) {
         try {
-          // ✅ Format cart items để gửi lên backend
+          // ✅ Format cart items để gửi lên backend (bao gồm selectedDungTich)
           const cartItems = localCart.map(item => ({
-            id: item.id,
+            id: item.productId || item.id.split('::')[0], // Lấy productId từ cart item ID
             quantity: item.quantity || 1,
             tenSP: item.tenSP, // Giữ lại để backend có thể dùng nếu cần
+            selectedDungTich: item.selectedDungTich ? {
+              value: item.selectedDungTich.value,
+              label: item.selectedDungTich.label,
+              priceDiff: item.selectedDungTich.priceDiff || 0,
+              sku: item.selectedDungTich.sku,
+            } : undefined,
           }));
           
           await cartService.updateCart({ items: cartItems });
@@ -392,21 +522,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       // ✅ Clear user state
       setUser(null);
       
-      // ✅ Xóa cart trong localStorage sau khi logout
+      // ✅ Xóa cart và hearts trong localStorage sau khi logout
       storage.removeCart();
+      storage.removeHearts();
       
       // ✅ Dispatch event để update UI
       window.dispatchEvent(new CustomEvent('cart:updated'));
+      window.dispatchEvent(new CustomEvent('hearts:updated'));
       
       toast.success('Đăng xuất thành công!');
     } catch (error: any) {
       if (import.meta.env.DEV) {
         console.error('Logout error:', error?.message || error);
       }
-      // ✅ Vẫn clear user và cart nếu logout thất bại
+      // ✅ Vẫn clear user, cart và hearts nếu logout thất bại
       setUser(null);
       storage.removeCart();
+      storage.removeHearts();
       window.dispatchEvent(new CustomEvent('cart:updated'));
+      window.dispatchEvent(new CustomEvent('hearts:updated'));
       
       // ✅ Chỉ show error nếu không phải lỗi network thông thường
       if (error?.message && !error.message.includes('Network Error')) {

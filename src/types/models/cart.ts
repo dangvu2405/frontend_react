@@ -4,8 +4,15 @@
  */
 
 import type { BaseDocument, ObjectId } from './common';
-import type { Product } from './product';
+import type { Product, ProductVolumeOption } from './product';
 import type { User } from './user';
+
+export interface CartVolumeSelection {
+  value: number;
+  label: string;
+  priceDiff?: number;
+  sku?: string;
+}
 
 /**
  * CartItem - Item trong giỏ hàng
@@ -16,6 +23,7 @@ export interface CartItem {
   Gia: number;                   // Giá sản phẩm
   SoLuong: number;               // Số lượng
   ThanhTien: number;             // Thành tiền (Gia * SoLuong)
+  SelectedDungTich?: CartVolumeSelection | ProductVolumeOption;
 }
 
 /**

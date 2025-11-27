@@ -576,7 +576,7 @@ export default function AdminVouchersPage() {
                           </Badge>
                         </td>
                         <td className="px-4 py-3 text-sm text-muted-foreground">
-                          {formatDate(voucher.NgayTao)}
+                          {formatDate(voucher.NgayTao ?? '')}
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-end gap-2">

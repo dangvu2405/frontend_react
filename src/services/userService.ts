@@ -110,5 +110,23 @@ export const userService = {
   deleteAddress: async (id: string): Promise<void> => {
     await axiosInstance.delete<ApiItemResponse<void>>(`/user/address/${id}`);
   },
+
+  setDefaultAddress: async (id: string): Promise<UserAddress[]> => {
+    const response = await axiosInstance.patch<ApiItemResponse<UserAddress[]>>(`/user/address/${id}`, {
+      address: { MacDinh: true },
+    });
+    const responseData = response.data;
+
+    if (responseData?.data) {
+      if (Array.isArray(responseData.data)) {
+        return responseData.data;
+      }
+      if ('DiaChi' in (responseData.data as any)) {
+        return (responseData.data as any).DiaChi || [];
+      }
+    }
+
+    return [];
+  },
 };
 

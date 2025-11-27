@@ -1,65 +1,71 @@
 import axiosInstance from './axios';
 import { API_ENDPOINTS } from '@/constants';
 import { storage } from '@/utils/storage';
-import type { LoginCredentials, RegisterData, AuthResponse } from '@/types/models';
+import type { LoginCredentials, RegisterData, AuthResponse, ApiItemResponse } from '@/types/models';
 
 const authService = {
   login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
-    const response = await axiosInstance.post<any, AuthResponse>(
+    const response = await axiosInstance.post<ApiItemResponse<{ accessToken: string; user?: AuthResponse['user']; message?: string }>>(
       API_ENDPOINTS.LOGIN,
       credentials
     );
 
-    // ✅ Backend trả về: { success, message, data: { accessToken, user } }
     const responseData = response.data;
-    if (responseData && responseData.data) {
-      const { accessToken, user } = responseData.data as any;
-      
+
+    if (responseData?.data) {
+      const { accessToken, user } = responseData.data;
+
       if (accessToken) {
         storage.setToken(accessToken);
       }
-      
+
       if (user) {
         storage.setUser(user);
       }
-      
-      // Trả về format tương thích với AuthResponse
+
       return {
+        message: responseData.message || 'Đăng nhập thành công',
         accessToken: accessToken || '',
-        user: user || null
-      } as AuthResponse;
+        user: user || undefined,
+      };
     }
 
-    return response;
+    return {
+      message: responseData?.message || 'Đăng nhập thành công',
+      accessToken: '',
+    };
   },
 
   register: async (userData: RegisterData): Promise<AuthResponse> => {
-    const response = await axiosInstance.post<any, AuthResponse>(
+    const response = await axiosInstance.post<ApiItemResponse<{ accessToken: string; user?: AuthResponse['user']; message?: string }>>(
       API_ENDPOINTS.REGISTER,
       userData
     );
 
-    // ✅ Backend trả về: { success, message, data: { accessToken, user } }
     const responseData = response.data;
-    if (responseData && responseData.data) {
-      const { accessToken, user } = responseData.data as any;
-      
+
+    if (responseData?.data) {
+      const { accessToken, user } = responseData.data;
+
       if (accessToken) {
         storage.setToken(accessToken);
       }
-      
+
       if (user) {
         storage.setUser(user);
       }
-      
-      // Trả về format tương thích với AuthResponse
+
       return {
+        message: responseData.message || 'Đăng ký thành công',
         accessToken: accessToken || '',
-        user: user || null
-      } as AuthResponse;
+        user: user || undefined,
+      };
     }
 
-    return response;
+    return {
+      message: responseData?.message || 'Đăng ký thành công',
+      accessToken: '',
+    };
   },
 
   logout: async (): Promise<void> => {

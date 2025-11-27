@@ -9,6 +9,3 @@ export * from './goodsReceipt';
 export * from './chat';
 export * from './payment';
 export * from './admin';
-export * from './trace';
-
-
