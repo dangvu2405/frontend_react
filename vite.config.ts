@@ -2,7 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
-import { copyFileSync, existsSync } from 'fs'
+import { copyFileSync, existsSync, mkdirSync } from 'fs'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -15,30 +15,34 @@ export default defineConfig({
       closeBundle() {
         const publicDir = path.resolve(__dirname, 'public')
         const distDir = path.resolve(__dirname, 'dist')
+        const ensureDistDir = () => {
+          if (!existsSync(distDir)) {
+            mkdirSync(distDir, { recursive: true })
+          }
+        }
+
+        const tryCopy = (src: string, dest: string, label: string) => {
+          if (!existsSync(src)) {
+            console.warn(`ℹ️ Skipped copying ${label} (not found at ${src})`)
+            return
+          }
+          try {
+            ensureDistDir()
+            copyFileSync(src, dest)
+            console.log(`✅ Copied ${label} to dist`)
+          } catch (error) {
+            console.warn(`⚠️ Could not copy ${label}:`, error instanceof Error ? error.message : error)
+          }
+        }
         
         // Copy .htaccess
-        const htaccessSrc = path.join(publicDir, '.htaccess')
-        const htaccessDest = path.join(distDir, '.htaccess')
-        if (existsSync(htaccessSrc)) {
-          copyFileSync(htaccessSrc, htaccessDest)
-          console.log('✅ Copied .htaccess to dist')
-        }
+        tryCopy(path.join(publicDir, '.htaccess'), path.join(distDir, '.htaccess'), '.htaccess')
         
         // Copy static.json (always overwrite to ensure latest version)
-        const staticJsonSrc = path.join(__dirname, 'static.json')
-        const staticJsonDest = path.join(distDir, 'static.json')
-        if (existsSync(staticJsonSrc)) {
-          copyFileSync(staticJsonSrc, staticJsonDest)
-          console.log('✅ Copied static.json to dist')
-        }
+        tryCopy(path.join(__dirname, 'static.json'), path.join(distDir, 'static.json'), 'static.json')
         
         // Copy _redirects (always overwrite)
-        const redirectsSrc = path.join(publicDir, '_redirects')
-        const redirectsDest = path.join(distDir, '_redirects')
-        if (existsSync(redirectsSrc)) {
-          copyFileSync(redirectsSrc, redirectsDest)
-          console.log('✅ Copied _redirects to dist')
-        }
+        tryCopy(path.join(publicDir, '_redirects'), path.join(distDir, '_redirects'), '_redirects')
       }
     }
   ],
