@@ -1,8 +1,10 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Suspense, lazy } from 'react';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { Toaster } from 'sonner';
+import { getQueryClient } from './lib/store/queryClient';
 
 // Lazy load pages for code splitting
 const HomePage = lazy(() => import('./pages/Home'));
@@ -38,6 +40,7 @@ const AdminChatPage = lazy(() => import('./pages/admin/Chat'));
 const AdminSettingsPage = lazy(() => import('./pages/admin/Settings'));
 
 import AdminRoute from './components/AdminRoute';
+import CustomerChat from './components/CustomerChat';
 
 // Loading component
 const PageLoader = () => (
@@ -49,12 +52,15 @@ const PageLoader = () => (
   </div>
 );
 function App() {
+  const queryClient = getQueryClient();
+
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <BrowserRouter>
-          <Suspense fallback={<PageLoader />}>
-            <Routes>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
+        <AuthProvider>
+          <BrowserRouter>
+            <Suspense fallback={<PageLoader />}>
+              <Routes>
               {/* Main Pages */}
               <Route path="/" element={<HomePage />} />
               <Route path="/products" element={<ProductsPage />} />
@@ -117,12 +123,15 @@ function App() {
                   </div>
                 </div>
               } />
-            </Routes>
-          </Suspense>
-        </BrowserRouter>
-        <Toaster position="top-right" richColors />
-      </AuthProvider>
-    </ThemeProvider>
+              </Routes>
+            </Suspense>
+          </BrowserRouter>
+          <Toaster position="top-right" richColors />
+          {/* Customer Chat Widget - Hiển thị trên tất cả các trang cho user đã đăng nhập */}
+          <CustomerChat />
+        </AuthProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
   );
 }
 

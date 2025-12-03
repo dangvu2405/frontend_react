@@ -32,19 +32,16 @@ import {
   User,
   Box,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { userService } from '@/services/userService';
-import axiosInstance from '@/services/axios';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import type { Order, OrderProduct, Product } from '@/types/models';
 import { getCloudinaryProductImageUrl } from '@/utils/imageUtils';
 import { formatCurrency } from '@/utils/format';
+import { useOrders, useCancelOrder } from '@/hooks/useOrders';
 
 export default function OrdersPage() {
   const { isAuthenticated } = useAuth();
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
@@ -52,30 +49,17 @@ export default function OrdersPage() {
   const [currentOrderIndex, setCurrentOrderIndex] = useState(0);
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchOrders();
-    }
-  }, [isAuthenticated]);
+  // ✅ Sử dụng React Query để đồng bộ đơn hàng
+  const { data: orders = [], isLoading: loading } = useOrders();
+  const cancelOrderMutation = useCancelOrder();
 
   const isProductDocument = (value: OrderProduct['IdSanPham']): value is Product => {
     return Boolean(value) && typeof value === 'object';
   };
 
-  const fetchOrders = async () => {
-    try {
-      setLoading(true);
-      const ordersData = await userService.getOrders();
-      setOrders(ordersData);
-    } catch (error: any) {
-      console.error('Error fetching orders:', error);
-      toast.error(error?.message || 'Không thể tải danh sách đơn hàng');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // ✅ Đã chuyển sang useOrders hook, không cần fetchOrders nữa
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (statusCode: string) => {
     const statusConfig: Record<string, { label: string; color: string }> = {
       pending: { label: 'Chờ xác nhận', color: 'bg-yellow-100 text-yellow-800' },
       confirmed: { label: 'Đã xác nhận', color: 'bg-blue-100 text-blue-800' },
@@ -84,7 +68,7 @@ export default function OrdersPage() {
       cancelled: { label: 'Đã hủy', color: 'bg-red-100 text-red-800' },
     };
 
-    const config = statusConfig[status] || { label: status, color: 'bg-gray-100 text-gray-800' };
+    const config = statusConfig[statusCode] || { label: statusCode, color: 'bg-gray-100 text-gray-800' };
 
     return (
       <span className={`px-3 py-1 rounded-full text-xs font-medium ${config.color}`}>
@@ -93,10 +77,11 @@ export default function OrdersPage() {
     );
   };
 
-  const getOrderHistory = (order: Order) => {
+  const getOrderHistory = (order: any) => {
     const history = [];
+    const statusCode = order.statusCode || order.raw?.TrangThai;
     
-    if (order.TrangThai === 'delivered') {
+    if (statusCode === 'delivered') {
       history.push({
         event: 'Đã giao hàng',
         timestamp: order.updatedAt || order.createdAt,
@@ -104,7 +89,7 @@ export default function OrdersPage() {
       });
     }
     
-    if (order.TrangThai === 'shipping' || order.TrangThai === 'delivered') {
+    if (statusCode === 'shipping' || statusCode === 'delivered') {
       history.push({
         event: 'Đang giao hàng',
         timestamp: order.updatedAt || order.createdAt,
@@ -112,7 +97,7 @@ export default function OrdersPage() {
       });
     }
     
-    if (order.TrangThai === 'confirmed' || order.TrangThai === 'shipping' || order.TrangThai === 'delivered') {
+    if (statusCode === 'confirmed' || statusCode === 'shipping' || statusCode === 'delivered') {
       history.push({
         event: 'Đã xác nhận',
         timestamp: order.updatedAt || order.createdAt,
@@ -129,42 +114,41 @@ export default function OrdersPage() {
     return history.reverse();
   };
 
-  const canCancelOrder = (order: Order) => {
-    return order.TrangThai === 'pending';
+  const canCancelOrder = (order: any) => {
+    const statusCode = order.statusCode || order.raw?.TrangThai;
+    return statusCode === 'pending' || statusCode === 'confirmed';
   };
 
   const getFilteredOrders = () => {
     if (statusFilter === 'all') return orders;
-    return orders.filter(order => order.TrangThai === statusFilter);
+    return orders.filter(order => {
+      const statusCode = order.statusCode || order.raw?.TrangThai;
+      return statusCode === statusFilter;
+    });
   };
 
   const getOrdersByStatus = () => {
     return {
       all: orders.length,
-      pending: orders.filter(o => o.TrangThai === 'pending').length,
-      confirmed: orders.filter(o => o.TrangThai === 'confirmed').length,
-      shipping: orders.filter(o => o.TrangThai === 'shipping').length,
-      delivered: orders.filter(o => o.TrangThai === 'delivered').length,
-      cancelled: orders.filter(o => o.TrangThai === 'cancelled').length,
+      pending: orders.filter(o => (o.statusCode || o.raw?.TrangThai) === 'pending').length,
+      confirmed: orders.filter(o => (o.statusCode || o.raw?.TrangThai) === 'confirmed').length,
+      shipping: orders.filter(o => (o.statusCode || o.raw?.TrangThai) === 'shipping').length,
+      delivered: orders.filter(o => (o.statusCode || o.raw?.TrangThai) === 'delivered').length,
+      cancelled: orders.filter(o => (o.statusCode || o.raw?.TrangThai) === 'cancelled').length,
     };
   };
 
-  const handleCancelOrder = async () => {
+  const handleCancelOrder = () => {
     if (!cancellingOrderId) return;
-
-    try {
-      await axiosInstance.delete(`/user/orderUser/${cancellingOrderId}`, {
-        data: { reason: cancelReason || 'Khách hàng yêu cầu hủy đơn hàng' },
-      });
-      toast.success('Đơn hàng đã được hủy thành công');
-      setIsCancelDialogOpen(false);
-      setCancelReason('');
-      setCancellingOrderId(null);
-      await fetchOrders();
-    } catch (error: any) {
-      console.error('Error cancelling order:', error);
-      toast.error(error?.response?.data?.message || error?.message || 'Không thể hủy đơn hàng');
-    }
+    
+    cancelOrderMutation.mutate({
+      orderId: cancellingOrderId,
+      reason: cancelReason || 'Khách hàng yêu cầu hủy đơn hàng',
+    });
+    
+    setIsCancelDialogOpen(false);
+    setCancelReason('');
+    setCancellingOrderId(null);
   };
 
   const openCancelDialog = (order: Order) => {
@@ -172,12 +156,12 @@ export default function OrdersPage() {
     setIsCancelDialogOpen(true);
   };
 
-  const openDetailDialog = (order: Order, index?: number) => {
+  const openDetailDialog = (order: any, index?: number) => {
     setSelectedOrder(order);
     if (index !== undefined) {
       setCurrentOrderIndex(index);
     } else {
-      const foundIndex = orders.findIndex(o => o._id === order._id);
+      const foundIndex = orders.findIndex(o => o.id === order.id || o._id === order._id);
       setCurrentOrderIndex(foundIndex >= 0 ? foundIndex : 0);
     }
     setIsDetailOpen(true);
@@ -213,26 +197,36 @@ export default function OrdersPage() {
     }
   };
 
-  const getFirstProductImage = (order: Order): string => {
-    if (!order.SanPham || order.SanPham.length === 0) return '';
-    const firstProduct = order.SanPham[0];
-    if (isProductDocument(firstProduct.IdSanPham)) {
-      return firstProduct.IdSanPham.HinhAnhChinh || '';
+  const getFirstProductImage = (order: any): string => {
+    if (order.products && order.products.length > 0) {
+      return order.products[0].image || '';
     }
-    const fallbackImage = (firstProduct as Record<string, unknown>).HinhAnhChinh;
-    return typeof fallbackImage === 'string' ? fallbackImage : '';
+    if (order.raw?.SanPham && order.raw.SanPham.length > 0) {
+      const firstProduct = order.raw.SanPham[0];
+      if (isProductDocument(firstProduct.IdSanPham)) {
+        return firstProduct.IdSanPham.HinhAnhChinh || '';
+      }
+      const fallbackImage = (firstProduct as Record<string, unknown>).HinhAnhChinh;
+      return typeof fallbackImage === 'string' ? fallbackImage : '';
+    }
+    return '';
   };
 
-  const getFirstProductName = (order: Order): string => {
-    if (!order.SanPham || order.SanPham.length === 0) return 'Đơn hàng';
-    const firstProduct = order.SanPham[0];
-    if (isProductDocument(firstProduct.IdSanPham)) {
-      return firstProduct.IdSanPham.TenSanPham || 'Sản phẩm';
+  const getFirstProductName = (order: any): string => {
+    if (order.products && order.products.length > 0) {
+      return order.products[0].name || 'Sản phẩm';
     }
-    const fallbackName = (firstProduct as Record<string, unknown>).TenSanPham;
-    return typeof fallbackName === 'string' && fallbackName.trim()
-      ? fallbackName
-      : 'Sản phẩm';
+    if (order.raw?.SanPham && order.raw.SanPham.length > 0) {
+      const firstProduct = order.raw.SanPham[0];
+      if (isProductDocument(firstProduct.IdSanPham)) {
+        return firstProduct.IdSanPham.TenSanPham || 'Sản phẩm';
+      }
+      const fallbackName = (firstProduct as Record<string, unknown>).TenSanPham;
+      return typeof fallbackName === 'string' && fallbackName.trim()
+        ? fallbackName
+        : 'Sản phẩm';
+    }
+    return 'Đơn hàng';
   };
 
   const navigateOrder = (direction: 'prev' | 'next') => {
@@ -344,7 +338,7 @@ export default function OrdersPage() {
                         </div>
                       </div>
                       <div className="text-right">
-                        {getStatusBadge(order.TrangThai)}
+                        {getStatusBadge(order.statusCode || order.raw?.TrangThai || '')}
                       </div>
                     </div>
 
@@ -353,8 +347,8 @@ export default function OrdersPage() {
                       <div>
                         <p className="text-muted-foreground mb-1">Sản phẩm</p>
                         <p className="font-medium">{firstProductName}</p>
-                        {order.SanPham && order.SanPham.length > 1 && (
-                          <p className="text-xs text-muted-foreground">+{order.SanPham.length - 1} sản phẩm khác</p>
+                        {(order.products?.length > 1 || order.raw?.SanPham?.length > 1) && (
+                          <p className="text-xs text-muted-foreground">+{(order.products?.length || order.raw?.SanPham?.length || 1) - 1} sản phẩm khác</p>
                         )}
                       </div>
                       <div>
@@ -364,12 +358,12 @@ export default function OrdersPage() {
                       <div>
                         <p className="text-muted-foreground mb-1">Phương thức</p>
                         <p className="font-medium">
-                          {order.PhuongThucThanhToan === 'COD' ? 'Thanh toán khi nhận' : order.PhuongThucThanhToan}
+                          {order.paymentMethod || (order.raw?.PhuongThucThanhToan === 'COD' ? 'Thanh toán khi nhận' : order.raw?.PhuongThucThanhToan)}
                         </p>
                       </div>
                       <div>
                         <p className="text-muted-foreground mb-1">Tổng tiền</p>
-                        <p className="font-semibold text-lg">{formatCurrency(order.TongTien || 0)}</p>
+                        <p className="font-semibold text-lg">{formatCurrency(order.total || order.raw?.TongTien || 0)}</p>
                       </div>
                     </div>
 
@@ -380,7 +374,7 @@ export default function OrdersPage() {
                         size="sm"
                         className="flex-1"
                         onClick={() => {
-                          const originalIndex = orders.findIndex(o => o._id === order._id);
+                          const originalIndex = orders.findIndex(o => o.id === order.id || o._id === order._id);
                           openDetailDialog(order, originalIndex >= 0 ? originalIndex : 0);
                         }}
                       >
@@ -446,8 +440,8 @@ export default function OrdersPage() {
                       </DialogDescription>
                     </div>
                   </div>
-                  <div className="text-right">
-                    {getStatusBadge(selectedOrder.TrangThai)}
+                      <div className="text-right">
+                    {getStatusBadge(selectedOrder.statusCode || selectedOrder.raw?.TrangThai || '')}
                   </div>
                 </div>
               </DialogHeader>
@@ -465,17 +459,17 @@ export default function OrdersPage() {
                 <div>
                   <p className="text-muted-foreground mb-1">Phương thức thanh toán</p>
                   <p className="font-medium">
-                    {selectedOrder.PhuongThucThanhToan === 'COD' ? 'Thanh toán khi nhận' : selectedOrder.PhuongThucThanhToan}
+                    {selectedOrder.paymentMethod || (selectedOrder.raw?.PhuongThucThanhToan === 'COD' ? 'Thanh toán khi nhận' : selectedOrder.raw?.PhuongThucThanhToan)}
                   </p>
                 </div>
                 <div>
                   <p className="text-muted-foreground mb-1">Địa chỉ</p>
                   <p className="font-medium line-clamp-1">
-                    {selectedOrder.ThongTinNhanHang
-                      ? `${selectedOrder.ThongTinNhanHang.DiaChiChiTiet}, ${selectedOrder.ThongTinNhanHang.QuanHuyen}, ${selectedOrder.ThongTinNhanHang.TinhThanh}`
-                      : typeof selectedOrder.DiaChi === 'string'
-                      ? selectedOrder.DiaChi
-                      : '—'}
+                    {selectedOrder.address || (selectedOrder.raw?.ThongTinNhanHang
+                      ? `${selectedOrder.raw.ThongTinNhanHang.DiaChiChiTiet}, ${selectedOrder.raw.ThongTinNhanHang.QuanHuyen}, ${selectedOrder.raw.ThongTinNhanHang.TinhThanh}`
+                      : typeof selectedOrder.raw?.DiaChi === 'string'
+                      ? selectedOrder.raw.DiaChi
+                      : '—')}
                   </p>
                 </div>
               </div>
@@ -536,7 +530,38 @@ export default function OrdersPage() {
 
                 <TabsContent value="items" className="mt-4">
                   <div className="space-y-3">
-                    {selectedOrder.SanPham?.map((product, index) => {
+                    {(selectedOrder.products || selectedOrder.raw?.SanPham || []).map((product: any, index: number) => {
+                      // Ưu tiên dùng formatted products từ hook
+                      if (selectedOrder.products && selectedOrder.products[index]) {
+                        const p = selectedOrder.products[index];
+                        return (
+                          <div key={index} className="flex gap-4 p-3 border rounded-lg">
+                            {p.image && (
+                              <img
+                                src={getCloudinaryProductImageUrl(p.image)}
+                                alt={p.name}
+                                className="w-20 h-20 object-cover rounded"
+                              />
+                            )}
+                            <div className="flex-1">
+                              <h4 className="font-medium">{p.name}</h4>
+                              <p className="text-sm text-muted-foreground">
+                                Số lượng: {p.quantity}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-semibold">
+                                {formatCurrency(p.price * p.quantity)}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                {formatCurrency(p.price)}/sản phẩm
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      }
+                      
+                      // Fallback về raw data
                       const productEntity = isProductDocument(product.IdSanPham) ? product.IdSanPham : null;
                       const productId = productEntity?._id || product.IdSanPham;
                       const productName = productEntity?.TenSanPham || product.TenSanPham || 'Sản phẩm';
@@ -545,11 +570,13 @@ export default function OrdersPage() {
 
                       return (
                         <div key={index} className="flex gap-4 p-3 border rounded-lg">
-                          <img
-                            src={getCloudinaryProductImageUrl(productImage || '')}
-                            alt={productName}
-                            className="w-20 h-20 object-cover rounded"
-                          />
+                          {productImage && (
+                            <img
+                              src={getCloudinaryProductImageUrl(productImage)}
+                              alt={productName}
+                              className="w-20 h-20 object-cover rounded"
+                            />
+                          )}
                           <div className="flex-1">
                             <h4 className="font-medium">{productName}</h4>
                             {product.SelectedDungTich && (
@@ -580,9 +607,9 @@ export default function OrdersPage() {
                     <div>
                       <Label className="text-sm font-semibold mb-2 block">Thông tin vận chuyển</Label>
                       <div className="space-y-2 text-sm">
-                        <p><strong>Phương thức:</strong> {selectedOrder.PhuongThucThanhToan}</p>
-                        <p><strong>Phí vận chuyển:</strong> {formatCurrency(selectedOrder.PhiVanChuyen || 0)}</p>
-                        <p><strong>Trạng thái:</strong> {getStatusBadge(selectedOrder.TrangThai)}</p>
+                        <p><strong>Phương thức:</strong> {selectedOrder.paymentMethod || selectedOrder.raw?.PhuongThucThanhToan}</p>
+                        <p><strong>Phí vận chuyển:</strong> {formatCurrency(selectedOrder.shippingFee || selectedOrder.raw?.PhiVanChuyen || 0)}</p>
+                        <p><strong>Trạng thái:</strong> {getStatusBadge(selectedOrder.statusCode || selectedOrder.raw?.TrangThai || '')}</p>
                       </div>
                     </div>
                   </div>
@@ -590,19 +617,19 @@ export default function OrdersPage() {
 
                 <TabsContent value="receiver" className="mt-4">
                   <div className="space-y-4">
-                    {selectedOrder.ThongTinNhanHang ? (
+                    {selectedOrder.raw?.ThongTinNhanHang ? (
                       <div className="space-y-2 text-sm">
-                        <p><strong>Họ tên:</strong> {selectedOrder.ThongTinNhanHang.HoTen}</p>
-                        <p><strong>Số điện thoại:</strong> {selectedOrder.ThongTinNhanHang.SoDienThoai}</p>
-                        {selectedOrder.ThongTinNhanHang.Email && (
-                          <p><strong>Email:</strong> {selectedOrder.ThongTinNhanHang.Email}</p>
+                        <p><strong>Họ tên:</strong> {selectedOrder.raw.ThongTinNhanHang.HoTen}</p>
+                        <p><strong>Số điện thoại:</strong> {selectedOrder.raw.ThongTinNhanHang.SoDienThoai}</p>
+                        {selectedOrder.raw.ThongTinNhanHang.Email && (
+                          <p><strong>Email:</strong> {selectedOrder.raw.ThongTinNhanHang.Email}</p>
                         )}
-                        <p><strong>Địa chỉ:</strong> {selectedOrder.ThongTinNhanHang.DiaChiChiTiet}</p>
+                        <p><strong>Địa chỉ:</strong> {selectedOrder.raw.ThongTinNhanHang.DiaChiChiTiet}</p>
                         <p>
                           {[
-                            selectedOrder.ThongTinNhanHang.PhuongXa,
-                            selectedOrder.ThongTinNhanHang.QuanHuyen,
-                            selectedOrder.ThongTinNhanHang.TinhThanh,
+                            selectedOrder.raw.ThongTinNhanHang.PhuongXa,
+                            selectedOrder.raw.ThongTinNhanHang.QuanHuyen,
+                            selectedOrder.raw.ThongTinNhanHang.TinhThanh,
                           ]
                             .filter(Boolean)
                             .join(', ')}
@@ -610,7 +637,7 @@ export default function OrdersPage() {
                       </div>
                     ) : (
                       <p className="text-sm text-muted-foreground">
-                        {typeof selectedOrder.DiaChi === 'string' ? selectedOrder.DiaChi : '—'}
+                        {selectedOrder.address || (typeof selectedOrder.raw?.DiaChi === 'string' ? selectedOrder.raw.DiaChi : '—')}
                       </p>
                     )}
                   </div>
@@ -696,8 +723,12 @@ export default function OrdersPage() {
             }}>
               Hủy
             </Button>
-            <Button variant="destructive" onClick={handleCancelOrder}>
-              Xác nhận hủy đơn
+            <Button 
+              variant="destructive" 
+              onClick={handleCancelOrder}
+              disabled={cancelOrderMutation.isPending}
+            >
+              {cancelOrderMutation.isPending ? 'Đang xử lý...' : 'Xác nhận hủy đơn'}
             </Button>
           </DialogFooter>
         </DialogContent>

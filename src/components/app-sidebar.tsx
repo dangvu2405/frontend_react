@@ -74,11 +74,6 @@ const sidebarData = {
       icon: IconTicket,
     },
     {
-      title: "Chuỗi cung ứng Blockchain",
-      url: "/admin/supply-chain",
-      icon: IconLink,
-    },
-    {
       title: "Quản lý Chat",
       url: "/admin/chat",
       icon: IconMail,
@@ -138,34 +133,9 @@ const sidebarData = {
       url: "/admin/settings",
       icon: IconSettings,
     },
-    {
-      title: "Hỗ trợ",
-      url: "#",
-      icon: IconHelp,
-    },
-    {
-      title: "Tìm kiếm",
-      url: "#",
-      icon: IconSearch,
-    },
+
   ],
-  documents: [
-    {
-      name: "Data Library",
-      url: "#",
-      icon: IconDatabase,
-    },
-    {
-      name: "Reports",
-      url: "#",
-      icon: IconReport,
-    },
-    {
-      name: "Word Assistant",
-      url: "#",
-      icon: IconFileWord,
-    },
-  ],
+  
 }
 
 const DEFAULT_USER = {
@@ -277,7 +247,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={sidebarData.navMain} />
-        <NavDocuments items={sidebarData.documents} />
         <NavSecondary items={sidebarData.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>

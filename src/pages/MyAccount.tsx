@@ -5,19 +5,14 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
-import { User, Package, Heart, Settings, LogOut, MapPin, CreditCard, FileText, Camera, Loader2, X } from 'lucide-react';
+import { User, Package, Heart, Settings, LogOut, MapPin, CreditCard, FileText, Camera, Loader2 } from 'lucide-react';
 import { useEffect, useState, useRef } from 'react';
 import type { FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { userService } from '@/services/userService';
-import { heartService } from '@/services/heartService';
 import { toast } from 'sonner';
 import { API_BASE_URL } from '@/constants';
-import { ProductsGrid } from '@/components/products';
-import type { Product } from '@/types/models';
-import { getCloudinaryProductImageUrl } from '@/utils/imageUtils';
-import { storage } from '@/utils/storage';
-import { cartService } from '@/services/cartService';
+import { useOrders, useCancelOrder } from '@/hooks/useOrders';
 
 export default function MyAccountPage() {
   const { user, isAuthenticated, logout } = useAuth();
@@ -25,11 +20,12 @@ export default function MyAccountPage() {
 
   const [activeTab, setActiveTab] = useState('profile');
   const [addresses, setAddresses] = useState<any[]>([]);
-  const [orders, setOrders] = useState<any[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
   const [isOrderDetailOpen, setIsOrderDetailOpen] = useState(false);
-  const [favoriteProducts, setFavoriteProducts] = useState<Product[]>([]);
-  const [loadingFavorites, setLoadingFavorites] = useState(false);
+  
+  // ✅ Sử dụng React Query để đồng bộ đơn hàng
+  const { data: orders = [], isLoading: ordersLoading, refetch: refetchOrders } = useOrders();
+  const cancelOrderMutation = useCancelOrder();
   const [profileForm, setProfileForm] = useState({
     fullName: user?.fullName || '',
     email: user?.email || '',
@@ -73,49 +69,7 @@ export default function MyAccountPage() {
       : [];
   };
 
-  const formatOrderList = (response: any) => {
-    // ✅ Backend trả về: { success: true, message: "...", data: { donHang: [...] } }
-    // Hoặc có thể là response.data từ axios
-    const raw = response?.data?.donHang || response?.donHang || (Array.isArray(response?.data) ? response.data : []);
-    if (!Array.isArray(raw)) {
-      if (import.meta.env.DEV) {
-        console.warn('formatOrderList: raw is not an array', raw);
-      }
-      return [];
-    }
-    return raw.map((order: any) => ({
-      id: order._id || order.id,
-      date: new Date(order.createdAt).toLocaleDateString('vi-VN'),
-      status:
-        order.TrangThai === 'pending'
-          ? 'Đang xử lý'
-          : order.TrangThai === 'completed'
-          ? 'Hoàn thành'
-          : order.TrangThai === 'cancelled'
-          ? 'Đã hủy'
-          : order.TrangThai === 'shipping'
-          ? 'Đang giao hàng'
-          : order.TrangThai,
-      total: order.TongTien || 0,
-      products:
-        order.SanPham?.map((sp: any) => ({
-          id: sp.MaSanPham || sp.id,
-          name: sp.TenSanPham || sp.tenSP,
-          quantity: sp.SoLuong || sp.quantity || 1,
-          price: sp.Gia || sp.gia || 0,
-          discount: sp.giamGia || 0,
-          image: sp.hinhAnh || '',
-          category: sp.loaiSP || '',
-        })) || [],
-      address: order.DiaChi,
-      shippingFee: order.PhiVanChuyen || 0,
-      paymentMethod:
-        order.PhuongThucThanhToan === 'COD'
-          ? 'Thanh toán khi nhận hàng'
-          : order.PhuongThucThanhToan,
-      note: order.GhiChu || '',
-    }));
-  };
+  // ✅ Đã chuyển sang useOrders hook, không cần formatOrderList nữa
 
   // Redirect nếu chưa authenticated
   useEffect(() => {
@@ -132,18 +86,13 @@ export default function MyAccountPage() {
 
     const fetchAll = async () => {
       try {
-        // Chỉ fetch addresses và orders - user data đã có từ AuthContext
-        // Chỉ fetch getCurrentUser nếu cần phone/birthday mà AuthContext chưa có
-        const [addr, ordersRes] = await Promise.all([
-          userService.getAddresses(),
-          userService.getOrders(),
-        ]);
+        // Chỉ fetch addresses - orders đã được fetch tự động bởi useOrders hook
+        const addr = await userService.getAddresses();
         
         // Chỉ update state nếu component vẫn còn mounted
         if (!isMounted) return;
         
         setAddresses(formatAddressList(addr));
-        setOrders(formatOrderList(ordersRes));
         
         // Sử dụng user data từ AuthContext, chỉ fetch getCurrentUser nếu thiếu phone/birthday
         if (user && (!user.phone || !user.birthday)) {
@@ -210,108 +159,6 @@ export default function MyAccountPage() {
       isMounted = false;
     };
   }, [user]);
-
-  // Fetch favorite products when wishlist tab is active
-  useEffect(() => {
-    if (activeTab === 'wishlist' && user) {
-      fetchFavoriteProducts();
-    }
-  }, [activeTab, user]);
-
-  const fetchFavoriteProducts = async () => {
-    try {
-      setLoadingFavorites(true);
-      const hearts = await heartService.getUserHearts();
-      
-      // Extract products from hearts
-      const products: Product[] = hearts
-        .map((heart: any) => {
-          const product = heart.MaSanPham;
-          if (!product) return null;
-          
-          // Normalize product data
-          return {
-            _id: product._id || product.id,
-            id: product._id || product.id,
-            TenSanPham: product.TenSanPham || product.tenSP || '',
-            tenSP: product.TenSanPham || product.tenSP || '',
-            Gia: product.Gia || product.gia || 0,
-            gia: product.Gia || product.gia || 0,
-            KhuyenMai: product.KhuyenMai || product.giamGia || 0,
-            giamGia: product.KhuyenMai || product.giamGia || 0,
-            HinhAnhChinh: product.HinhAnhChinh || product.hinhAnh || '',
-            hinhAnhChinh: product.HinhAnhChinh || product.hinhAnh || '',
-            DungTich: product.DungTich || product.dungTich,
-            DungTichOptions: product.DungTichOptions || product.dungTichOptions || [],
-            SoLuong: product.SoLuong || product.soLuong || 0,
-            soLuong: product.SoLuong || product.soLuong || 0,
-            MoTa: product.MoTa || product.moTa || '',
-            moTa: product.MoTa || product.moTa || '',
-          } as Product;
-        })
-        .filter(Boolean) as Product[];
-      
-      setFavoriteProducts(products);
-    } catch (error: any) {
-      console.error('Error fetching favorite products:', error);
-      toast.error(error?.message || 'Không thể tải danh sách sản phẩm yêu thích');
-    } finally {
-      setLoadingFavorites(false);
-    }
-  };
-
-  const handleAddToCart = async (product: Product, selectedVolume?: any) => {
-    try {
-      const productId = product._id || product.id;
-      if (!productId) {
-        toast.error('Không tìm thấy mã sản phẩm');
-        return;
-      }
-
-      const quantity = 1;
-      const finalPrice = (product.Gia || product.gia || 0) + (selectedVolume?.priceDiff || 0);
-      
-      await cartService.addToCart({
-        productId,
-        quantity,
-        tenSP: product.TenSanPham || product.tenSP || '',
-        basePrice: product.Gia || product.gia || 0,
-        giamGia: product.KhuyenMai || product.giamGia || 0,
-        hinhAnh: product.HinhAnhChinh || product.hinhAnhChinh || '',
-        loaiSP: '',
-        selectedDungTich: selectedVolume,
-        volumeOptions: product.DungTichOptions || product.dungTichOptions || [],
-      });
-
-      toast.success('Đã thêm vào giỏ hàng');
-      window.dispatchEvent(new CustomEvent('cart:updated'));
-    } catch (error: any) {
-      toast.error(error?.message || 'Không thể thêm vào giỏ hàng');
-    }
-  };
-
-  const handleRemoveFavorite = async (productId: string) => {
-    try {
-      // Remove from localStorage
-      storage.removeHeart(productId);
-      
-      // Remove from database if authenticated
-      if (isAuthenticated) {
-        await heartService.removeHeart(productId);
-      }
-      
-      // Update local state
-      setFavoriteProducts(prev => prev.filter(p => (p._id || p.id) !== productId));
-      
-      // Dispatch event
-      window.dispatchEvent(new CustomEvent('hearts:updated'));
-      
-      toast.success('Đã xóa khỏi danh sách yêu thích');
-    } catch (error: any) {
-      console.error('Error removing favorite:', error);
-      toast.error(error?.message || 'Không thể xóa khỏi danh sách yêu thích');
-    }
-  };
 
   // 🏠 thêm địa chỉ — tối ưu: sử dụng response từ API thay vì gọi lại
   const addAddress = async (e?: FormEvent) => {
@@ -847,7 +694,12 @@ export default function MyAccountPage() {
             {activeTab === 'orders' && (
               <div className="space-y-6">
                 <h2 className="text-xl font-semibold text-foreground mb-4">Đơn hàng của tôi</h2>
-                {orders.length === 0 ? (
+                {ordersLoading ? (
+                  <div className="text-center py-12">
+                    <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+                    <p className="text-muted-foreground mt-2">Đang tải đơn hàng...</p>
+                  </div>
+                ) : orders.length === 0 ? (
                   <div className="text-center py-12">
                     <p className="text-muted-foreground">Không có đơn hàng nào</p>
                   </div>
@@ -858,18 +710,22 @@ export default function MyAccountPage() {
                     <CardContent className="p-6">
                       <div className="flex justify-between items-start mb-4">
                         <div>
-                              <p className="font-bold text-foreground">{order.id}</p>
+                              <p className="font-bold text-foreground">Đơn #{order.MaDonHang || order.id?.slice(-8)}</p>
                               <p className="text-sm text-muted-foreground">{order.date}</p>
                         </div>
                             <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${
-                            order.status === 'Hoàn thành'
+                            order.statusCode === 'delivered'
                                 ? 'bg-green-500/10 text-green-600 border-green-500/30'
+                                : order.statusCode === 'cancelled'
+                                ? 'bg-red-500/10 text-red-600 border-red-500/30'
+                                : order.statusCode === 'shipping'
+                                ? 'bg-blue-500/10 text-blue-600 border-blue-500/30'
                                 : 'bg-primary/10 text-primary border-primary/30'
                             }`}>{order.status}</span>
                       </div>
                       <div className="flex justify-between items-center">
                         <div>
-                              <p className="text-sm text-muted-foreground">{order.items || order.products?.length || 0} sản phẩm</p>
+                              <p className="text-sm text-muted-foreground">{order.products?.length || 0} sản phẩm</p>
                               <p className="font-bold text-primary">
                             {order.total.toLocaleString('vi-VN')}đ
                           </p>
@@ -891,130 +747,17 @@ export default function MyAccountPage() {
             )}
 
             {activeTab === 'wishlist' && (
-              <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-semibold text-foreground">
-                    Sản phẩm yêu thích ({favoriteProducts.length})
+              <Card className="border border-border bg-background">
+                <CardContent className="p-6">
+                  <h2 className="text-xl font-semibold text-foreground mb-4">
+                    Sản phẩm yêu thích
                   </h2>
-                </div>
-                
-                {loadingFavorites ? (
-                  <div className="flex items-center justify-center py-12">
-                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                  <div className="text-center py-12">
+                    <Heart className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
+                    <p className="text-muted-foreground">Chưa có sản phẩm yêu thích nào</p>
                   </div>
-                ) : favoriteProducts.length === 0 ? (
-                  <Card className="border border-border bg-background">
-                    <CardContent className="p-6">
-                      <div className="text-center py-12">
-                        <Heart className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
-                        <p className="text-muted-foreground">Chưa có sản phẩm yêu thích nào</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  <div className="space-y-3">
-                    {favoriteProducts.map((product) => {
-                      const productId = String(product._id || product.id || '');
-                      if (!productId) {
-                        return null;
-                      }
-                      const imagePath = product.HinhAnhChinh || product.hinhAnhChinh || '';
-                      const imageUrl = imagePath && (imagePath.startsWith('http://') || imagePath.startsWith('https://'))
-                        ? imagePath
-                        : getCloudinaryProductImageUrl(imagePath);
-                      
-                      const basePrice = product.Gia || product.gia || 0;
-                      const discount = product.KhuyenMai || product.giamGia || 0;
-                      const finalPrice = basePrice * (1 - discount / 100);
-                      
-                      return (
-                        <Card 
-                          key={productId} 
-                          className="border border-border bg-background group hover:shadow-md transition-all cursor-pointer"
-                          onClick={() => navigate(`/products/${productId}`)}
-                        >
-                          <CardContent className="p-4">
-                            <div className="flex items-center gap-4">
-                              {/* Product Image */}
-                              <div className="relative w-24 h-24 sm:w-32 sm:h-32 rounded-lg overflow-hidden bg-muted flex-shrink-0">
-                                <img
-                                  src={imageUrl || 'https://placehold.co/300x300/E5E5EA/000?text=No+Image'}
-                                  alt={product.TenSanPham || product.tenSP || 'Sản phẩm'}
-                                  className="w-full h-full object-cover"
-                                  onError={(e) => {
-                                    (e.target as HTMLImageElement).src = 'https://placehold.co/300x300/E5E5EA/000?text=No+Image';
-                                  }}
-                                />
-                              </div>
-                              
-                              {/* Product Info */}
-                              <div className="flex-1 min-w-0">
-                                <h3 className="font-semibold text-foreground mb-2 line-clamp-2 hover:text-primary transition-colors">
-                                  {product.TenSanPham || product.tenSP || 'Sản phẩm'}
-                                </h3>
-                                
-                                <div className="flex items-center gap-3 mb-2">
-                                  <p className="text-lg font-bold text-primary">
-                                    {finalPrice.toLocaleString('vi-VN')}₫
-                                  </p>
-                                  {discount > 0 && (
-                                    <>
-                                      <p className="text-sm text-muted-foreground line-through">
-                                        {basePrice.toLocaleString('vi-VN')}₫
-                                      </p>
-                                      <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/10 text-red-600 border border-red-500/30">
-                                        -{discount}%
-                                      </span>
-                                    </>
-                                  )}
-                                </div>
-                                
-                                {/* Dung tích nếu có */}
-                                {(product.DungTich || (product.DungTichOptions && product.DungTichOptions.length > 0)) && (
-                                  <p className="text-xs text-muted-foreground mb-2">
-                                    Dung tích: {
-                                      product.DungTichOptions && product.DungTichOptions.length > 0
-                                        ? product.DungTichOptions.map((opt: any) => `${opt.value || opt.Value || 0}ml`).join(', ')
-                                        : `${product.DungTich || product.dungTich || 0}ml`
-                                    }
-                                  </p>
-                                )}
-                                
-                                {/* Action Buttons */}
-                                <div className="flex items-center gap-2 mt-3">
-                                  <Button
-                                    size="sm"
-                                    className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleAddToCart(product);
-                                    }}
-                                  >
-                                    <Package className="w-4 h-4 mr-2" />
-                                    Thêm vào giỏ
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="border-destructive text-destructive hover:bg-destructive/10"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleRemoveFavorite(productId);
-                                    }}
-                                  >
-                                    <X className="w-4 h-4 mr-2" />
-                                    Xóa
-                                  </Button>
-                                </div>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+                </CardContent>
+              </Card>
             )}
 
             {activeTab === 'settings' && (
@@ -1229,16 +972,29 @@ export default function MyAccountPage() {
                 >
                   Đóng
                 </Button>
-                {selectedOrder.status === 'Đang xử lý' && (
+                {(selectedOrder.statusCode === 'pending' || selectedOrder.statusCode === 'confirmed') && (
                   <Button 
                     variant="destructive" 
                     className="flex-1"
                     onClick={() => {
-                      // TODO: Implement cancel order
-                      toast.info('Chức năng hủy đơn hàng đang được phát triển');
+                      if (selectedOrder.id) {
+                        cancelOrderMutation.mutate({ 
+                          orderId: selectedOrder.id,
+                          reason: 'Khách hàng yêu cầu hủy đơn hàng'
+                        });
+                        setIsOrderDetailOpen(false);
+                      }
                     }}
+                    disabled={cancelOrderMutation.isPending}
                   >
-                    Hủy đơn hàng
+                    {cancelOrderMutation.isPending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Đang xử lý...
+                      </>
+                    ) : (
+                      'Yêu cầu hủy đơn hàng'
+                    )}
                   </Button>
                 )}
               </div>

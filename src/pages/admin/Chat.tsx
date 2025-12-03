@@ -24,6 +24,7 @@ import {
 import chatService from '@/services/chatService';
 import type { ChatRoom, ChatMessage } from '@/types/models';
 import socketService, { type NewMessageEvent, type NewChatMessageEvent } from '@/services/socketService';
+import { adminQuickReplies, getQuickRepliesByCategory, type QuickReply } from '@/services/adminQuickReplies';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { format, isToday, isYesterday } from 'date-fns';
@@ -41,6 +42,7 @@ export default function AdminChatPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [roomToDelete, setRoomToDelete] = useState<ChatRoom | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<QuickReply['category'] | 'all'>('all');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
@@ -280,6 +282,24 @@ export default function AdminChatPage() {
     e.stopPropagation(); // Prevent room selection
     setRoomToDelete(room);
     setDeleteDialogOpen(true);
+  };
+
+  const handleQuickReply = (reply: QuickReply) => {
+    setNewMessage(reply.message);
+    // Focus vào input
+    setTimeout(() => {
+      const input = document.querySelector('input[placeholder="Nhập tin nhắn..."]') as HTMLInputElement;
+      if (input) {
+        input.focus();
+      }
+    }, 100);
+  };
+
+  const getFilteredQuickReplies = (): QuickReply[] => {
+    if (selectedCategory === 'all') {
+      return adminQuickReplies;
+    }
+    return getQuickRepliesByCategory(selectedCategory);
   };
 
   const getStatusBadge = (status: string) => {
@@ -641,40 +661,111 @@ export default function AdminChatPage() {
 
             {/* Input Area */}
             {selectedRoom.Status !== 'closed' && (
-              <form
-                onSubmit={handleSendMessage}
-                className="p-4 border-t border-border bg-background"
-              >
-                <div className="flex items-end gap-2">
-                  <div className="flex-1 relative">
-                    <Input
-                      value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
-                      placeholder="Nhập tin nhắn..."
-                      disabled={sending}
-                      className="pr-12 min-h-[44px] rounded-full border-border bg-muted/50 focus:bg-background"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault();
-                          handleSendMessage(e as any);
-                        }
-                      }}
-                    />
+              <div className="border-t border-border bg-background">
+                {/* Quick Replies */}
+                <div className="px-4 pt-3 pb-2 border-b border-border">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xs font-medium text-muted-foreground">Câu trả lời nhanh:</span>
+                    <div className="flex gap-1 flex-wrap">
+                      <Button
+                        type="button"
+                        variant={selectedCategory === 'all' ? 'default' : 'outline'}
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => setSelectedCategory('all')}
+                      >
+                        Tất cả
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={selectedCategory === 'greeting' ? 'default' : 'outline'}
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => setSelectedCategory('greeting')}
+                      >
+                        Chào hỏi
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={selectedCategory === 'closing' ? 'default' : 'outline'}
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => setSelectedCategory('closing')}
+                      >
+                        Kết thúc
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={selectedCategory === 'common' ? 'default' : 'outline'}
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => setSelectedCategory('common')}
+                      >
+                        Thường dùng
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={selectedCategory === 'support' ? 'default' : 'outline'}
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => setSelectedCategory('support')}
+                      >
+                        Hỗ trợ
+                      </Button>
+                    </div>
                   </div>
-                  <Button
-                    type="submit"
-                    disabled={sending || !newMessage.trim()}
-                    size="icon"
-                    className="h-11 w-11 rounded-full bg-primary hover:bg-primary/90"
-                  >
-                    {sending ? (
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                    ) : (
-                      <Send className="h-5 w-5" />
-                    )}
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    {getFilteredQuickReplies().map((reply) => (
+                      <Button
+                        key={reply.id}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs"
+                        onClick={() => handleQuickReply(reply)}
+                      >
+                        {reply.label}
+                      </Button>
+                    ))}
+                  </div>
                 </div>
-              </form>
+
+                {/* Input Form */}
+                <form
+                  onSubmit={handleSendMessage}
+                  className="p-4"
+                >
+                  <div className="flex items-end gap-2">
+                    <div className="flex-1 relative">
+                      <Input
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        placeholder="Nhập tin nhắn..."
+                        disabled={sending}
+                        className="pr-12 min-h-[44px] rounded-full border-border bg-muted/50 focus:bg-background"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSendMessage(e as any);
+                          }
+                        }}
+                      />
+                    </div>
+                    <Button
+                      type="submit"
+                      disabled={sending || !newMessage.trim()}
+                      size="icon"
+                      className="h-11 w-11 rounded-full bg-primary hover:bg-primary/90"
+                    >
+                      {sending ? (
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                      ) : (
+                        <Send className="h-5 w-5" />
+                      )}
+                    </Button>
+                  </div>
+                </form>
+              </div>
             )}
           </>
         ) : (

@@ -3,40 +3,78 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { MessageCircle, X, Send, Loader2 } from 'lucide-react';
+import { MessageCircle, X, Send, Loader2, Bot, User } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import chatService from '@/services/chatService';
+import { chatbotService } from '@/services/chatbotService';
 import type { ChatMessage, ChatRoom } from '@/types/models';
 import socketService, { type NewMessageEvent } from '@/services/socketService';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
+interface BotMessage {
+  _id: string;
+  Message: string;
+  SenderType: 'bot' | 'user';
+  createdAt: string;
+  suggestions?: string[];
+}
+
 export default function CustomerChat() {
   const { user, isAuthenticated } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
+  const [chatMode, setChatMode] = useState<'bot' | 'human'>('bot'); // 'bot' hoặc 'human'
   const [chatRoom, setChatRoom] = useState<ChatRoom | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<(ChatMessage | BotMessage)[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
+  const [connectingToHuman, setConnectingToHuman] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
-  // Load chat room and messages
+  // Initialize chatbot khi mở chat
   useEffect(() => {
     if (!isAuthenticated || !isOpen) return;
+
+    // Reset về bot mode khi mở chat mới
+    if (chatMode === 'bot') {
+      const welcomeMessage = chatbotService.getWelcomeMessage();
+      const botMsg: BotMessage = {
+        _id: `bot-${Date.now()}`,
+        Message: welcomeMessage.message,
+        SenderType: 'bot',
+        createdAt: new Date().toISOString(),
+        suggestions: welcomeMessage.suggestions,
+      };
+      setMessages([botMsg]);
+      setChatRoom(null);
+    }
+  }, [isAuthenticated, isOpen]);
+
+  // Load chat room và kết nối socket khi chuyển sang human mode
+  useEffect(() => {
+    if (!isAuthenticated || !isOpen || chatMode !== 'human') return;
 
     const loadChat = async () => {
       try {
         setLoading(true);
+        setConnectingToHuman(true);
+        
         // Get or create chat room
         const room = await chatService.getOrCreateChatRoom();
         setChatRoom(room);
 
         // ✅ Load messages - getMessages trả về { data, pagination }
         const messagesResult = await chatService.getMessages(room._id);
-        setMessages(messagesResult.data || []);
+        const humanMessages = messagesResult.data || [];
+        
+        // Giữ lại bot messages và thêm human messages
+        setMessages((prev) => {
+          const botMessages = prev.filter((msg) => (msg as BotMessage).SenderType === 'bot');
+          return [...botMessages, ...humanMessages];
+        });
 
         // Connect to socket and join room
         socketService.connect();
@@ -48,15 +86,16 @@ export default function CustomerChat() {
         console.error('Error loading chat:', error);
       } finally {
         setLoading(false);
+        setConnectingToHuman(false);
       }
     };
 
     loadChat();
-  }, [isAuthenticated, isOpen]);
+  }, [isAuthenticated, isOpen, chatMode]);
 
-  // Set up socket listeners
+  // Set up socket listeners (chỉ khi ở human mode)
   useEffect(() => {
-    if (!isOpen || !chatRoom) return;
+    if (!isOpen || !chatRoom || chatMode !== 'human') return;
 
     const handleNewMessage = (message: NewMessageEvent) => {
       if (message.ChatRoomId === chatRoom._id) {
@@ -71,7 +110,7 @@ export default function CustomerChat() {
     return () => {
       socketService.off('new-message', handleNewMessage);
     };
-  }, [isOpen, chatRoom]);
+  }, [isOpen, chatRoom, chatMode]);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -81,12 +120,60 @@ export default function CustomerChat() {
   // Handle send message
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !chatRoom || sending) return;
+    if (!newMessage.trim() || sending) return;
+
+    const messageText = newMessage.trim();
+    setNewMessage('');
+
+    // Bot mode: xử lý bằng chatbot
+    if (chatMode === 'bot') {
+      try {
+        setSending(true);
+        
+        // Thêm tin nhắn của user
+        const userMsg: BotMessage = {
+          _id: `user-${Date.now()}`,
+          Message: messageText,
+          SenderType: 'user',
+          createdAt: new Date().toISOString(),
+        };
+        setMessages((prev) => [...prev, userMsg]);
+
+        // Xử lý và trả lời tự động
+        setTimeout(() => {
+          const botResponse = chatbotService.processMessage(messageText);
+          
+          const botMsg: BotMessage = {
+            _id: `bot-${Date.now()}`,
+            Message: botResponse.message,
+            SenderType: 'bot',
+            createdAt: new Date().toISOString(),
+            suggestions: botResponse.suggestions,
+          };
+          
+          setMessages((prev) => [...prev, botMsg]);
+
+          // Nếu action là transfer, chuyển sang human mode
+          if (botResponse.action === 'transfer') {
+            setTimeout(() => {
+              setChatMode('human');
+            }, 1000);
+          }
+        }, 500);
+      } catch (error: any) {
+        console.error('Error processing bot message:', error);
+      } finally {
+        setSending(false);
+      }
+      return;
+    }
+
+    // Human mode: gửi qua socket
+    if (!chatRoom) return;
 
     try {
       setSending(true);
-      socketService.sendMessage(chatRoom._id, newMessage.trim());
-      setNewMessage('');
+      socketService.sendMessage(chatRoom._id, messageText);
     } catch (error: any) {
       console.error('Error sending message:', error);
     } finally {
@@ -94,14 +181,40 @@ export default function CustomerChat() {
     }
   };
 
+  // Handle suggestion click
+  const handleSuggestionClick = (suggestion: string) => {
+    setNewMessage(suggestion);
+    // Auto submit after a short delay
+    setTimeout(() => {
+      const form = document.querySelector('form');
+      if (form) {
+        form.requestSubmit();
+      }
+    }, 100);
+  };
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (chatRoom) {
+      if (chatRoom && chatMode === 'human') {
         socketService.leaveChatRoom(chatRoom._id);
       }
     };
-  }, []);
+  }, [chatRoom, chatMode]);
+
+  // Reset khi đóng chat
+  const handleClose = () => {
+    setIsOpen(false);
+    if (chatRoom && chatMode === 'human') {
+      socketService.leaveChatRoom(chatRoom._id);
+    }
+    // Reset về bot mode khi đóng
+    setTimeout(() => {
+      setChatMode('bot');
+      setMessages([]);
+      setChatRoom(null);
+    }, 300);
+  };
 
   if (!isAuthenticated) return null;
 
@@ -128,21 +241,24 @@ export default function CustomerChat() {
                 <AvatarFallback>CS</AvatarFallback>
               </Avatar>
               <div>
-                <h3 className="font-semibold text-sm">Hỗ trợ khách hàng</h3>
+                <h3 className="font-semibold text-sm">
+                  {chatMode === 'bot' ? 'Chatbot hỗ trợ' : 'Hỗ trợ khách hàng'}
+                </h3>
                 <p className="text-xs text-muted-foreground">
-                  {chatRoom?.Status === 'active' ? 'Đang trực tuyến' : 'Đang chờ...'}
+                  {chatMode === 'bot' 
+                    ? 'Chatbot tự động' 
+                    : connectingToHuman 
+                    ? 'Đang kết nối...' 
+                    : chatRoom?.Status === 'active' 
+                    ? 'Đang trực tuyến' 
+                    : 'Đang chờ...'}
                 </p>
               </div>
             </div>
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => {
-                setIsOpen(false);
-                if (chatRoom) {
-                  socketService.leaveChatRoom(chatRoom._id);
-                }
-              }}
+              onClick={handleClose}
             >
               <X className="h-4 w-4" />
             </Button>
@@ -163,45 +279,108 @@ export default function CustomerChat() {
               </div>
             ) : (
               messages.map((message) => {
-                const isOwn = message.SenderType === 'customer';
+                // Kiểm tra xem có phải bot message không (có SenderType là 'bot' hoặc 'user' trong BotMessage)
+                const isBotModeMessage = 'suggestions' in message || 
+                  (message as BotMessage).SenderType === 'bot' || 
+                  (message as BotMessage).SenderType === 'user';
+                
+                const botMessage = isBotModeMessage ? (message as BotMessage) : null;
+                const chatMessage = !isBotModeMessage ? (message as ChatMessage) : null;
+                
+                const isBotResponse = botMessage?.SenderType === 'bot';
+                const isUserMessage = botMessage?.SenderType === 'user';
+                const isOwn = isUserMessage || (chatMessage && chatMessage.SenderType === 'customer');
+
                 return (
-                  <div
-                    key={message._id}
-                    className={cn('flex gap-2', isOwn ? 'justify-end' : 'justify-start')}
-                  >
-                    {!isOwn && (
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={message.SenderId.AvatarUrl ?? undefined} />
-                        <AvatarFallback>
-                          {message.SenderId.HoTen?.charAt(0) || 'C'}
-                        </AvatarFallback>
-                      </Avatar>
-                    )}
+                  <div key={message._id}>
                     <div
-                      className={cn(
-                        'max-w-[75%] rounded-lg p-3',
-                        isOwn
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted'
-                      )}
+                      className={cn('flex gap-2 mb-2', isOwn ? 'justify-end' : 'justify-start')}
                     >
-                      <p className="text-sm whitespace-pre-wrap">{message.Message}</p>
-                      <p
-                        className={cn(
-                          'text-xs mt-1',
-                          isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'
-                        )}
-                      >
-                        {format(new Date(message.createdAt ?? new Date().toISOString()), 'HH:mm', { locale: vi })}
-                      </p>
+                      {isBotResponse ? (
+                        <>
+                          <Avatar className="h-8 w-8 bg-primary/10">
+                            <AvatarFallback className="bg-primary/10 text-primary">
+                              <Bot className="h-4 w-4" />
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="max-w-[75%] rounded-lg p-3 bg-muted">
+                            <p className="text-sm whitespace-pre-wrap">{botMessage.Message}</p>
+                            <p className="text-xs mt-1 text-muted-foreground">
+                              {format(new Date(message.createdAt ?? new Date().toISOString()), 'HH:mm', { locale: vi })}
+                            </p>
+                          </div>
+                        </>
+                      ) : isUserMessage ? (
+                        <>
+                          <div className="max-w-[75%] rounded-lg p-3 bg-primary text-primary-foreground">
+                            <p className="text-sm whitespace-pre-wrap">{botMessage.Message}</p>
+                            <p className="text-xs mt-1 text-primary-foreground/70">
+                              {format(new Date(message.createdAt ?? new Date().toISOString()), 'HH:mm', { locale: vi })}
+                            </p>
+                          </div>
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src={user?.avatar} />
+                            <AvatarFallback>
+                              {user?.fullName?.charAt(0) || 'U'}
+                            </AvatarFallback>
+                          </Avatar>
+                        </>
+                      ) : chatMessage ? (
+                        <>
+                          {!isOwn && (
+                            <Avatar className="h-8 w-8">
+                              <AvatarImage src={chatMessage.SenderId?.AvatarUrl ?? undefined} />
+                              <AvatarFallback>
+                                {typeof chatMessage.SenderId === 'object' 
+                                  ? chatMessage.SenderId?.HoTen?.charAt(0) || 'A'
+                                  : 'A'}
+                              </AvatarFallback>
+                            </Avatar>
+                          )}
+                          <div
+                            className={cn(
+                              'max-w-[75%] rounded-lg p-3',
+                              isOwn
+                                ? 'bg-primary text-primary-foreground'
+                                : 'bg-muted'
+                            )}
+                          >
+                            <p className="text-sm whitespace-pre-wrap">{chatMessage.Message}</p>
+                            <p
+                              className={cn(
+                                'text-xs mt-1',
+                                isOwn ? 'text-primary-foreground/70' : 'text-muted-foreground'
+                              )}
+                            >
+                              {format(new Date(message.createdAt ?? new Date().toISOString()), 'HH:mm', { locale: vi })}
+                            </p>
+                          </div>
+                          {isOwn && (
+                            <Avatar className="h-8 w-8">
+                              <AvatarImage src={user?.avatar} />
+                              <AvatarFallback>
+                                {user?.fullName?.charAt(0) || 'U'}
+                              </AvatarFallback>
+                            </Avatar>
+                          )}
+                        </>
+                      ) : null}
                     </div>
-                    {isOwn && (
-                      <Avatar className="h-8 w-8">
-                        <AvatarImage src={user?.avatar} />
-                        <AvatarFallback>
-                          {user?.fullName?.charAt(0) || 'U'}
-                        </AvatarFallback>
-                      </Avatar>
+                    {/* Suggestions từ bot */}
+                    {isBotResponse && botMessage?.suggestions && botMessage.suggestions.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-4 ml-10">
+                        {botMessage.suggestions.map((suggestion, idx) => (
+                          <Button
+                            key={idx}
+                            variant="outline"
+                            size="sm"
+                            className="text-xs h-auto py-1 px-3"
+                            onClick={() => handleSuggestionClick(suggestion)}
+                          >
+                            {suggestion}
+                          </Button>
+                        ))}
+                      </div>
                     )}
                   </div>
                 );
@@ -216,11 +395,11 @@ export default function CustomerChat() {
               <Input
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
-                placeholder="Nhập tin nhắn..."
-                disabled={sending || !chatRoom}
+                placeholder={chatMode === 'bot' ? 'Nhập câu hỏi...' : 'Nhập tin nhắn...'}
+                disabled={sending || (chatMode === 'human' && !chatRoom) || connectingToHuman}
                 className="flex-1"
               />
-              <Button type="submit" disabled={sending || !newMessage.trim() || !chatRoom}>
+              <Button type="submit" disabled={sending || !newMessage.trim() || (chatMode === 'human' && !chatRoom) || connectingToHuman}>
                 {sending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
@@ -234,4 +413,5 @@ export default function CustomerChat() {
     </>
   );
 }
+
 

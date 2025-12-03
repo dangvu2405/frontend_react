@@ -97,3 +97,4 @@ export const AdminRoute = () => {
 };
 
 export default AdminRoute;
+

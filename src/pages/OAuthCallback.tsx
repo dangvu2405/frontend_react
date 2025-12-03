@@ -246,8 +246,21 @@ export function OAuthCallback() {
           isProcessingRef.current = null;
           // Xóa code khỏi URL để bảo mật
           window.history.replaceState(null, '', window.location.pathname);
-          // Redirect về trang chủ
-          navigate('/');
+          
+          // ✅ Kiểm tra role và redirect tương ứng
+          const storedUser = storage.getUser();
+          const roleName = storedUser?.roleName?.toLowerCase() || 
+                          storedUser?.MaVaiTro?.TenVaiTro?.toLowerCase() || 
+                          user?.MaVaiTro?.TenVaiTro?.toLowerCase() || '';
+          const isAdminUser = roleName === 'admin' || 
+                             roleName === 'quản trị viên' || 
+                             roleName === 'administrator';
+          
+          if (isAdminUser) {
+            navigate('/admin');
+          } else {
+            navigate('/');
+          }
         } catch (exchangeError: any) {
           // Reset processing flag khi có lỗi
           isProcessingRef.current = null;

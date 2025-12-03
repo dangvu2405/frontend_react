@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { API_BASE_URL } from "@/constants";
 import { toast } from "sonner";
+import { storage } from "@/utils/storage";
 
 import {
   Field,
@@ -47,7 +48,7 @@ export function LoginForm({
   const [turnstileLoaded, setTurnstileLoaded] = useState(false);
   const turnstileContainerRef = React.useRef<HTMLDivElement>(null);
   const scriptLoadedRef = React.useRef(false);
-  const { login } = useAuth();
+  const { login, user, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -196,7 +197,24 @@ export function LoginForm({
         setTurnstileWidgetId(null);
       }
       
-      navigate("/");
+      // ✅ Kiểm tra role và redirect tương ứng
+      // Đợi một chút để AuthContext cập nhật user info sau khi login
+      setTimeout(() => {
+        // Lấy user từ storage (đã được cập nhật bởi AuthContext sau login)
+        const storedUser = storage.getUser();
+        const roleName = storedUser?.roleName?.toLowerCase() || storedUser?.MaVaiTro?.TenVaiTro?.toLowerCase() || '';
+        const isAdminUser = roleName === 'admin' || 
+                           roleName === 'quản trị viên' || 
+                           roleName === 'administrator';
+        
+        if (isAdminUser) {
+          navigate("/admin");
+        } else {
+          // Lấy redirect URL từ query params nếu có, hoặc về trang chủ
+          const redirectTo = searchParams.get('redirect') || '/';
+          navigate(redirectTo);
+        }
+      }, 200);
     } catch (error: any) {
       const errorData = error?.response?.data || error?.data || {};
       const message = errorData?.message || "Đăng nhập thất bại";
