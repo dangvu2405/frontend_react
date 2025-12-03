@@ -10,7 +10,7 @@ import type { Order } from '@/types/models';
 export const formatOrderForDisplay = (order: Order) => {
   return {
     _id: order._id,
-    id: order._id || order.id,
+    id: order._id,
     MaDonHang: order.MaDonHang || order._id?.slice(-8).toUpperCase(),
     date: order.createdAt ? new Date(order.createdAt).toLocaleDateString('vi-VN') : '',
     status: order.TrangThai === 'pending'

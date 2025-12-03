@@ -151,8 +151,8 @@ export default function OrdersPage() {
     setCancellingOrderId(null);
   };
 
-  const openCancelDialog = (order: Order) => {
-    setCancellingOrderId(order._id || '');
+  const openCancelDialog = (order: { _id?: string; id?: string }) => {
+    setCancellingOrderId(order._id || order.id || '');
     setIsCancelDialogOpen(true);
   };
 
