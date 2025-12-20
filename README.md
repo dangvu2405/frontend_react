@@ -239,8 +239,7 @@ docker-compose down
 ![Docker Running](docs/images/docker-running.png)
 *Hình 1: Docker containers đang chạy*
 
----
-
+<img src="https://res.cloudinary.com/dbiabh88k/image/upload/v1766241888/Screenshot_2025-12-20_214301_o8v2oi.png" alt="OWASP"/>
 ### 💻 Cài Đặt Thủ Công (Development)
 
 #### Backend
