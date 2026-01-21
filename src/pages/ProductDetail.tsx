@@ -157,7 +157,7 @@ export default function ProductDetailPage() {
             const categoryProducts = await productsService.getProductsByCategory(categoryName);
           const related = categoryProducts
               .filter((p) => {
-                const pId = p._id || (p as any).id;
+                const pId = p._id || (p as unknown as Record<string, unknown>).id;
               return pId !== id;
             })
             .slice(0, 4)
@@ -180,7 +180,7 @@ export default function ProductDetailPage() {
           }
           setRelatedProducts([]);
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (!isMounted) return;
         if (import.meta.env.DEV) {
           console.error('Error fetching product:', error);
@@ -295,7 +295,7 @@ export default function ProductDetailPage() {
         toast.success('Đã bỏ khỏi danh sách yêu thích');
       }
       setIsFavorite(nextState);
-    } catch (error) {
+    } catch {
       toast.error('Không thể cập nhật danh sách yêu thích');
     } finally {
       setIsTogglingHeart(false);
@@ -329,8 +329,9 @@ export default function ProductDetailPage() {
         window.prompt('Sao chép đường dẫn sản phẩm:', url);
         toast.success('Link sản phẩm đã sẵn sàng để sao chép');
       }
-    } catch (error: any) {
-      if (error?.name !== 'AbortError') {
+    } catch (error: unknown) {
+      const errorRecord = error as Record<string, unknown>;
+      if (errorRecord?.name !== 'AbortError') {
         toast.error('Không thể chia sẻ sản phẩm');
       }
     }

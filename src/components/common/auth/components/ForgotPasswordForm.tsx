@@ -25,8 +25,9 @@ export const ForgotPasswordForm = () => {
       await authService.forgotPassword(email.trim());
       toast.success('Vui lòng kiểm tra email để đặt lại mật khẩu');
       setSent(true);
-    } catch (error: any) {
-      toast.error(error?.message || 'Không thể gửi yêu cầu');
+    } catch (error: unknown) {
+      const errorMsg = error instanceof Error ? error.message : 'Không thể gửi yêu cầu';
+      toast.error(errorMsg);
     } finally {
       setSubmitting(false);
     }

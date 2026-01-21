@@ -38,8 +38,9 @@ function ForgotPasswordPage({
       const response = await authService.forgotPassword(email.trim());
       toast.success(response?.message || "Kiểm tra email của bạn để tiếp tục");
       setSubmitted(true);
-    } catch (error: any) {
-      const message = error?.message || "Không thể gửi yêu cầu, vui lòng thử lại";
+    } catch (error: unknown) {
+      const errorMsg = (error as Record<string, unknown>)?.message as string | undefined;
+      const message = errorMsg || "Không thể gửi yêu cầu, vui lòng thử lại";
       toast.error(message);
     } finally {
       setLoading(false);

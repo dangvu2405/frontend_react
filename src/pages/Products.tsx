@@ -55,7 +55,7 @@ export default function ProductsPage() {
       : 'Nước hoa';
 
     const item: CartItemInput = {
-      productId: String(product._id || (product as any).id),
+      productId: String(product._id || (product as unknown as Record<string, unknown>).id),
       tenSP: product.TenSanPham,
       basePrice: product.Gia,
       giamGia: product.KhuyenMai || 0,
@@ -115,12 +115,13 @@ export default function ProductsPage() {
 
         setProducts(normalized);
         setTotalProducts(normalized.length);
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (!isMounted) return;
         if (import.meta.env.DEV) {
           console.error('Error fetching products:', error);
         }
-        toast.error(error?.message || 'Không thể tải sản phẩm');
+        const errorMsg = (error as Record<string, unknown>)?.message as string | undefined;
+      toast.error(errorMsg || 'Không thể tải sản phẩm');
       } finally {
         if (isMounted) setLoading(false);
       }

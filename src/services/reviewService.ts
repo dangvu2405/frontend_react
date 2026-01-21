@@ -1,16 +1,16 @@
 import axiosInstance from './axios';
 import type { 
   ApiItemResponse, 
-  ApiListResponse, 
   Review,
   RatingStats,
-  CreateReviewData
+  CreateReviewData,
+  Pagination
 } from '@/types/models';
 
 export const reviewService = {
   // Lấy danh sách đánh giá của sản phẩm
   getProductReviews: async (productId: string, params?: { page?: number; limit?: number; sortBy?: string; sortOrder?: string }) => {
-    const response = await axiosInstance.get<ApiItemResponse<{ reviews: Review[]; pagination?: any }>>(`/api/reviews/product/${productId}`, { params });
+    const response = await axiosInstance.get<ApiItemResponse<{ reviews: Review[]; pagination?: Pagination }>>(`/api/reviews/product/${productId}`, { params });
     const responseData = response.data;
     
     // Backend trả về: { success, message, data: { reviews, pagination } }
@@ -81,7 +81,8 @@ export const reviewService = {
     } catch (error: unknown) {
       // Axios interceptor đã transform error
       if (error && typeof error === 'object' && ('status' in error || 'response' in error)) {
-        const status = 'status' in error ? error.status : (error as any).response?.status;
+        const errorRecord = error as Record<string, unknown>;
+        const status = errorRecord.status || ((errorRecord.response as Record<string, unknown>)?.status);
         if (status === 404) {
           return null;
         }
@@ -92,7 +93,7 @@ export const reviewService = {
 
   // Lấy tất cả đánh giá của user
   getMyReviews: async (params?: { page?: number; limit?: number }) => {
-    const response = await axiosInstance.get<ApiItemResponse<{ reviews: Review[]; pagination?: any }>>('/api/reviews/my-reviews', { params });
+    const response = await axiosInstance.get<ApiItemResponse<{ reviews: Review[]; pagination?: Pagination }>>('/api/reviews/my-reviews', { params });
     const responseData = response.data;
     
     // Backend trả về: { success, message, data: { reviews, pagination } }

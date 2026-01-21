@@ -109,7 +109,7 @@ export default function AdminOrdersPage() {
   const fetchData = async () => {
     try {
       setLoading(true)
-      const params: any = {
+      const params: Record<string, string | number> = {
         page: currentPage,
         limit: pageSize,
       }
@@ -159,14 +159,14 @@ export default function AdminOrdersPage() {
         if (responseData && typeof responseData === 'object' && !Array.isArray(responseData) && 'success' in responseData && 'data' in responseData) {
           if (Array.isArray(responseData.data)) {
             ordersData = responseData.data
-            pagination = (responseData as any).pagination
+            pagination = (responseData as Record<string, unknown>).pagination as { totalPages?: number; total?: number } | undefined
           }
         } else if (Array.isArray(responseData)) {
           ordersData = responseData
         } else if (responseData && typeof responseData === 'object' && !Array.isArray(responseData) && 'data' in responseData) {
           if (Array.isArray(responseData.data)) {
             ordersData = responseData.data
-            pagination = (responseData as any).pagination
+            pagination = (responseData as Record<string, unknown>).pagination as { totalPages?: number; total?: number } | undefined
           }
         }
       }
@@ -210,7 +210,7 @@ export default function AdminOrdersPage() {
         
         updateCharts(allOrdersData)
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error fetching orders:", err)
       toast.error("Không thể tải dữ liệu đơn hàng")
     } finally {
@@ -243,7 +243,7 @@ export default function AdminOrdersPage() {
       if (!order.createdAt) return false // Skip orders without createdAt
       const orderDate = new Date(order.createdAt)
       const now = new Date()
-      let startDate = new Date()
+      const startDate = new Date()
       
       switch (dateFilter) {
         case "today":
@@ -336,8 +336,10 @@ export default function AdminOrdersPage() {
       setCurrentPage(1)
       await fetchData()
       // Charts sẽ được update tự động vì currentPage = 1
-    } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Không thể cập nhật đơn hàng")
+    } catch (err: unknown) {
+      const errorRecord = err as Record<string, unknown>;
+      const errorMsg = (((errorRecord?.response as Record<string, unknown>)?.data as Record<string, unknown>)?.message as string | undefined) || "Không thể cập nhật đơn hàng";
+      toast.error(errorMsg)
     } finally {
       setSubmitting(false)
     }
@@ -353,9 +355,11 @@ export default function AdminOrdersPage() {
       setCurrentPage(1)
       await fetchData()
       // Charts sẽ được update tự động vì currentPage = 1
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error cancelling order:", err)
-      toast.error(err?.response?.data?.message || "Không thể hủy đơn hàng")
+      const errorRecord = err as Record<string, unknown>;
+      const errorMsg = (((errorRecord?.response as Record<string, unknown>)?.data as Record<string, unknown>)?.message as string | undefined) || "Không thể hủy đơn hàng";
+      toast.error(errorMsg)
     }
   }
 
@@ -370,9 +374,11 @@ export default function AdminOrdersPage() {
         // Nếu đang ở trang 1, chỉ refresh data
         await fetchData()
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error updating order status:", err)
-      toast.error(err?.response?.data?.message || "Không thể cập nhật trạng thái")
+      const errorRecord = err as Record<string, unknown>;
+      const errorMsg = (((errorRecord?.response as Record<string, unknown>)?.data as Record<string, unknown>)?.message as string | undefined) || "Không thể cập nhật trạng thái";
+      toast.error(errorMsg)
     }
   }
   
@@ -411,7 +417,7 @@ export default function AdminOrdersPage() {
       setSelectedOrders(new Set())
       setIsSelectMode(false)
       await fetchData()
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error bulk updating orders:", err)
       toast.error("Không thể cập nhật một số đơn hàng")
     } finally {
@@ -436,7 +442,7 @@ export default function AdminOrdersPage() {
       setSelectedOrders(new Set())
       setIsSelectMode(false)
       await fetchData()
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error bulk cancelling orders:", err)
       toast.error("Không thể hủy một số đơn hàng")
     } finally {
@@ -910,13 +916,14 @@ export default function AdminOrdersPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {selectedOrder.SanPham.map((item: any, idx: number) => {
+                        {selectedOrder.SanPham.map((item: unknown, idx: number) => {
                           // Hỗ trợ cả MaSanPham và IdSanPham
-                          const productId = item.MaSanPham || item.IdSanPham || item._id || idx;
-                          const productName = item.TenSanPham || item.name || "Sản phẩm không xác định";
-                          const price = item.GiaTaiThoiDiemDat || item.Gia || item.price || 0;
-                          const quantity = item.SoLuong || item.quantity || 0;
-                          const total = item.ThanhTien || item.TongTien || (price * quantity);
+                          const itemRecord = item as Record<string, unknown>;
+                          const productId = itemRecord.MaSanPham || itemRecord.IdSanPham || itemRecord._id || idx;
+                          const productName = String(itemRecord.TenSanPham || itemRecord.name || "Sản phẩm không xác định");
+                          const price = Number(itemRecord.GiaTaiThoiDiemDat || itemRecord.Gia || itemRecord.price || 0);
+                          const quantity = Number(itemRecord.SoLuong || itemRecord.quantity || 0);
+                          const total = Number(itemRecord.ThanhTien || itemRecord.TongTien || (price * quantity));
                           
                           return (
                             <tr key={`${selectedOrder._id}-${productId}-${idx}`} className="border-b">

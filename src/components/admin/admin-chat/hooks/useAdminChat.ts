@@ -1,10 +1,8 @@
-import { format, isToday, isYesterday } from 'date-fns';
-import { vi } from 'date-fns/locale';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
-import { useAuth } from '@/contexts/AuthContext';
 import type { ChatMessage, ChatRoom } from '@/types/models';
+import type { NewChatMessageEvent, NewMessageEvent } from '@/services/socketService';
 
 import { adminChatService } from '../services/admin-chat.service';
 import type { AdminChatHookState } from '../types';
@@ -15,7 +13,6 @@ const getUnreadCounts = (room: ChatRoom) => ({
 });
 
 const useAdminChat = (): AdminChatHookState => {
-  const { user } = useAuth();
   const [chatRooms, setChatRooms] = useState<ChatRoom[]>([]);
   const [selectedRoom, setSelectedRoom] = useState<ChatRoom | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -84,42 +81,36 @@ const useAdminChat = (): AdminChatHookState => {
   }, [loadChatRooms]);
 
   useEffect(() => {
-    const handleNewChatMessage = (data: any) => {
+    const handleNewChatMessage = (typedData: NewChatMessageEvent) => {
       const currentRoomId = selectedRoom?._id;
-      const isCurrentRoom = currentRoomId === data.chatRoomId;
-      const isFromCustomer = data.message.SenderType === 'customer';
+      const isCurrentRoom = currentRoomId === typedData.chatRoomId;
+      const isFromCustomer = typedData.message.SenderType === 'customer';
 
       setChatRooms((prev) =>
         prev.map((room) =>
-          room._id === data.chatRoomId
+          room._id === typedData.chatRoomId
             ? {
                 ...room,
                 UnreadCount: {
                   ...getUnreadCounts(room),
-                  admin:
-                    typeof data.unreadCount === 'number'
-                      ? data.unreadCount
-                      : data.unreadCount?.admin ?? getUnreadCounts(room).admin,
-                  customer:
-                    typeof data.unreadCount === 'object' && data.unreadCount?.customer !== undefined
-                      ? data.unreadCount.customer
-                      : getUnreadCounts(room).customer,
+                  admin: typedData.unreadCount,
+                  customer: getUnreadCounts(room).customer,
                 },
-                LastMessage: data.message.Message,
-                LastMessageAt: data.message.createdAt,
+                LastMessage: typedData.message.Message,
+                LastMessageAt: typedData.message.createdAt,
               }
             : room,
         ),
       );
 
       if (isFromCustomer && !isCurrentRoom) {
-        const room = chatRooms.find((r) => r._id === data.chatRoomId);
+        const room = chatRooms.find((r) => r._id === typedData.chatRoomId);
         if (room) {
           toast.info(`Bạn có tin nhắn mới từ ${room.CustomerId.HoTen}`, {
             description:
-              data.message.Message.length > 50
-                ? `${data.message.Message.substring(0, 50)}...`
-                : data.message.Message,
+              typedData.message.Message.length > 50
+                ? `${typedData.message.Message.substring(0, 50)}...`
+                : typedData.message.Message,
             duration: 5000,
           });
         }
@@ -129,42 +120,46 @@ const useAdminChat = (): AdminChatHookState => {
         setMessages((prev) => {
           const exists = prev.some(
             (msg) =>
-              msg._id === data.message._id ||
-              (msg.Message === data.message.Message &&
-                msg.createdAt === data.message.createdAt &&
-                msg.SenderType === data.message.SenderType),
+              msg._id === typedData.message._id ||
+              (msg.Message === typedData.message.Message &&
+                msg.createdAt === typedData.message.createdAt &&
+                msg.SenderType === typedData.message.SenderType),
           );
           if (exists) return prev;
-          return [...prev, data.message];
+          return [...prev, typedData.message as ChatMessage];
         });
-        markRoomAsRead(data.chatRoomId);
+        markRoomAsRead(typedData.chatRoomId);
       }
     };
 
-    const handleNewMessage = (message: any) => {
+    const handleNewMessage = (typedMessage: NewMessageEvent) => {
       const currentRoomId = selectedRoom?._id;
-      if (currentRoomId === message.ChatRoomId) {
+      if (currentRoomId === typedMessage.ChatRoomId) {
         setMessages((prev) => {
           const exists = prev.some(
             (msg) =>
-              msg._id === message._id ||
-              (msg.Message === message.Message &&
-                msg.createdAt === message.createdAt &&
-                msg.SenderType === message.SenderType),
+              msg._id === typedMessage._id ||
+              (msg.Message === typedMessage.Message &&
+                msg.createdAt === typedMessage.createdAt &&
+                msg.SenderType === typedMessage.SenderType),
           );
           if (exists) return prev;
-          return [...prev, message];
+          return [...prev, typedMessage as ChatMessage];
         });
-        markRoomAsRead(message.ChatRoomId);
+        markRoomAsRead(typedMessage.ChatRoomId);
       }
     };
 
-    adminChatService.onNewChatMessage(handleNewChatMessage);
-    adminChatService.onNewMessage(handleNewMessage);
+    const chatMessageHandlerRef = adminChatService.onNewChatMessage(handleNewChatMessage);
+    const messageHandlerRef = adminChatService.onNewMessage(handleNewMessage);
 
     return () => {
-      adminChatService.offNewChatMessage(handleNewChatMessage);
-      adminChatService.offNewMessage(handleNewMessage);
+      if (chatMessageHandlerRef) {
+        adminChatService.offNewChatMessage(chatMessageHandlerRef);
+      }
+      if (messageHandlerRef) {
+        adminChatService.offNewMessage(messageHandlerRef);
+      }
     };
   }, [chatRooms, markRoomAsRead, selectedRoom?._id]);
 

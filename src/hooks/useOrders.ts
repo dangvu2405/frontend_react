@@ -26,14 +26,19 @@ export const formatOrderForDisplay = (order: Order) => {
       : order.TrangThai,
     statusCode: order.TrangThai,
     total: order.TongTien || 0,
-    products: order.SanPham?.map((sp: any) => ({
-      id: sp.MaSanPham?._id || sp.MaSanPham || sp.id,
-      name: sp.TenSanPham || sp.IdSanPham?.TenSanPham || 'Sản phẩm',
-      quantity: sp.SoLuong || sp.quantity || 1,
-      price: sp.Gia || sp.price || 0,
-      image: sp.HinhAnhChinh || sp.IdSanPham?.HinhAnhChinh || '',
-      category: sp.loaiSP || '',
-    })) || [],
+    products: order.SanPham?.map((sp: unknown) => {
+      const spRecord = sp as Record<string, unknown>;
+      const maSanPham = spRecord.MaSanPham as Record<string, unknown> | string | undefined;
+      const idSanPham = spRecord.IdSanPham as Record<string, unknown> | undefined;
+      return {
+        id: (typeof maSanPham === 'object' && maSanPham?._id ? maSanPham._id : maSanPham) || spRecord.id,
+        name: String(spRecord.TenSanPham || idSanPham?.TenSanPham || 'Sản phẩm'),
+        quantity: Number(spRecord.SoLuong || spRecord.quantity || 1),
+        price: Number(spRecord.Gia || spRecord.price || 0),
+        image: String(spRecord.HinhAnhChinh || idSanPham?.HinhAnhChinh || ''),
+        category: String(spRecord.loaiSP || ''),
+      };
+    }) || [],
     address: order.DiaChi || (order.ThongTinNhanHang 
       ? `${order.ThongTinNhanHang.DiaChiChiTiet}, ${order.ThongTinNhanHang.QuanHuyen}, ${order.ThongTinNhanHang.TinhThanh}`
       : ''),
@@ -81,8 +86,11 @@ export const useCancelOrder = () => {
       queryClient.invalidateQueries({ queryKey: ['user-orders'] });
       toast.success('Yêu cầu hủy đơn hàng đã được gửi. Vui lòng chờ admin xác nhận.');
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || error?.message || 'Không thể hủy đơn hàng');
+    onError: (error: unknown) => {
+      const errorRecord = error as Record<string, unknown>;
+      const errorMsg = (((errorRecord?.response as Record<string, unknown>)?.data as Record<string, unknown>)?.message as string | undefined) ||
+        (errorRecord?.message as string | undefined);
+      toast.error(errorMsg || 'Không thể hủy đơn hàng');
     },
   });
 };

@@ -52,12 +52,13 @@ const extractArrayFromResponse = <T,>(payload: unknown, nestedKey?: string): T[]
 
 const extractUploadUrl = (payload: unknown): string => {
   if (!payload || typeof payload !== 'object') return '';
-  const obj = payload as Record<string, any>;
+  const obj = payload as Record<string, unknown>;
   const data =
     obj.data && typeof obj.data === 'object'
-      ? (obj.data as Record<string, any>)
+      ? (obj.data as Record<string, unknown>)
       : obj;
-  return data.url || data.secure_url || '';
+  const url = data.url || data.secure_url;
+  return typeof url === 'string' ? url : '';
 };
 
 const resolvePreviewUrl = (path?: string | null) => {
@@ -241,13 +242,13 @@ export const useAdminProducts = (): AdminProductsHookState => {
       const response = await adminProductsService.getProducts(params);
       const responseData = response?.data;
       const productsData = extractArrayFromResponse<Product>(responseData?.data ?? responseData);
-      const paginationInfo = (responseData as Record<string, any>)?.pagination;
+      const paginationInfo = (responseData as Record<string, unknown>)?.pagination as Record<string, unknown> | undefined;
 
       setProducts(productsData);
       setPagination((prev) => ({
         ...prev,
-        totalPages: paginationInfo?.totalPages || 1,
-        total: paginationInfo?.total || productsData.length,
+        totalPages: typeof paginationInfo?.totalPages === 'number' ? paginationInfo.totalPages : 1,
+        total: typeof paginationInfo?.total === 'number' ? paginationInfo.total : productsData.length,
       }));
 
       if (pagination.currentPage === 1) {
@@ -462,8 +463,9 @@ export const useAdminProducts = (): AdminProductsHookState => {
             });
           }
           toast.success('Upload ảnh thành công');
-        } catch (error: any) {
-          toast.error(error?.message || 'Không thể upload ảnh. Vui lòng thử lại');
+        } catch (error: unknown) {
+          const errorMsg = (error as Record<string, unknown>)?.message as string | undefined;
+          toast.error(errorMsg || 'Không thể upload ảnh. Vui lòng thử lại');
           if (index === -1) {
             setMainImagePreview('');
             updateFormData('HinhAnhChinh', '');
@@ -578,9 +580,11 @@ export const useAdminProducts = (): AdminProductsHookState => {
       closeDialog();
       await fetchProducts();
       await refreshCharts();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error submitting product:', error);
-      toast.error(error?.response?.data?.message || 'Có lỗi xảy ra');
+      const errorRecord = error as Record<string, unknown>;
+      const errorMsg = ((errorRecord?.response as Record<string, unknown>)?.data as Record<string, unknown>)?.message as string | undefined;
+      toast.error(errorMsg || 'Có lỗi xảy ra');
     } finally {
       setSubmitting(false);
     }
@@ -595,9 +599,11 @@ export const useAdminProducts = (): AdminProductsHookState => {
       closeDeleteDialog();
       await fetchProducts();
       await refreshCharts();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error deleting product:', error);
-      toast.error(error?.response?.data?.message || 'Không thể xóa sản phẩm');
+      const errorRecord = error as Record<string, unknown>;
+      const errorMsg = ((errorRecord?.response as Record<string, unknown>)?.data as Record<string, unknown>)?.message as string | undefined;
+      toast.error(errorMsg || 'Không thể xóa sản phẩm');
     } finally {
       setSubmitting(false);
     }

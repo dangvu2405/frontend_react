@@ -12,10 +12,22 @@ export const adminChatService = {
   disconnect: () => socketService.disconnect(),
   joinRoom: (chatRoomId: string) => socketService.joinChatRoom(chatRoomId),
   sendMessage: (chatRoomId: string, message: string) => socketService.sendMessage(chatRoomId, message),
-  onNewChatMessage: (listener: (data: NewChatMessageEvent) => void) => socketService.on('new-chat-message', listener),
-  offNewChatMessage: (listener: (data: NewChatMessageEvent) => void) => socketService.off('new-chat-message', listener),
-  onNewMessage: (listener: (message: NewMessageEvent) => void) => socketService.on('new-message', listener),
-  offNewMessage: (listener: (message: NewMessageEvent) => void) => socketService.off('new-message', listener),
+  onNewChatMessage: (listener: (data: NewChatMessageEvent) => void) => {
+    const handler = (data: unknown) => listener(data as NewChatMessageEvent);
+    socketService.on('new-chat-message', handler);
+    return handler as unknown as (data: NewChatMessageEvent) => void;
+  },
+  offNewChatMessage: (handler: unknown) => {
+    socketService.off('new-chat-message', handler as (data: unknown) => void);
+  },
+  onNewMessage: (listener: (message: NewMessageEvent) => void) => {
+    const handler = (data: unknown) => listener(data as NewMessageEvent);
+    socketService.on('new-message', handler);
+    return handler as unknown as (message: NewMessageEvent) => void;
+  },
+  offNewMessage: (handler: unknown) => {
+    socketService.off('new-message', handler as (data: unknown) => void);
+  },
 };
 
 

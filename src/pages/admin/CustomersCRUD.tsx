@@ -135,7 +135,7 @@ export default function AdminCustomersPage() {
           if (Array.isArray(responseData.data)) {
             customersData = responseData.data
             // pagination ở cùng level với data (đã được normalizeResponse giữ lại)
-            pagination = (responseData as any).pagination
+            pagination = (responseData as Record<string, unknown>).pagination as { totalPages?: number; total?: number } | undefined
           }
         }
         // Case 2: responseData là array trực tiếp (fallback - không nên xảy ra nếu normalizeResponse hoạt động đúng)
@@ -147,7 +147,7 @@ export default function AdminCustomersPage() {
         else if (responseData && typeof responseData === 'object' && !Array.isArray(responseData) && 'data' in responseData) {
           if (Array.isArray(responseData.data)) {
             customersData = responseData.data
-            pagination = (responseData as any).pagination
+            pagination = (responseData as Record<string, unknown>).pagination as { totalPages?: number; total?: number } | undefined
           }
         }
       }
@@ -173,7 +173,8 @@ export default function AdminCustomersPage() {
           rolesData = rolesResponseData
         } else if (rolesResponseData && typeof rolesResponseData === 'object' && !Array.isArray(rolesResponseData)) {
           // Fallback: tìm roles trong các key khác
-          rolesData = (rolesResponseData as any)?.roles ?? (rolesResponseData as any)?.data?.roles ?? []
+          const rolesResponseRecord = rolesResponseData as Record<string, unknown>;
+          rolesData = (rolesResponseRecord?.roles as Role[] | undefined) ?? ((rolesResponseRecord?.data as Record<string, unknown>)?.roles as Role[] | undefined) ?? []
         }
       }
       
@@ -217,7 +218,7 @@ export default function AdminCustomersPage() {
       }
       
       updateCharts(allCustomersData)
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error fetching customers:", err)
       toast.error("Không thể tải dữ liệu khách hàng")
     } finally {
@@ -300,8 +301,9 @@ export default function AdminCustomersPage() {
       toast.success("Cập nhật khách hàng thành công")
       setIsEditDialogOpen(false)
       fetchData()
-    } catch (err: any) {
-      toast.error(err?.message || "Không thể cập nhật khách hàng")
+    } catch (err: unknown) {
+      const errorMsg = (err as Record<string, unknown>)?.message as string | undefined;
+      toast.error(errorMsg || "Không thể cập nhật khách hàng")
     } finally {
       setSubmitting(false)
     }
@@ -314,8 +316,9 @@ export default function AdminCustomersPage() {
       toast.success("Đã xóa khách hàng")
       setIsDeleteDialogOpen(false)
       fetchData()
-    } catch (err: any) {
-      toast.error(err?.message || "Không thể xóa khách hàng")
+    } catch (err: unknown) {
+      const errorMsg = (err as Record<string, unknown>)?.message as string | undefined;
+      toast.error(errorMsg || "Không thể xóa khách hàng")
     }
   }
 
@@ -327,8 +330,9 @@ export default function AdminCustomersPage() {
       toast.success(isLocked ? "Đã mở khóa tài khoản" : "Đã khóa tài khoản")
       setIsLockDialogOpen(false)
       fetchData()
-    } catch (err: any) {
-      toast.error(err?.message || "Không thể khóa/mở khóa tài khoản")
+    } catch (err: unknown) {
+      const errorMsg = (err as Record<string, unknown>)?.message as string | undefined;
+      toast.error(errorMsg || "Không thể khóa/mở khóa tài khoản")
     }
   }
 
@@ -340,8 +344,9 @@ export default function AdminCustomersPage() {
       toast.success("Đã đổi role thành công")
       setIsRoleDialogOpen(false)
       fetchData()
-    } catch (err: any) {
-      toast.error(err?.message || "Không thể đổi role")
+    } catch (err: unknown) {
+      const errorMsg = (err as Record<string, unknown>)?.message as string | undefined;
+      toast.error(errorMsg || "Không thể đổi role")
     } finally {
       setSubmitting(false)
     }

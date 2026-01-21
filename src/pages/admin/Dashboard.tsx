@@ -5,10 +5,10 @@ import { ChartAreaInteractive } from "@/components/chart-area-interactive"
 import adminService from "@/services/adminService"
 import type { ChartItem, SummaryStats } from "@/types/models"
 
-const unwrapResponse = (payload: unknown): any => {
+const unwrapResponse = (payload: unknown): unknown => {
   if (!payload) return null
   if (typeof payload === "object" && payload !== null && "data" in payload) {
-    const data = (payload as any).data
+    const data = (payload as Record<string, unknown>).data
     // Avoid infinite loop if data references itself
     if (data !== payload) {
       return unwrapResponse(data)
@@ -17,7 +17,7 @@ const unwrapResponse = (payload: unknown): any => {
   return payload
 }
 
-const toArray = (payload: unknown): any[] => {
+const toArray = (payload: unknown): unknown[] => {
   const data = unwrapResponse(payload)
   return Array.isArray(data) ? data : []
 }
@@ -25,11 +25,11 @@ const toArray = (payload: unknown): any[] => {
 const normalizeSummary = (payload: unknown): SummaryStats => {
   const data = unwrapResponse(payload) ?? {}
   return {
-    totalProducts: Number((data as any)?.totalProducts ?? 0),
-    totalCategories: Number((data as any)?.totalCategories ?? 0),
-    totalUsers: Number((data as any)?.totalUsers ?? 0),
-    totalOrders: Number((data as any)?.totalOrders ?? 0),
-    totalRevenue: Number((data as any)?.totalRevenue ?? 0),
+    totalProducts: Number((data as Record<string, unknown>)?.totalProducts ?? 0),
+    totalCategories: Number((data as Record<string, unknown>)?.totalCategories ?? 0),
+    totalUsers: Number((data as Record<string, unknown>)?.totalUsers ?? 0),
+    totalOrders: Number((data as Record<string, unknown>)?.totalOrders ?? 0),
+    totalRevenue: Number((data as Record<string, unknown>)?.totalRevenue ?? 0),
   }
 }
 
@@ -72,42 +72,52 @@ export default function AdminDashboard() {
         const topProductData = toArray(topProductsRes)
 
         setTopProductsChart(
-          topProductData.map((product: any) => ({
-            name: product?.TenSanPham ?? "Không tên",
-            sold: Number(product?.DaBan ?? 0),
-            revenue:
-              typeof product?.Gia === "number" && typeof product?.DaBan === "number"
-                ? product.Gia * product.DaBan
-                : undefined,
-          }))
+          topProductData.map((product: unknown) => {
+            const productRecord = product as Record<string, unknown>;
+            return {
+              name: String(productRecord?.TenSanPham ?? "Không tên"),
+              sold: Number(productRecord?.DaBan ?? 0),
+              revenue:
+                typeof productRecord?.Gia === "number" && typeof productRecord?.DaBan === "number"
+                  ? productRecord.Gia * productRecord.DaBan
+                  : undefined,
+            };
+          })
         )
 
         const monthlyOrdersData = toArray(monthlyOrdersRes)
         setMonthlyOrdersChart(
-          monthlyOrdersData.map((item: any) => ({
-            name: item?.month && item?.year
-              ? `Tháng ${String(item.month).padStart(2, "0")}/${item.year}`
-              : "Không xác định",
-            sold: Number(item?.totalOrders ?? 0),
-            revenue: Number(item?.totalRevenue ?? 0),
-          }))
+          monthlyOrdersData.map((item: unknown) => {
+            const itemRecord = item as Record<string, unknown>;
+            return {
+              name: itemRecord?.month && itemRecord?.year
+                ? `Tháng ${String(itemRecord.month).padStart(2, "0")}/${itemRecord.year}`
+                : "Không xác định",
+              sold: Number(itemRecord?.totalOrders ?? 0),
+              revenue: Number(itemRecord?.totalRevenue ?? 0),
+            };
+          })
         )
 
         const topCustomersData = toArray(topCustomersRes)
         setTopCustomersChart(
-          topCustomersData.map((customer: any, index: number) => ({
-            name:
-              customer?.name ||
-              customer?.email ||
-              `Khách hàng ${index + 1}`,
-            sold: Number(customer?.orderCount ?? 0),
-            revenue: Number(customer?.totalRevenue ?? 0),
-          }))
+          topCustomersData.map((customer: unknown, index: number) => {
+            const customerRecord = customer as Record<string, unknown>;
+            return {
+              name:
+                String(customerRecord?.name ||
+                customerRecord?.email ||
+                `Khách hàng ${index + 1}`),
+              sold: Number(customerRecord?.orderCount ?? 0),
+              revenue: Number(customerRecord?.totalRevenue ?? 0),
+            };
+          })
         )
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (!isMounted) return
         console.error("Lỗi khi tải dữ liệu admin:", err)
-        setError(err?.message ?? "Không thể tải dữ liệu admin")
+        const errorMsg = (err as Record<string, unknown>)?.message as string | undefined;
+        setError(errorMsg ?? "Không thể tải dữ liệu admin")
       } finally {
         if (isMounted) {
           setLoading(false)

@@ -3,7 +3,7 @@ import type { ApiItemResponse } from '@/types/models';
 
 type PaymentMethod = 'cod' | 'vnpay' | 'momo';
 
-interface PaymentApiResponse<T = any> {
+interface PaymentApiResponse<T = unknown> {
   success?: boolean;
   message?: string;
   metadata?: T;
@@ -11,7 +11,7 @@ interface PaymentApiResponse<T = any> {
 }
 
 export const paymentService = {
-  createPayment: async <T = any>(method: PaymentMethod) => {
+  createPayment: async <T = unknown>(method: PaymentMethod) => {
     const response = await axiosInstance.post<ApiItemResponse<T> & PaymentApiResponse<T>>(
       '/payment/create',
       { typePayment: method }

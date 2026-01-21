@@ -56,7 +56,7 @@ export const cartService = {
     // ✅ Backend trả về: { success, message, data: { cart } }
     if (responseData && responseData.data) {
       if (typeof responseData.data === 'object' && 'cart' in responseData.data) {
-        return (responseData.data as any).cart as Cart;
+        return (responseData.data as Record<string, unknown>).cart as Cart;
       }
       if (typeof responseData.data === 'object' && 'Items' in responseData.data) {
         return responseData.data as Cart;
@@ -73,7 +73,7 @@ export const cartService = {
     // ✅ Backend trả về: { success, message, data: { cart } }
     if (responseData && responseData.data) {
       if (typeof responseData.data === 'object' && 'cart' in responseData.data) {
-        return (responseData.data as any).cart as Cart;
+        return (responseData.data as Record<string, unknown>).cart as Cart;
       }
       return responseData.data as Cart;
     }
@@ -97,9 +97,9 @@ export const cartService = {
 
     if (responseData?.data) {
       if (typeof responseData.data === 'object' && 'cart' in responseData.data) {
-        return (responseData.data as any).cart as Cart;
+        return (responseData.data as Record<string, unknown>).cart as Cart;
       }
-      if ((responseData.data as any)._id) {
+      if ((responseData.data as Record<string, unknown>)._id) {
         return responseData.data as Cart;
       }
     }

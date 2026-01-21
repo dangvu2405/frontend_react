@@ -72,10 +72,11 @@ const authService = {
     try {
       // ✅ Gọi logout API để xóa session trên server (trước khi clear token)
       await axiosInstance.post(API_ENDPOINTS.LOGOUT);
-    } catch (error: any) {
+    } catch (error: unknown) {
       // ✅ Log error nhưng vẫn tiếp tục logout local
       if (import.meta.env.DEV) {
-        console.warn('Logout API error (continuing with local logout):', error?.message);
+        const errorMsg = (error as Record<string, unknown>)?.message;
+        console.warn('Logout API error (continuing with local logout):', errorMsg);
       }
     }
     // ✅ Clear storage sau khi đã gọi API (không dùng finally để tránh clear quá sớm)
@@ -83,7 +84,7 @@ const authService = {
   },
 
   forgotPassword: async (email: string): Promise<{ message: string }> => {
-    return axiosInstance.post<any, { message: string }>(
+    return axiosInstance.post<unknown, { message: string }>(
       API_ENDPOINTS.FORGOT_PASSWORD,
       { email }
     );
@@ -94,7 +95,7 @@ const authService = {
     password: string;
     confirmPassword?: string;
   }): Promise<{ message: string }> => {
-    return axiosInstance.post<any, { message: string }>(
+    return axiosInstance.post<unknown, { message: string }>(
       API_ENDPOINTS.RESET_PASSWORD,
       payload
     );

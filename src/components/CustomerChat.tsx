@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { MessageCircle, X, Send, Loader2, Bot, User } from 'lucide-react';
+import { MessageCircle, X, Send, Loader2, Bot } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import chatService from '@/services/chatService';
 import { chatbotService } from '@/services/chatbotService';
@@ -51,7 +51,7 @@ export default function CustomerChat() {
       setMessages([botMsg]);
       setChatRoom(null);
     }
-  }, [isAuthenticated, isOpen]);
+  }, [isAuthenticated, isOpen, chatMode]);
 
   // Load chat room và kết nối socket khi chuyển sang human mode
   useEffect(() => {
@@ -82,7 +82,7 @@ export default function CustomerChat() {
 
         // Mark messages as read
         await chatService.markAsRead(room._id);
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Error loading chat:', error);
       } finally {
         setLoading(false);
@@ -105,10 +105,13 @@ export default function CustomerChat() {
       }
     };
 
-    socketService.on('new-message', handleNewMessage);
+    const messageHandler = (data: unknown) => {
+      handleNewMessage(data as NewMessageEvent);
+    };
+    socketService.on('new-message', messageHandler);
 
     return () => {
-      socketService.off('new-message', handleNewMessage);
+      socketService.off('new-message', messageHandler);
     };
   }, [isOpen, chatRoom, chatMode]);
 
@@ -160,7 +163,7 @@ export default function CustomerChat() {
             }, 1000);
           }
         }, 500);
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Error processing bot message:', error);
       } finally {
         setSending(false);
@@ -174,7 +177,7 @@ export default function CustomerChat() {
     try {
       setSending(true);
       socketService.sendMessage(chatRoom._id, messageText);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error sending message:', error);
     } finally {
       setSending(false);

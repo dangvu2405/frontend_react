@@ -4,7 +4,7 @@ import { storage } from '@/utils/storage';
 
 class SocketService {
   private socket: Socket | null = null;
-  private listeners: Map<string, Set<Function>> = new Map();
+  private listeners: Map<string, Set<(data: unknown) => void>> = new Map();
 
   /**
    * Connect to Socket.IO server
@@ -29,7 +29,7 @@ class SocketService {
     // Re-register all listeners
     this.listeners.forEach((callbacks, event) => {
       callbacks.forEach((callback) => {
-        this.socket?.on(event, callback as any);
+        this.socket?.on(event, callback as (...args: unknown[]) => void);
       });
     });
 
@@ -107,24 +107,24 @@ class SocketService {
   /**
    * Subscribe to an event
    */
-  on(event: string, callback: Function): void {
+  on(event: string, callback: (data: unknown) => void): void {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, new Set());
     }
     this.listeners.get(event)?.add(callback);
 
     if (this.socket) {
-      this.socket.on(event, callback as any);
+      this.socket.on(event, callback as (...args: unknown[]) => void);
     }
   }
 
   /**
    * Unsubscribe from an event
    */
-  off(event: string, callback?: Function): void {
+  off(event: string, callback?: (data: unknown) => void): void {
     if (callback) {
       this.listeners.get(event)?.delete(callback);
-      this.socket?.off(event, callback as any);
+      this.socket?.off(event, callback as (...args: unknown[]) => void);
     } else {
       this.listeners.delete(event);
       this.socket?.removeAllListeners(event);

@@ -10,15 +10,16 @@ const isDev = import.meta.env.DEV;
 /**
  * Debug logger for API requests
  */
-export const debugApiRequest = (method: string, url: string, config?: any) => {
+export const debugApiRequest = (method: string, url: string, config?: unknown) => {
   if (!isDev) return;
   
-  const params = config?.params ? `?${new URLSearchParams(config.params).toString()}` : '';
-  const fullUrl = `${config?.baseURL || ''}${url}${params}`;
+  const configRecord = config as Record<string, unknown> | undefined;
+  const params = configRecord?.params ? `?${new URLSearchParams(configRecord.params as Record<string, string>).toString()}` : '';
+  const fullUrl = `${String(configRecord?.baseURL || '')}${url}${params}`;
   
   console.log(`🔵 [API Request] ${method.toUpperCase()} ${fullUrl}`, {
-    headers: config?.headers,
-    data: config?.data,
+    headers: configRecord?.headers,
+    data: configRecord?.data,
     timestamp: new Date().toISOString(),
   });
 };
@@ -26,15 +27,17 @@ export const debugApiRequest = (method: string, url: string, config?: any) => {
 /**
  * Debug logger for API success responses
  */
-export const debugApiSuccess = (method: string, url: string, response: any) => {
+export const debugApiSuccess = (method: string, url: string, response: unknown) => {
   if (!isDev) return;
   
-  const fullUrl = `${response?.config?.baseURL || ''}${url}`;
+  const responseRecord = response as Record<string, unknown>;
+  const config = responseRecord?.config as Record<string, unknown> | undefined;
+  const fullUrl = `${String(config?.baseURL || '')}${url}`;
   
   console.log(`🟢 [API Success] ${method.toUpperCase()} ${fullUrl}`, {
-    status: response?.status,
-    statusText: response?.statusText,
-    data: response?.data,
+    status: responseRecord?.status,
+    statusText: responseRecord?.statusText,
+    data: responseRecord?.data,
     timestamp: new Date().toISOString(),
   });
 };
@@ -42,18 +45,20 @@ export const debugApiSuccess = (method: string, url: string, response: any) => {
 /**
  * Debug logger for API errors
  */
-export const debugApiError = (method: string, url: string, error: any) => {
+export const debugApiError = (method: string, url: string, error: unknown) => {
   if (!isDev) return;
   
-  const fullUrl = error?.config 
-    ? `${error.config.baseURL || ''}${error.config.url || ''}`
+  const errorRecord = error as Record<string, unknown>;
+  const errorConfig = errorRecord?.config as Record<string, unknown> | undefined;
+  const fullUrl = errorConfig 
+    ? `${String(errorConfig.baseURL || '')}${String(errorConfig.url || '')}`
     : url;
-  
+  const response = errorRecord?.response as Record<string, unknown> | undefined;
   console.error(`🔴 [API Error] ${method.toUpperCase()} ${fullUrl}`, {
-    status: error?.response?.status,
-    statusText: error?.response?.statusText || error?.message,
-    error: error?.response?.data || error?.message,
-    headers: error?.response?.headers,
+    status: response?.status,
+    statusText: (response?.statusText as string | undefined) || (errorRecord?.message as string | undefined),
+    error: response?.data || errorRecord?.message,
+    headers: response?.headers,
     timestamp: new Date().toISOString(),
   });
 };
@@ -61,7 +66,7 @@ export const debugApiError = (method: string, url: string, error: any) => {
 /**
  * Debug logger for page operations
  */
-export const debugPage = (pageName: string, operation: string, data?: any) => {
+export const debugPage = (pageName: string, operation: string, data?: unknown) => {
   if (!isDev) return;
   
   const emoji = getPageEmoji(pageName);
@@ -71,14 +76,16 @@ export const debugPage = (pageName: string, operation: string, data?: any) => {
 /**
  * Debug logger for page errors
  */
-export const debugPageError = (pageName: string, operation: string, error: any) => {
+export const debugPageError = (pageName: string, operation: string, error: unknown) => {
   if (!isDev) return;
   
   const emoji = getPageEmoji(pageName);
+  const errorRecord = error as Record<string, unknown>;
+  const response = errorRecord?.response as Record<string, unknown> | undefined;
   console.error(`${emoji} [${pageName}] ${operation}`, {
     error,
-    message: error?.message,
-    response: error?.response?.data,
+    message: errorRecord?.message,
+    response: response?.data,
   });
 };
 
@@ -102,7 +109,7 @@ const getPageEmoji = (pageName: string): string => {
  */
 export const setDebugMode = (enabled: boolean) => {
   if (typeof window !== 'undefined') {
-    (window as any).__DEBUG_MODE__ = enabled;
+    (window as unknown as Record<string, unknown>).__DEBUG_MODE__ = enabled;
   }
 };
 
@@ -111,7 +118,8 @@ export const setDebugMode = (enabled: boolean) => {
  */
 export const isDebugMode = (): boolean => {
   if (typeof window !== 'undefined') {
-    return (window as any).__DEBUG_MODE__ ?? isDev;
+    const debugMode = (window as unknown as Record<string, unknown>).__DEBUG_MODE__;
+    return typeof debugMode === 'boolean' ? debugMode : isDev;
   }
   return isDev;
 };

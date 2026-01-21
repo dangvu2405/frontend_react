@@ -55,7 +55,7 @@ export const userService = {
     // ✅ Backend trả về: { success, message, data: { donHang: Order[] } }
     if (responseData && responseData.data) {
       if (typeof responseData.data === 'object' && 'donHang' in responseData.data) {
-        const orders = (responseData.data as any).donHang;
+        const orders = (responseData.data as Record<string, unknown>).donHang;
         return Array.isArray(orders) ? orders : [];
       }
       if (Array.isArray(responseData.data)) {
@@ -76,14 +76,15 @@ export const userService = {
         return responseData.data;
       }
       if (typeof responseData.data === 'object' && 'addresses' in responseData.data) {
-        return (responseData.data as any).addresses || [];
+        const addresses = (responseData.data as Record<string, unknown>).addresses;
+        return Array.isArray(addresses) ? addresses : [];
       }
     }
     
     return [];
   },
   
-  createAddress: async (address: any): Promise<UserAddress> => {
+  createAddress: async (address: unknown): Promise<UserAddress> => {
     const response = await axiosInstance.post<ApiItemResponse<UserAddress>>("/user/address", address);
     const responseData = response.data;
     
@@ -95,7 +96,7 @@ export const userService = {
     return responseData as unknown as UserAddress;
   },
   
-  editAddress: async (id: string, address: any): Promise<UserAddress> => {
+  editAddress: async (id: string, address: unknown): Promise<UserAddress> => {
     const response = await axiosInstance.patch<ApiItemResponse<UserAddress>>(`/user/address/${id}`, address);
     const responseData = response.data;
     
@@ -121,8 +122,10 @@ export const userService = {
       if (Array.isArray(responseData.data)) {
         return responseData.data;
       }
-      if ('DiaChi' in (responseData.data as any)) {
-        return (responseData.data as any).DiaChi || [];
+      const responseDataRecord = responseData.data as Record<string, unknown>;
+      if ('DiaChi' in responseDataRecord) {
+        const diaChi = responseDataRecord.DiaChi;
+        return Array.isArray(diaChi) ? diaChi : [];
       }
     }
 

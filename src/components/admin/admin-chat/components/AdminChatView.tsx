@@ -12,15 +12,15 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
-import { Loader2, MoreVertical, Search, Send, Trash2, Clock, X, UserCheck, UserX, MessageCircle } from 'lucide-react';
+import { Loader2, MoreVertical, Search, Send, Trash2, Clock, X, MessageCircle } from 'lucide-react';
 import { format, isToday, isYesterday } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { useMemo, useRef, useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 
 import { cn } from '@/lib/utils';
 import type { ChatRoom } from '@/types/models';
 // import { EmptyState, LoadingState } from '@/shared/components';
-import { useAuth } from '@/contexts/AuthContext';
 
 import useAdminChat from '../hooks/useAdminChat';
 
@@ -72,7 +72,6 @@ const AdminChatView = () => {
     chatRooms,
     filteredRooms,
     selectedRoom,
-    messages,
     loadingRooms,
     loadingMessages,
     sending,

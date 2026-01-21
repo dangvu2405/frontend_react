@@ -3,7 +3,6 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Select,
@@ -49,9 +48,11 @@ export const AdminOrdersView = () => {
         status: statusFilter === 'all' ? undefined : statusFilter,
       });
       setOrders(list);
-      setTotalPages(pagination?.totalPages || 1);
-    } catch (error: any) {
-      toast.error(error?.message || 'Không thể tải danh sách đơn hàng');
+      const paginationRecord = pagination as Record<string, unknown> | undefined;
+      setTotalPages(typeof paginationRecord?.totalPages === 'number' ? paginationRecord.totalPages : 1);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Không thể tải danh sách đơn hàng';
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -67,8 +68,9 @@ export const AdminOrdersView = () => {
       await ordersService.updateOrderStatus(orderId, status);
       toast.success('Cập nhật trạng thái thành công');
       fetchOrders();
-    } catch (error: any) {
-      toast.error(error?.message || 'Không thể cập nhật trạng thái');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Không thể cập nhật trạng thái';
+      toast.error(errorMessage);
     }
   };
 

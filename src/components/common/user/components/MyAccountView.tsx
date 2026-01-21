@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { MainLayout } from '@/layouts/MainLayout';
@@ -51,15 +51,17 @@ export const MyAccountView = () => {
         }
         
         setAddresses(result);
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (import.meta.env.DEV) {
+          const errorRecord = error as Record<string, unknown>;
           console.error('👤 [MyAccount Page] Error fetching addresses:', {
             error,
-            message: error?.message,
-            response: error?.response?.data,
+            message: errorRecord?.message,
+            response: (errorRecord?.response as Record<string, unknown>)?.data,
           });
         }
-        toast.error(error?.message || 'Không thể tải địa chỉ');
+        const errorMsg = (error as Record<string, unknown>)?.message as string | undefined;
+        toast.error(errorMsg || 'Không thể tải địa chỉ');
       } finally {
         setLoadingAddresses(false);
       }
@@ -95,15 +97,17 @@ export const MyAccountView = () => {
       setAddresses((prev) => [...prev, created]);
       setNewAddress(emptyAddress);
       toast.success('Đã thêm địa chỉ mới');
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (import.meta.env.DEV) {
+        const errorRecord = error as Record<string, unknown>;
         console.error('👤 [MyAccount Page] Error creating address:', {
           error,
-          message: error?.message,
-          response: error?.response?.data,
+          message: errorRecord?.message,
+          response: (errorRecord?.response as Record<string, unknown>)?.data,
         });
       }
-      toast.error(error?.message || 'Không thể lưu địa chỉ');
+      const errorMsg = (error as Record<string, unknown>)?.message as string | undefined;
+      toast.error(errorMsg || 'Không thể lưu địa chỉ');
     } finally {
       setSavingAddress(false);
     }
@@ -117,8 +121,9 @@ export const MyAccountView = () => {
         prev.map((address) => (address._id === addressId ? { ...address, MacDinh: true } : { ...address, MacDinh: false })),
       );
       toast.success('Đã đặt địa chỉ mặc định');
-    } catch (error: any) {
-      toast.error(error?.message || 'Không thể cập nhật địa chỉ');
+    } catch (error: unknown) {
+      const errorMsg = (error as Record<string, unknown>)?.message as string | undefined;
+      toast.error(errorMsg || 'Không thể cập nhật địa chỉ');
     }
   };
 
@@ -128,8 +133,9 @@ export const MyAccountView = () => {
       await userService.deleteAddress(addressId);
       setAddresses((prev) => prev.filter((address) => address._id !== addressId));
       toast.success('Đã xóa địa chỉ');
-    } catch (error: any) {
-      toast.error(error?.message || 'Không thể xóa địa chỉ');
+    } catch (error: unknown) {
+      const errorMsg = (error as Record<string, unknown>)?.message as string | undefined;
+      toast.error(errorMsg || 'Không thể xóa địa chỉ');
     }
   };
 

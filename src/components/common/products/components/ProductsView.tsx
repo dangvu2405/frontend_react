@@ -39,16 +39,17 @@ export const ProductsView = () => {
         if (active) {
           setProducts(fetchedProducts);
         }
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (active) {
           if (import.meta.env.DEV) {
             console.error('📦 [Products Page] Error fetching products:', {
               error,
-              message: error?.message,
-              response: error?.response?.data,
+              message: error instanceof Error ? error.message : 'Unknown error',
+              response: ((error as Record<string, unknown>)?.response as Record<string, unknown>)?.data,
             });
           }
-          toast.error(error?.message || 'Không thể tải sản phẩm');
+          const errorMsg = (error as Record<string, unknown>)?.message as string | undefined;
+          toast.error(errorMsg || 'Không thể tải sản phẩm');
           setProducts([]);
         }
       } finally {

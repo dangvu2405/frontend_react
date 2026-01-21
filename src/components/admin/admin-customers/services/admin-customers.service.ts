@@ -12,9 +12,11 @@ export interface AdminCustomersQuery {
 const ADMIN_CUSTOMERS_ENDPOINT = '/admin/customers';
 const ADMIN_ROLES_ENDPOINT = '/admin/roles';
 
-const unwrap = <T>(payload: any): T => {
-  if (!payload) return payload;
-  if (payload.data !== undefined) return unwrap<T>(payload.data);
+const unwrap = <T>(payload: unknown): T => {
+  if (!payload) return payload as T;
+  if (typeof payload === 'object' && payload !== null && 'data' in payload) {
+    return unwrap<T>((payload as Record<string, unknown>).data);
+  }
   return payload as T;
 };
 
@@ -26,15 +28,16 @@ const adminCustomersService = {
       pagination?: { totalPages?: number; total?: number };
     }>(response.data);
 
-    if (Array.isArray((data as any).customers)) {
+    const dataAsRecord = data as Record<string, unknown>;
+    if (Array.isArray(dataAsRecord.customers)) {
       return {
-        customers: (data as any).customers as CustomerWithStats[],
-        pagination: (data as any).pagination ?? { totalPages: 1, total: (data as any).customers.length },
+        customers: dataAsRecord.customers as CustomerWithStats[],
+        pagination: (dataAsRecord.pagination as Record<string, unknown> ?? { totalPages: 1, total: (dataAsRecord.customers as CustomerWithStats[]).length }) as { totalPages: number; total: number },
       };
     }
 
     if (Array.isArray(data as unknown as CustomerWithStats[])) {
-      return { customers: data as unknown as CustomerWithStats[], pagination: { totalPages: 1, total: (data as any[]).length } };
+      return { customers: data as unknown as CustomerWithStats[], pagination: { totalPages: 1, total: (data as unknown[]).length } };
     }
 
     return { customers: [], pagination: { totalPages: 1, total: 0 } };
@@ -45,8 +48,9 @@ const adminCustomersService = {
       params: { page: 1, limit },
     });
     const data = unwrap<{ customers?: CustomerWithStats[] }>(response.data);
-    if (Array.isArray((data as any).customers)) {
-      return (data as any).customers as CustomerWithStats[];
+    const dataAsRecord = data as Record<string, unknown>;
+    if (Array.isArray(dataAsRecord.customers)) {
+      return dataAsRecord.customers as CustomerWithStats[];
     }
     if (Array.isArray(data as unknown as CustomerWithStats[])) {
       return data as unknown as CustomerWithStats[];
@@ -57,8 +61,9 @@ const adminCustomersService = {
   async getRoles(): Promise<Role[]> {
     const response = await axiosInstance.get(ADMIN_ROLES_ENDPOINT);
     const data = unwrap<{ roles?: Role[] }>(response.data);
-    if (Array.isArray((data as any).roles)) {
-      return (data as any).roles as Role[];
+    const dataAsRecord = data as Record<string, unknown>;
+    if (Array.isArray(dataAsRecord.roles)) {
+      return dataAsRecord.roles as Role[];
     }
     if (Array.isArray(data as unknown as Role[])) {
       return data as unknown as Role[];

@@ -40,7 +40,6 @@ const currencyFormatter = new Intl.NumberFormat('vi-VN', {
 export const AdminCustomersView: FC = () => {
   const {
     loading,
-    customers,
     roles,
     topCustomersChart,
     statusChart,
