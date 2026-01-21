@@ -123,7 +123,6 @@ export const AdminReviewsView: FC = () => {
     openDeleteDialog,
     closeDeleteDialog,
     isDeleteDialogOpen,
-    deletingReview,
     deleteReview,
     deleteSelectedReviews,
     changePage,

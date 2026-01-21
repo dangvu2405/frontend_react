@@ -57,39 +57,44 @@ export interface CartItem {
   volumeOptions?: ProductVolumeOption[];
 }
 
-const hydrateCartItem = (raw: any): CartItem | null => {
+const hydrateCartItem = (raw: unknown): CartItem | null => {
   if (!raw) return null;
-  const productId = raw.productId || raw.IdSanPham?._id || raw.IdSanPham || (typeof raw.id === 'string' ? raw.id.split('::')[0] : null);
+  const rawRecord = raw as Record<string, unknown>;
+  const idSanPham = rawRecord.IdSanPham as Record<string, unknown> | string | undefined;
+  const productId = rawRecord.productId || 
+    (typeof idSanPham === 'object' && idSanPham?._id ? idSanPham._id : idSanPham) || 
+    (typeof rawRecord.id === 'string' ? rawRecord.id.split('::')[0] : null);
   if (!productId) {
     return null;
   }
 
-  const normalizedVolume = normalizeVolumeOption(raw.selectedDungTich || raw.SelectedDungTich);
-  const storedBasePrice = Number(raw.basePrice ?? raw.base_price ?? raw.base ?? 0);
-  const legacyPrice = Number(raw.gia ?? raw.Gia ?? 0);
+  const selectedDungTichValue = rawRecord.selectedDungTich || rawRecord.SelectedDungTich;
+  const normalizedVolume = normalizeVolumeOption(selectedDungTichValue as ProductVolumeOption | null | undefined);
+  const storedBasePrice = Number(rawRecord.basePrice ?? rawRecord.base_price ?? rawRecord.base ?? 0);
+  const legacyPrice = Number(rawRecord.gia ?? rawRecord.Gia ?? 0);
   const basePrice = Number.isFinite(storedBasePrice) && storedBasePrice > 0
     ? storedBasePrice
     : Math.max(0, legacyPrice - (normalizedVolume?.priceDiff || 0));
 
   const finalPrice = basePrice + (normalizedVolume?.priceDiff || 0);
-  const normalizedId = (typeof raw.id === 'string' && raw.id.includes('::'))
-    ? raw.id
-    : buildCartItemId(productId, normalizedVolume);
+  const normalizedId = (typeof rawRecord.id === 'string' && rawRecord.id.includes('::'))
+    ? rawRecord.id
+    : buildCartItemId(String(productId), normalizedVolume);
 
-  const normalizedOptions = Array.isArray(raw.volumeOptions)
-    ? raw.volumeOptions.map(normalizeVolumeOption).filter(Boolean) as ProductVolumeOption[]
+  const normalizedOptions = Array.isArray(rawRecord.volumeOptions)
+    ? rawRecord.volumeOptions.map(normalizeVolumeOption).filter(Boolean) as ProductVolumeOption[]
     : undefined;
 
   return {
     id: normalizedId,
     productId: String(productId),
-    tenSP: raw.tenSP || raw.TenSanPham || 'Sản phẩm',
+    tenSP: String(rawRecord.tenSP || rawRecord.TenSanPham || 'Sản phẩm'),
     gia: finalPrice,
     basePrice,
-    giamGia: Number(raw.giamGia ?? raw.KhuyenMai ?? 0),
-    hinhAnh: raw.hinhAnh || raw.HinhAnhChinh || '',
-    loaiSP: raw.loaiSP || raw.LoaiSanPham || '',
-    quantity: Math.max(1, Number(raw.quantity ?? raw.SoLuong ?? 1)),
+    giamGia: Number(rawRecord.giamGia ?? rawRecord.KhuyenMai ?? 0),
+    hinhAnh: String(rawRecord.hinhAnh || rawRecord.HinhAnhChinh || ''),
+    loaiSP: String(rawRecord.loaiSP || rawRecord.LoaiSanPham || ''),
+    quantity: Math.max(1, Number(rawRecord.quantity ?? rawRecord.SoLuong ?? 1)),
     selectedDungTich: normalizedVolume || undefined,
     volumeOptions: normalizedOptions && normalizedOptions.length ? normalizedOptions : undefined,
   };
@@ -128,7 +133,7 @@ export const storage = {
     return user ? JSON.parse(user) : null;
   },
 
-  setUser: (user: any): void => {
+  setUser: (user: unknown): void => {
     localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
   },
 

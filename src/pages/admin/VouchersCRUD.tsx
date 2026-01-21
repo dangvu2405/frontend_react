@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import adminService from "@/services/adminService"
+import type { AdminVoucherPayload } from "@/types/models/admin"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -113,7 +114,7 @@ export default function AdminVouchersPage() {
   const fetchData = async () => {
     try {
       setLoading(true)
-      const params: any = {
+      const params: Record<string, string | number> = {
         page: currentPage,
         limit: pageSize,
         sortBy,
@@ -147,14 +148,14 @@ export default function AdminVouchersPage() {
         if (responseData && typeof responseData === 'object' && !Array.isArray(responseData) && 'success' in responseData && 'data' in responseData) {
           if (Array.isArray(responseData.data)) {
             vouchersData = responseData.data
-            pagination = (responseData as any).pagination
+            pagination = (responseData as Record<string, unknown>).pagination as { totalPages?: number; total?: number } | undefined
           }
         } else if (Array.isArray(responseData)) {
           vouchersData = responseData
         } else if (responseData && typeof responseData === 'object' && !Array.isArray(responseData) && 'data' in responseData) {
           if (Array.isArray(responseData.data)) {
             vouchersData = responseData.data
-            pagination = (responseData as any).pagination
+            pagination = (responseData as Record<string, unknown>).pagination as { totalPages?: number; total?: number } | undefined
           }
         }
       }
@@ -168,7 +169,7 @@ export default function AdminVouchersPage() {
         setTotalPages(pagination.totalPages || 1)
         setTotal(pagination.total || 0)
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error fetching vouchers:", err)
       toast.error("Không thể tải danh sách voucher")
     } finally {
@@ -190,7 +191,7 @@ export default function AdminVouchersPage() {
           if (responseData.data && typeof responseData.data === 'object' && 'summary' in responseData.data) {
             statsData = responseData.data as VoucherStats
           } else if (responseData.data && typeof responseData.data === 'object' && 'stats' in responseData.data) {
-            statsData = (responseData.data as any).stats as VoucherStats
+            statsData = (responseData.data as Record<string, unknown>).stats as VoucherStats
           }
         } else if (responseData && typeof responseData === 'object' && !Array.isArray(responseData) && 'summary' in responseData) {
           // responseData là VoucherStats trực tiếp
@@ -203,7 +204,7 @@ export default function AdminVouchersPage() {
       }
       
       setStats(statsData)
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error fetching stats:", err)
     }
   }
@@ -263,7 +264,7 @@ export default function AdminVouchersPage() {
     }
 
     try {
-      const payload: any = {
+      const payload: Record<string, string | number> = {
         MaVoucher: formData.MaVoucher.trim(),
         NoiDung: formData.NoiDung.trim(),
         GiaTri: Number(formData.GiaTri),
@@ -278,16 +279,17 @@ export default function AdminVouchersPage() {
         await adminService.updateVoucher(editingVoucher._id, payload)
         toast.success("Cập nhật voucher thành công")
       } else {
-        await adminService.createVoucher(payload)
+        await adminService.createVoucher(payload as unknown as AdminVoucherPayload)
         toast.success("Tạo voucher thành công")
       }
 
       handleCloseDialog()
       fetchData()
       fetchStats()
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error saving voucher:", err)
-      const errorMessage = err?.response?.data?.message || "Không thể lưu voucher"
+      const errorRecord = err as Record<string, unknown>;
+      const errorMessage = (((errorRecord?.response as Record<string, unknown>)?.data as Record<string, unknown>)?.message as string | undefined) || "Không thể lưu voucher"
       toast.error(errorMessage)
     }
   }
@@ -307,7 +309,7 @@ export default function AdminVouchersPage() {
       setDeletingVoucher(null)
       fetchData()
       fetchStats()
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error deleting voucher:", err)
       toast.error("Không thể xóa voucher")
     }

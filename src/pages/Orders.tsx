@@ -12,28 +12,18 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Package,
-  Calendar,
-  MapPin,
-  CreditCard,
   X,
   Loader2,
-  CheckCircle2,
-  Truck,
-  Ban,
   FileText,
   Download,
   MoreVertical,
   ArrowRight,
   ArrowLeft,
-  User,
-  Box,
 } from 'lucide-react';
 import { useState } from 'react';
-import { toast } from 'sonner';
 import type { Order, OrderProduct, Product } from '@/types/models';
 import { getCloudinaryProductImageUrl } from '@/utils/imageUtils';
 import { formatCurrency } from '@/utils/format';
@@ -41,7 +31,7 @@ import { useOrders, useCancelOrder } from '@/hooks/useOrders';
 
 export default function OrdersPage() {
   const { isAuthenticated } = useAuth();
-  const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
@@ -77,14 +67,15 @@ export default function OrdersPage() {
     );
   };
 
-  const getOrderHistory = (order: any) => {
+  const getOrderHistory = (order: unknown) => {
     const history = [];
-    const statusCode = order.statusCode || order.raw?.TrangThai;
+    const orderRecord = order as Record<string, unknown>;
+    const statusCode = orderRecord.statusCode || (orderRecord.raw as Record<string, unknown> | undefined)?.TrangThai;
     
     if (statusCode === 'delivered') {
       history.push({
         event: 'Đã giao hàng',
-        timestamp: order.updatedAt || order.createdAt,
+        timestamp: orderRecord.updatedAt || orderRecord.createdAt,
         details: ['Đơn hàng đã được giao thành công'],
       });
     }
@@ -92,7 +83,7 @@ export default function OrdersPage() {
     if (statusCode === 'shipping' || statusCode === 'delivered') {
       history.push({
         event: 'Đang giao hàng',
-        timestamp: order.updatedAt || order.createdAt,
+        timestamp: orderRecord.updatedAt || orderRecord.createdAt,
         details: ['Đơn hàng đang được vận chuyển'],
       });
     }
@@ -100,22 +91,23 @@ export default function OrdersPage() {
     if (statusCode === 'confirmed' || statusCode === 'shipping' || statusCode === 'delivered') {
       history.push({
         event: 'Đã xác nhận',
-        timestamp: order.updatedAt || order.createdAt,
+        timestamp: orderRecord.updatedAt || orderRecord.createdAt,
         details: ['Đơn hàng đã được xác nhận'],
       });
     }
     
     history.push({
       event: 'Đặt hàng',
-      timestamp: order.createdAt,
+      timestamp: orderRecord.createdAt,
       details: ['Đơn hàng đã được tạo'],
     });
 
     return history.reverse();
   };
 
-  const canCancelOrder = (order: any) => {
-    const statusCode = order.statusCode || order.raw?.TrangThai;
+  const canCancelOrder = (order: unknown) => {
+    const orderRecord = order as Record<string, unknown>;
+    const statusCode = orderRecord.statusCode || (orderRecord.raw as Record<string, unknown> | undefined)?.TrangThai;
     return statusCode === 'pending' || statusCode === 'confirmed';
   };
 
@@ -156,12 +148,13 @@ export default function OrdersPage() {
     setIsCancelDialogOpen(true);
   };
 
-  const openDetailDialog = (order: any, index?: number) => {
-    setSelectedOrder(order);
+  const openDetailDialog = (order: unknown, index?: number) => {
+      setSelectedOrder(order as Order);
     if (index !== undefined) {
       setCurrentOrderIndex(index);
     } else {
-      const foundIndex = orders.findIndex(o => o.id === order.id || o._id === order._id);
+      const orderRecord = order as Record<string, unknown>;
+      const foundIndex = orders.findIndex(o => o.id === orderRecord.id || o._id === orderRecord._id);
       setCurrentOrderIndex(foundIndex >= 0 ? foundIndex : 0);
     }
     setIsDetailOpen(true);
@@ -197,14 +190,17 @@ export default function OrdersPage() {
     }
   };
 
-  const getFirstProductImage = (order: any): string => {
-    if (order.products && order.products.length > 0) {
-      return order.products[0].image || '';
+  const getFirstProductImage = (order: unknown): string => {
+    const orderRecord = order as Record<string, unknown>;
+    if (Array.isArray(orderRecord.products) && orderRecord.products.length > 0) {
+      const firstProduct = orderRecord.products[0] as Record<string, unknown>;
+      return String(firstProduct.image || '');
     }
-    if (order.raw?.SanPham && order.raw.SanPham.length > 0) {
-      const firstProduct = order.raw.SanPham[0];
-      if (isProductDocument(firstProduct.IdSanPham)) {
-        return firstProduct.IdSanPham.HinhAnhChinh || '';
+    const orderRaw = orderRecord.raw as Record<string, unknown> | undefined;
+    if (orderRaw?.SanPham && Array.isArray(orderRaw.SanPham) && orderRaw.SanPham.length > 0) {
+      const firstProduct = orderRaw.SanPham[0] as Record<string, unknown>;
+      if (isProductDocument(firstProduct.IdSanPham as OrderProduct['IdSanPham'])) {
+        return String((firstProduct.IdSanPham as Product).HinhAnhChinh || '');
       }
       const fallbackImage = (firstProduct as Record<string, unknown>).HinhAnhChinh;
       return typeof fallbackImage === 'string' ? fallbackImage : '';
@@ -212,14 +208,17 @@ export default function OrdersPage() {
     return '';
   };
 
-  const getFirstProductName = (order: any): string => {
-    if (order.products && order.products.length > 0) {
-      return order.products[0].name || 'Sản phẩm';
+  const getFirstProductName = (order: unknown): string => {
+    const orderRecord = order as Record<string, unknown>;
+    if (Array.isArray(orderRecord.products) && orderRecord.products.length > 0) {
+      const firstProduct = orderRecord.products[0] as Record<string, unknown>;
+      return String(firstProduct.name || 'Sản phẩm');
     }
-    if (order.raw?.SanPham && order.raw.SanPham.length > 0) {
-      const firstProduct = order.raw.SanPham[0];
-      if (isProductDocument(firstProduct.IdSanPham)) {
-        return firstProduct.IdSanPham.TenSanPham || 'Sản phẩm';
+    const orderRaw = orderRecord.raw as Record<string, unknown> | undefined;
+    if (orderRaw?.SanPham && Array.isArray(orderRaw.SanPham) && orderRaw.SanPham.length > 0) {
+      const firstProduct = orderRaw.SanPham[0] as Record<string, unknown>;
+      if (isProductDocument(firstProduct.IdSanPham as OrderProduct['IdSanPham'])) {
+        return String((firstProduct.IdSanPham as Product).TenSanPham || 'Sản phẩm');
       }
       const fallbackName = (firstProduct as Record<string, unknown>).TenSanPham;
       return typeof fallbackName === 'string' && fallbackName.trim()
@@ -316,7 +315,7 @@ export default function OrdersPage() {
           </Card>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {filteredOrders.map((order, index) => {
+            {filteredOrders.map((order) => {
               const firstProductImage = getFirstProductImage(order);
               const firstProductName = getFirstProductName(order);
               
@@ -402,7 +401,7 @@ export default function OrdersPage() {
                             <div className="w-2 h-2 rounded-full bg-primary mt-1.5" />
                             <div className="flex-1">
                               <p className="font-medium">{item.event}</p>
-                              <p className="text-muted-foreground">{formatDateShort(item.timestamp)}</p>
+                              <p className="text-muted-foreground">{formatDateShort(item.timestamp as string | Date | undefined)}</p>
                             </div>
                           </div>
                         ))}
@@ -441,7 +440,10 @@ export default function OrdersPage() {
                     </div>
                   </div>
                       <div className="text-right">
-                    {getStatusBadge(selectedOrder.statusCode || selectedOrder.raw?.TrangThai || '')}
+                    {(() => {
+                      const orderRecord = selectedOrder as unknown as Record<string, unknown>;
+                      return getStatusBadge(String(orderRecord.statusCode || (orderRecord.raw as Record<string, unknown> | undefined)?.TrangThai || ''));
+                    })()}
                   </div>
                 </div>
               </DialogHeader>
@@ -454,22 +456,30 @@ export default function OrdersPage() {
                 </div>
                 <div>
                   <p className="text-muted-foreground mb-1">Ngày đặt</p>
-                  <p className="font-medium">{formatDate(selectedOrder.createdAt)}</p>
+                  <p className="font-medium">{formatDate((selectedOrder as unknown as Record<string, unknown>).createdAt as string | Date | undefined)}</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground mb-1">Phương thức thanh toán</p>
                   <p className="font-medium">
-                    {selectedOrder.paymentMethod || (selectedOrder.raw?.PhuongThucThanhToan === 'COD' ? 'Thanh toán khi nhận' : selectedOrder.raw?.PhuongThucThanhToan)}
+                    {(() => {
+                      const orderRecord = selectedOrder as unknown as Record<string, unknown>;
+                      const orderRaw = orderRecord.raw as Record<string, unknown> | undefined;
+                      return String(orderRecord.paymentMethod || (orderRaw?.PhuongThucThanhToan === 'COD' ? 'Thanh toán khi nhận' : orderRaw?.PhuongThucThanhToan) || '');
+                    })()}
                   </p>
                 </div>
                 <div>
                   <p className="text-muted-foreground mb-1">Địa chỉ</p>
                   <p className="font-medium line-clamp-1">
-                    {selectedOrder.address || (selectedOrder.raw?.ThongTinNhanHang
-                      ? `${selectedOrder.raw.ThongTinNhanHang.DiaChiChiTiet}, ${selectedOrder.raw.ThongTinNhanHang.QuanHuyen}, ${selectedOrder.raw.ThongTinNhanHang.TinhThanh}`
-                      : typeof selectedOrder.raw?.DiaChi === 'string'
-                      ? selectedOrder.raw.DiaChi
-                      : '—')}
+                    {(() => {
+                      const orderRecord = selectedOrder as unknown as Record<string, unknown>;
+                      const orderRaw = orderRecord.raw as Record<string, unknown> | undefined;
+                      return String(orderRecord.address || (orderRaw?.ThongTinNhanHang
+                        ? `${(orderRaw.ThongTinNhanHang as Record<string, unknown>).DiaChiChiTiet}, ${(orderRaw.ThongTinNhanHang as Record<string, unknown>).QuanHuyen}, ${(orderRaw.ThongTinNhanHang as Record<string, unknown>).TinhThanh}`
+                        : typeof orderRaw?.DiaChi === 'string'
+                        ? orderRaw.DiaChi
+                        : '—'));
+                    })()}
                   </p>
                 </div>
               </div>
@@ -511,7 +521,7 @@ export default function OrdersPage() {
                         <div className="flex-1 pb-4">
                           <p className="font-semibold mb-1">{item.event}</p>
                           <p className="text-sm text-muted-foreground mb-2">
-                            {formatDateShort(item.timestamp)}
+                            {formatDateShort(item.timestamp as string | Date | undefined)}
                           </p>
                           {item.details && item.details.length > 0 && (
                             <div className="space-y-1">
@@ -530,10 +540,16 @@ export default function OrdersPage() {
 
                 <TabsContent value="items" className="mt-4">
                   <div className="space-y-3">
-                    {(selectedOrder.products || selectedOrder.raw?.SanPham || []).map((product: any, index: number) => {
-                      // Ưu tiên dùng formatted products từ hook
-                      if (selectedOrder.products && selectedOrder.products[index]) {
-                        const p = selectedOrder.products[index];
+                    {(() => {
+                      const orderRecord = selectedOrder as unknown as Record<string, unknown>;
+                      const products = (Array.isArray(orderRecord.products) ? orderRecord.products : []) || 
+                        (Array.isArray((orderRecord.raw as Record<string, unknown> | undefined)?.SanPham) ? (orderRecord.raw as Record<string, unknown>).SanPham : []) || 
+                        [];
+                      return products.map((product: unknown, index: number) => {
+                        // Ưu tiên dùng formatted products từ hook
+                        const orderProducts = Array.isArray(orderRecord.products) ? orderRecord.products : [];
+                        if (orderProducts.length > index) {
+                          const p = orderProducts[index];
                         return (
                           <div key={index} className="flex gap-4 p-3 border rounded-lg">
                             {p.image && (
@@ -562,43 +578,45 @@ export default function OrdersPage() {
                       }
                       
                       // Fallback về raw data
-                      const productEntity = isProductDocument(product.IdSanPham) ? product.IdSanPham : null;
-                      const productId = productEntity?._id || product.IdSanPham;
-                      const productName = productEntity?.TenSanPham || product.TenSanPham || 'Sản phẩm';
-                      const productImage = productEntity?.HinhAnhChinh
-                        || (typeof product.HinhAnhChinh === 'string' ? product.HinhAnhChinh : '');
+                      const productRecord = product as Record<string, unknown>;
+                      const productEntity = isProductDocument(productRecord.IdSanPham as OrderProduct['IdSanPham']) ? (productRecord.IdSanPham as Product) : null;
+                      const productName = (productEntity as Record<string, unknown> | null)?.TenSanPham || String(productRecord.TenSanPham || 'Sản phẩm');
+                      const productImage = (productEntity as Record<string, unknown> | null)?.HinhAnhChinh
+                        || (typeof productRecord.HinhAnhChinh === 'string' ? productRecord.HinhAnhChinh : '');
 
+                      const selectedDungTich = productRecord.SelectedDungTich as Record<string, unknown> | undefined;
                       return (
                         <div key={index} className="flex gap-4 p-3 border rounded-lg">
                           {productImage && (
                             <img
-                              src={getCloudinaryProductImageUrl(productImage)}
-                              alt={productName}
+                              src={getCloudinaryProductImageUrl(String(productImage))}
+                              alt={String(productName)}
                               className="w-20 h-20 object-cover rounded"
                             />
                           )}
                           <div className="flex-1">
-                            <h4 className="font-medium">{productName}</h4>
-                            {product.SelectedDungTich && (
+                            <h4 className="font-medium">{String(productName)}</h4>
+                            {selectedDungTich && (
                               <p className="text-sm text-muted-foreground">
-                                Dung tích: {product.SelectedDungTich.label || `${product.SelectedDungTich.value}ml`}
+                                Dung tích: {String(selectedDungTich.label || `${selectedDungTich.value || ''}ml`)}
                               </p>
                             )}
                             <p className="text-sm text-muted-foreground">
-                              Số lượng: {product.SoLuong || 1}
+                              Số lượng: {Number(productRecord.SoLuong || 1)}
                             </p>
                           </div>
                           <div className="text-right">
                             <p className="font-semibold">
-                              {formatCurrency((product.Gia || 0) * (product.SoLuong || 1))}
+                              {formatCurrency(Number(productRecord.Gia || 0) * Number(productRecord.SoLuong || 1))}
                             </p>
                             <p className="text-sm text-muted-foreground">
-                              {formatCurrency(product.Gia || 0)}/sản phẩm
+                              {formatCurrency(Number(productRecord.Gia || 0))}/sản phẩm
                             </p>
                           </div>
                         </div>
                       );
-                    })}
+                    });
+                    })()}
                   </div>
                 </TabsContent>
 
@@ -607,9 +625,17 @@ export default function OrdersPage() {
                     <div>
                       <Label className="text-sm font-semibold mb-2 block">Thông tin vận chuyển</Label>
                       <div className="space-y-2 text-sm">
-                        <p><strong>Phương thức:</strong> {selectedOrder.paymentMethod || selectedOrder.raw?.PhuongThucThanhToan}</p>
-                        <p><strong>Phí vận chuyển:</strong> {formatCurrency(selectedOrder.shippingFee || selectedOrder.raw?.PhiVanChuyen || 0)}</p>
-                        <p><strong>Trạng thái:</strong> {getStatusBadge(selectedOrder.statusCode || selectedOrder.raw?.TrangThai || '')}</p>
+                        {(() => {
+                          const orderRecord = selectedOrder as unknown as Record<string, unknown>;
+                          const orderRaw = orderRecord.raw as Record<string, unknown> | undefined;
+                          return (
+                            <>
+                              <p><strong>Phương thức:</strong> {String(orderRecord.paymentMethod || orderRaw?.PhuongThucThanhToan || '')}</p>
+                              <p><strong>Phí vận chuyển:</strong> {formatCurrency(Number(orderRecord.shippingFee || orderRaw?.PhiVanChuyen || 0))}</p>
+                              <p><strong>Trạng thái:</strong> {getStatusBadge(String(orderRecord.statusCode || orderRaw?.TrangThai || ''))}</p>
+                            </>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>
@@ -617,29 +643,46 @@ export default function OrdersPage() {
 
                 <TabsContent value="receiver" className="mt-4">
                   <div className="space-y-4">
-                    {selectedOrder.raw?.ThongTinNhanHang ? (
+                    {(() => {
+                      const orderRecord = selectedOrder as unknown as Record<string, unknown>;
+                      return (orderRecord.raw as Record<string, unknown> | undefined)?.ThongTinNhanHang ? (
                       <div className="space-y-2 text-sm">
-                        <p><strong>Họ tên:</strong> {selectedOrder.raw.ThongTinNhanHang.HoTen}</p>
-                        <p><strong>Số điện thoại:</strong> {selectedOrder.raw.ThongTinNhanHang.SoDienThoai}</p>
-                        {selectedOrder.raw.ThongTinNhanHang.Email && (
-                          <p><strong>Email:</strong> {selectedOrder.raw.ThongTinNhanHang.Email}</p>
-                        )}
-                        <p><strong>Địa chỉ:</strong> {selectedOrder.raw.ThongTinNhanHang.DiaChiChiTiet}</p>
-                        <p>
-                          {[
-                            selectedOrder.raw.ThongTinNhanHang.PhuongXa,
-                            selectedOrder.raw.ThongTinNhanHang.QuanHuyen,
-                            selectedOrder.raw.ThongTinNhanHang.TinhThanh,
-                          ]
-                            .filter(Boolean)
-                            .join(', ')}
-                        </p>
+                        {(() => {
+                          const orderRaw = (selectedOrder as unknown as Record<string, unknown>).raw as Record<string, unknown> | undefined;
+                          const thongTinNhanHang = orderRaw?.ThongTinNhanHang as Record<string, unknown> | undefined;
+                          return (
+                            <>
+                              <p><strong>Họ tên:</strong> {String(thongTinNhanHang?.HoTen || '')}</p>
+                              <p><strong>Số điện thoại:</strong> {String(thongTinNhanHang?.SoDienThoai || '')}</p>
+                              {thongTinNhanHang?.Email && (
+                                <p><strong>Email:</strong> {String(thongTinNhanHang.Email)}</p>
+                              )}
+                              <p><strong>Địa chỉ:</strong> {String(thongTinNhanHang?.DiaChiChiTiet || '')}</p>
+                              <p>
+                                {[
+                                  thongTinNhanHang?.PhuongXa,
+                                  thongTinNhanHang?.QuanHuyen,
+                                  thongTinNhanHang?.TinhThanh,
+                                ]
+                                  .filter(Boolean)
+                                  .join(', ')}
+                              </p>
+                            </>
+                          );
+                        })()}
                       </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        {selectedOrder.address || (typeof selectedOrder.raw?.DiaChi === 'string' ? selectedOrder.raw.DiaChi : '—')}
-                      </p>
-                    )}
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          {(() => {
+                            const orderRecord = selectedOrder as unknown as Record<string, unknown>;
+                            return String(orderRecord.address || (() => {
+                              const orderRaw = orderRecord.raw as Record<string, unknown> | undefined;
+                              return typeof orderRaw?.DiaChi === 'string' ? orderRaw.DiaChi : '—';
+                            })());
+                          })()}
+                        </p>
+                      );
+                    })()}
                   </div>
                 </TabsContent>
               </Tabs>

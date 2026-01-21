@@ -114,24 +114,24 @@ export function OAuthCallback() {
               birthday: user.NgaySinh || user.birthday,
               avatar: user.AvatarUrl || user.Avatar || user.avatar,
               role: user.MaVaiTro?._id || user.MaVaiTro || user.role,
-              roleName: user.MaVaiTro?.TenVaiTro || user.roleName,
+              roleName: ((user.MaVaiTro as unknown as Record<string, unknown> | undefined)?.TenVaiTro as string | undefined) || (user as unknown as Record<string, unknown>).roleName as string | undefined,
             };
             storage.setUser(userData);
           } else {
             // Nếu không có user trong response, fetch từ API
           try {
-              const userResponse: any = await userService.getCurrentUser();
+              const userResponse = await userService.getCurrentUser();
               if (userResponse) {
               const userData = {
-                  id: userResponse._id || userResponse.id,
-                  username: userResponse.TenDangNhap || userResponse.username,
-                  email: userResponse.Email || userResponse.email,
-                  fullName: userResponse.HoTen || userResponse.fullName || userResponse.hoten || '',
+                  id: userResponse._id || (userResponse as unknown as Record<string, unknown>).id as string | undefined,
+                  username: userResponse.TenDangNhap || (userResponse as unknown as Record<string, unknown>).username as string | undefined,
+                  email: userResponse.Email || (userResponse as unknown as Record<string, unknown>).email as string | undefined,
+                  fullName: userResponse.HoTen || (userResponse as unknown as Record<string, unknown>).fullName as string | undefined || (userResponse as unknown as Record<string, unknown>).hoten as string | undefined || '',
                   phone: userResponse.SoDienThoai,
                   birthday: userResponse.NgaySinh,
-                  avatar: userResponse.AvatarUrl || userResponse.Avatar || userResponse.avatar,
-                  role: userResponse.MaVaiTro?._id || userResponse.role,
-                  roleName: userResponse.MaVaiTro?.TenVaiTro || userResponse.roleName,
+                  avatar: userResponse.AvatarUrl || (userResponse as unknown as Record<string, unknown>).Avatar as string | undefined || (userResponse as unknown as Record<string, unknown>).avatar as string | undefined,
+                  role: (typeof userResponse.MaVaiTro === 'object' && userResponse.MaVaiTro?._id ? userResponse.MaVaiTro._id : userResponse.MaVaiTro) || (userResponse as unknown as Record<string, unknown>).role as string | undefined,
+                  roleName: ((userResponse.MaVaiTro as unknown as Record<string, unknown> | undefined)?.TenVaiTro as string | undefined) || (userResponse as unknown as Record<string, unknown>).roleName as string | undefined,
               };
               storage.setUser(userData);
             }
@@ -159,9 +159,10 @@ export function OAuthCallback() {
                 console.log('✅ Hearts loaded from database after OAuth login:', heartProductIds.length, 'products');
               }
             }
-          } catch (heartError: any) {
+          } catch (heartError: unknown) {
             if (import.meta.env.DEV) {
-              console.error('⚠️ Error loading hearts from database:', heartError?.message || heartError);
+              const errorMsg = (heartError as Record<string, unknown>)?.message || heartError;
+              console.error('⚠️ Error loading hearts from database:', errorMsg);
             }
           }
 
@@ -172,52 +173,65 @@ export function OAuthCallback() {
             
             if (cart && Array.isArray(cart.Items) && cart.Items.length > 0) {
               // ✅ Map từ database format (Cart.Items) sang localStorage format (CartItem[])
-              const mappedCart = cart.Items.map((item: any) => {
-                const product = typeof item.IdSanPham === 'object' ? item.IdSanPham : null;
+              const mappedCart = cart.Items.map((item: unknown) => {
+                const itemRecord = item as Record<string, unknown>;
+                const idSanPham = itemRecord.IdSanPham as Record<string, unknown> | string | undefined;
+                const product = typeof idSanPham === 'object' ? idSanPham : null;
+                const productRecord = product as Record<string, unknown> | null;
                 
                 // Xử lý selectedDungTich từ DB
-                const selectedDungTich = item.SelectedDungTich ? {
-                  value: Number(item.SelectedDungTich.value) || 0,
-                  label: item.SelectedDungTich.label || `${item.SelectedDungTich.value || 0} ml`,
-                  priceDiff: Number(item.SelectedDungTich.priceDiff) || 0,
-                  stockDiff: Number(item.SelectedDungTich.stockDiff) || 0,
-                  sku: item.SelectedDungTich.sku,
-                  isDefault: Boolean(item.SelectedDungTich.isDefault),
+                const selectedDungTichRaw = itemRecord.SelectedDungTich as Record<string, unknown> | undefined;
+                const selectedDungTich = selectedDungTichRaw ? {
+                  value: Number(selectedDungTichRaw.value) || 0,
+                  label: String(selectedDungTichRaw.label || `${selectedDungTichRaw.value || 0} ml`),
+                  priceDiff: Number(selectedDungTichRaw.priceDiff) || 0,
+                  stockDiff: Number(selectedDungTichRaw.stockDiff) || 0,
+                  sku: selectedDungTichRaw.sku ? String(selectedDungTichRaw.sku) : undefined,
+                  isDefault: Boolean(selectedDungTichRaw.isDefault),
                 } : undefined;
                 
                 // Xử lý volumeOptions từ product
-                const volumeOptions = product?.DungTichOptions && Array.isArray(product.DungTichOptions)
-                  ? product.DungTichOptions.map((opt: any) => ({
-                      value: Number(opt.value) || 0,
-                      label: opt.label || `${opt.value || 0} ml`,
-                      priceDiff: Number(opt.priceDiff) || 0,
-                      stockDiff: Number(opt.stockDiff) || 0,
-                      sku: opt.sku,
-                      isDefault: Boolean(opt.isDefault),
-                    }))
+                const volumeOptions = productRecord?.DungTichOptions && Array.isArray(productRecord.DungTichOptions)
+                  ? productRecord.DungTichOptions.map((opt: unknown) => {
+                      const optRecord = opt as Record<string, unknown>;
+                      return {
+                        value: Number(optRecord.value) || 0,
+                        label: String(optRecord.label || `${optRecord.value || 0} ml`),
+                        priceDiff: Number(optRecord.priceDiff) || 0,
+                        stockDiff: Number(optRecord.stockDiff) || 0,
+                        sku: optRecord.sku ? String(optRecord.sku) : undefined,
+                        isDefault: Boolean(optRecord.isDefault),
+                      };
+                    })
                   : undefined;
                 
                 // Tính basePrice từ gia và selectedDungTich
-                const finalPrice = Number(item.Gia) || Number(product?.Gia) || 0;
+                const finalPrice = Number(itemRecord.Gia) || (productRecord ? Number(productRecord.Gia) : 0) || 0;
                 const basePrice = selectedDungTich && selectedDungTich.priceDiff
                   ? finalPrice - selectedDungTich.priceDiff
                   : finalPrice;
                 
                 // Tạo cart item ID với volume
+                const maSanPham = itemRecord.MaSanPham as Record<string, unknown> | string | undefined;
+                const productId = productRecord?._id || 
+                  (typeof idSanPham === 'object' && idSanPham?._id ? idSanPham._id : idSanPham) ||
+                  (typeof maSanPham === 'object' && maSanPham?._id ? maSanPham._id : maSanPham) ||
+                  itemRecord.id;
                 const cartItemId = selectedDungTich
-                  ? `${product?._id || item.IdSanPham?._id || item.MaSanPham?._id || item.MaSanPham || item.id}::volume-${selectedDungTich.value}`
-                  : `${product?._id || item.IdSanPham?._id || item.MaSanPham?._id || item.MaSanPham || item.id}::default`;
+                  ? `${productId}::volume-${selectedDungTich.value}`
+                  : `${productId}::default`;
                 
+                const maLoaiSanPham = productRecord?.MaLoaiSanPham as Record<string, unknown> | undefined;
                 return {
                   id: cartItemId,
-                  productId: product?._id || item.IdSanPham?._id || item.MaSanPham?._id || item.MaSanPham || item.id,
-                  tenSP: item.TenSanPham || product?.TenSanPham || item.tenSP || 'Sản phẩm',
+                  productId: String(productId),
+                  tenSP: String(itemRecord.TenSanPham || productRecord?.TenSanPham || itemRecord.tenSP || 'Sản phẩm'),
                   gia: finalPrice,
                   basePrice,
-                  giamGia: product?.KhuyenMai || item.giamGia || 0,
-                  hinhAnh: product?.HinhAnhChinh || item.hinhAnh || '',
-                  loaiSP: product?.MaLoaiSanPham?.TenLoaiSanPham || item.loaiSP || '',
-                  quantity: item.SoLuong || item.quantity || 1,
+                  giamGia: Number(productRecord?.KhuyenMai || itemRecord.giamGia || 0),
+                  hinhAnh: String(productRecord?.HinhAnhChinh || itemRecord.hinhAnh || ''),
+                  loaiSP: String((maLoaiSanPham?.TenLoaiSanPham as string) || itemRecord.loaiSP || ''),
+                  quantity: Number(itemRecord.SoLuong || itemRecord.quantity || 1),
                   selectedDungTich,
                   volumeOptions,
                 };
@@ -234,9 +248,10 @@ export function OAuthCallback() {
                 console.log('ℹ️ No cart in database after OAuth login, cart cleared');
               }
             }
-          } catch (cartError: any) {
+          } catch (cartError: unknown) {
             if (import.meta.env.DEV) {
-              console.error('⚠️ Error loading cart from database after OAuth login:', cartError?.message || cartError);
+              const errorMsg = (cartError as Record<string, unknown>)?.message || cartError;
+              console.error('⚠️ Error loading cart from database after OAuth login:', errorMsg);
             }
             // Cart đã được xóa ở trên, không cần làm gì thêm
           }
@@ -261,7 +276,7 @@ export function OAuthCallback() {
           } else {
             navigate('/');
           }
-        } catch (exchangeError: any) {
+        } catch (exchangeError: unknown) {
           // Reset processing flag khi có lỗi
           isProcessingRef.current = null;
           
@@ -271,14 +286,15 @@ export function OAuthCallback() {
           }
           
           // Bỏ qua lỗi "canceled" (do React Strict Mode)
-          if (exchangeError?.message === 'canceled' || exchangeError?.code === 'ERR_CANCELED') {
+          const errorRecord = exchangeError as Record<string, unknown>;
+          if (errorRecord?.message === 'canceled' || errorRecord?.code === 'ERR_CANCELED') {
             if (import.meta.env.DEV) {
               console.log('OAuth Exchange - Request was canceled (likely due to React Strict Mode), ignoring...');
           }
             return;
           }
-          
-          const errorMessage = exchangeError?.response?.data?.message || exchangeError?.message || 'Đăng nhập thất bại';
+          const errorMessage = (((errorRecord?.response as Record<string, unknown>)?.data as Record<string, unknown>)?.message as string | undefined) || 
+            (errorRecord?.message as string | undefined) || 'Đăng nhập thất bại';
           toast.error(errorMessage);
           navigate('/login?error=oauth_failed');
         }

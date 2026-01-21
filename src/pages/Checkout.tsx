@@ -20,6 +20,7 @@ import { cartService } from '@/services/cartService';
 import PaymentSuccess from '@/components/payment-sucess';
 import PaymentFail from '@/components/payment-fail';
 import type { CheckoutResponse, UserAddress } from '@/types/models';
+import type { CheckoutPayload } from '@/services/cartService';
 import { paymentService } from '@/services/paymentService';
 import { 
   getAllProvinces, 
@@ -28,7 +29,7 @@ import {
 } from '@/constants/vietnam-addresses';
 
 export default function CheckoutPage() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [addresses, setAddresses] = useState<UserAddress[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
@@ -52,7 +53,7 @@ export default function CheckoutPage() {
     ? addresses.find((addr) => addr._id === selectedAddressId)
     : null;
 
-  const extractPaymentRedirectUrl = (metadata: any): string | null => {
+  const extractPaymentRedirectUrl = (metadata: unknown): string | null => {
     if (!metadata) return null;
     if (typeof metadata === 'string') {
       return metadata.startsWith('http') ? metadata : null;
@@ -70,8 +71,9 @@ export default function CheckoutPage() {
       'url',
     ];
 
+    const metadataRecord = metadata as Record<string, unknown>;
     for (const key of candidates) {
-      const value = metadata[key];
+      const value = metadataRecord[key];
       if (typeof value === 'string' && value.startsWith('http')) {
         return value;
       }
@@ -108,7 +110,7 @@ export default function CheckoutPage() {
             selectedDungTich: item.selectedDungTich,
           })),
         });
-      } catch (syncError: any) {
+      } catch (syncError: unknown) {
         if (import.meta.env.DEV) {
           console.warn('Failed to sync cart:', syncError);
         }
@@ -120,7 +122,7 @@ export default function CheckoutPage() {
               quantity: item.quantity,
               selectedDungTich: item.selectedDungTich,
             });
-          } catch (itemError: any) {
+          } catch (itemError: unknown) {
             if (import.meta.env.DEV) {
               console.warn('Failed to sync cart item:', item.productId, itemError);
             }
@@ -133,7 +135,7 @@ export default function CheckoutPage() {
 
       const apiMethod = method === 'VNPAY' ? 'vnpay' : 'momo';
       const response = await paymentService.createPayment(apiMethod);
-      const metadata = response?.metadata ?? (response as any)?.data ?? response;
+      const metadata = response?.metadata ?? (response as Record<string, unknown>)?.data ?? response;
       const redirectUrl = extractPaymentRedirectUrl(metadata);
 
       toast.dismiss('create-payment');
@@ -144,32 +146,20 @@ export default function CheckoutPage() {
 
       toast.success('Đang chuyển hướng tới cổng thanh toán...');
       window.location.href = redirectUrl;
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.dismiss('sync-cart');
       toast.dismiss('create-payment');
       if (import.meta.env.DEV) {
         console.error('Online payment error:', error);
       }
-      toast.error(
-        error?.response?.data?.message ||
-        error?.message ||
-        'Không thể khởi tạo giao dịch thanh toán'
-      );
+      const errorRecord = error as Record<string, unknown>;
+      const errorMsg = (((errorRecord?.response as Record<string, unknown>)?.data as Record<string, unknown>)?.message as string | undefined) ||
+        (errorRecord?.message as string | undefined);
+      toast.error(errorMsg || 'Không thể khởi tạo giao dịch thanh toán');
       setPaymentStatus('fail');
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  // Format địa chỉ để hiển thị trong Select
-  const formatAddressForSelect = (addr: UserAddress): string => {
-    const parts = [
-      addr.HoTen,
-      addr.SoDienThoai,
-      addr.DiaChiChiTiet,
-      [addr.PhuongXa, addr.QuanHuyen, addr.TinhThanh].filter(Boolean).join(', ')
-    ].filter(Boolean);
-    return parts.join(' · ');
   };
 
   // Lấy danh sách quận/huyện và phường/xã dựa trên tỉnh/thành phố đã chọn
@@ -239,7 +229,7 @@ export default function CheckoutPage() {
         const def = formattedList.find((a) => a.MacDinh);
         setSelectedAddressId((def?._id as string) || (formattedList[0]?._id as string) || null);
         setShowNewAddress(formattedList.length === 0);
-      } catch (e: any) {
+      } catch (e: unknown) {
         if (import.meta.env.DEV) {
           console.error('Error fetching addresses:', e);
         }
@@ -286,11 +276,12 @@ export default function CheckoutPage() {
 
   const saveNewAddress = async () => {
     try {
-      const response: any = await userService.createAddress(newAddress);
+      const response = await userService.createAddress(newAddress);
       toast.success('Đã lưu địa chỉ');
       
+      const responseAny = response as unknown as Record<string, unknown>;
       const newAddr: UserAddress = {
-        _id: response?._id || response?.data?._id || response?.id,
+        _id: String(responseAny?._id || (responseAny?.data as Record<string, unknown>)?.id || responseAny?.id || ''),
         HoTen: newAddress.HoTen,
         SoDienThoai: newAddress.SoDienThoai,
         DiaChiChiTiet: newAddress.DiaChiChiTiet,
@@ -308,8 +299,9 @@ export default function CheckoutPage() {
       setShowNewAddress(false);
       setSelectedAddressId(newAddr._id || null);
       setNewAddress({ HoTen: '', SoDienThoai: '', DiaChiChiTiet: '', PhuongXa: '', QuanHuyen: '', TinhThanh: '', MacDinh: false });
-    } catch (e: any) {
-      toast.error(e?.message || 'Không thể lưu địa chỉ');
+    } catch (e: unknown) {
+      const errorMsg = (e as Record<string, unknown>)?.message as string | undefined;
+      toast.error(errorMsg || 'Không thể lưu địa chỉ');
     }
   };
   const checkOut = async () => {
@@ -319,7 +311,7 @@ export default function CheckoutPage() {
         return;
       }
       
-      let DiaChiPayload: any = null;
+      let DiaChiPayload: string | UserAddress | null = null;
       if (isAuthenticated) {
         if (!selectedAddressId) {
           toast.error('Vui lòng chọn địa chỉ giao hàng');
@@ -354,18 +346,47 @@ export default function CheckoutPage() {
 
       let checkoutResult: CheckoutResponse | null = null;
       try {
-        const response = await cartService.checkout({
-          DiaChi: DiaChiPayload,
-          SanPham: formattedSanPham,
-          TongTien: total,
-          PhuongThucThanhToan: selectedPaymentMethod,
-          GhiChu: selectedNote,
-          Voucher: voucherCode || undefined,
-        } as any);
+        const checkoutPayload: CheckoutPayload = typeof DiaChiPayload === 'string' 
+          ? {
+              DiaChi: DiaChiPayload,
+              SanPham: formattedSanPham,
+              TongTien: total,
+              PhuongThucThanhToan: selectedPaymentMethod,
+              GhiChu: selectedNote,
+              Voucher: voucherCode || undefined,
+            }
+          : DiaChiPayload
+            ? {
+                ThongTinNhanHang: {
+                  HoTen: DiaChiPayload.HoTen,
+                  Email: user?.email || (user as unknown as Record<string, unknown>)?.Email as string || '',
+                  SoDienThoai: DiaChiPayload.SoDienThoai,
+                  DiaChiChiTiet: DiaChiPayload.DiaChiChiTiet,
+                  PhuongXa: DiaChiPayload.PhuongXa || '',
+                  QuanHuyen: DiaChiPayload.QuanHuyen || '',
+                  TinhThanh: DiaChiPayload.TinhThanh || '',
+                },
+                SanPham: formattedSanPham,
+                TongTien: total,
+                PhuongThucThanhToan: selectedPaymentMethod,
+                GhiChu: selectedNote,
+                Voucher: voucherCode || undefined,
+              }
+            : {
+                SanPham: formattedSanPham,
+                TongTien: total,
+                PhuongThucThanhToan: selectedPaymentMethod,
+                GhiChu: selectedNote,
+                Voucher: voucherCode || undefined,
+              };
+        const response = await cartService.checkout(checkoutPayload);
         
         checkoutResult = response as unknown as CheckoutResponse;
-      } catch (checkoutError: any) {
-        const errorMsg = checkoutError?.message || checkoutError?.data?.message || 'Không thể tạo đơn hàng. Vui lòng thử lại.';
+      } catch (checkoutError: unknown) {
+        const errorRecord = checkoutError as Record<string, unknown>;
+        const errorMsg = (errorRecord?.message as string | undefined) || 
+          ((errorRecord?.data as Record<string, unknown>)?.message as string | undefined) || 
+          'Không thể tạo đơn hàng. Vui lòng thử lại.';
         toast.error(errorMsg);
         setPaymentStatus('fail');
         setIsSubmitting(false);
@@ -401,7 +422,7 @@ export default function CheckoutPage() {
         const id = checkoutResult._id;
         orderId = typeof id === 'string' ? id : String(id);
       } else if (checkoutResult?.donHang) {
-        const donHang = checkoutResult.donHang as any;
+        const donHang = checkoutResult.donHang as Record<string, unknown>;
         if (donHang._id) {
           orderId = typeof donHang._id === 'string' ? donHang._id : String(donHang._id);
         } else if (donHang.id) {
@@ -432,11 +453,12 @@ export default function CheckoutPage() {
         window.dispatchEvent(new CustomEvent('cart:updated'));
         setPaymentStatus('success');
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       if (import.meta.env.DEV) {
         console.error('Checkout error:', e);
       }
-      toast.error(e?.message || 'Không thể đặt hàng');
+      const errorMsg = (e as Record<string, unknown>)?.message as string | undefined;
+      toast.error(errorMsg || 'Không thể đặt hàng');
       setPaymentStatus('fail');
     } finally {
       setIsSubmitting(false);

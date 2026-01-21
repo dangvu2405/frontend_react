@@ -164,7 +164,7 @@ export default function AdminAccountsPage() {
   const fetchData = async () => {
     try {
       setLoading(true)
-      const params: any = {
+      const params: Record<string, string | number> = {
         page: currentPage,
         limit: pageSize,
       }
@@ -193,7 +193,7 @@ export default function AdminAccountsPage() {
           if (Array.isArray(responseData.data)) {
             usersData = responseData.data
             // pagination ở cùng level với data (đã được normalizeResponse giữ lại)
-            pagination = (responseData as any).pagination
+            pagination = (responseData as Record<string, unknown>).pagination as { totalPages?: number; total?: number } | undefined
           }
         }
         // Case 2: responseData là array trực tiếp (fallback - không nên xảy ra nếu normalizeResponse hoạt động đúng)
@@ -205,7 +205,7 @@ export default function AdminAccountsPage() {
         else if (responseData && typeof responseData === 'object' && !Array.isArray(responseData) && 'data' in responseData) {
           if (Array.isArray(responseData.data)) {
             usersData = responseData.data
-            pagination = (responseData as any).pagination
+            pagination = (responseData as Record<string, unknown>).pagination as { totalPages?: number; total?: number } | undefined
           }
         }
       }
@@ -308,7 +308,7 @@ export default function AdminAccountsPage() {
       setSelectedUsers(new Set())
       setIsSelectMode(false)
       await fetchData()
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error bulk deleting users:", err)
       toast.error("Không thể xóa một số tài khoản")
     } finally {
@@ -333,7 +333,7 @@ export default function AdminAccountsPage() {
       setSelectedUsers(new Set())
       setIsSelectMode(false)
       await fetchData()
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error bulk updating users:", err)
       toast.error("Không thể cập nhật một số tài khoản")
     } finally {
@@ -433,16 +433,20 @@ export default function AdminAccountsPage() {
         url: data.data.url as string,
         publicId: data.data.public_id as string,
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (import.meta.env.DEV) {
+        const errorRecord = error as Record<string, unknown>;
         console.error('Upload error:', {
-          message: error?.message,
-          response: error?.response?.data,
-          status: error?.response?.status,
+          message: errorRecord?.message,
+          response: (errorRecord?.response as Record<string, unknown>)?.data,
+          status: (errorRecord?.response as Record<string, unknown>)?.status,
           token: storage.getToken() ? 'present' : 'missing'
         });
       }
-      throw new Error(error?.response?.data?.message || error?.message || "Không thể upload ảnh lên Cloudinary")
+      const errorRecord = error as Record<string, unknown>;
+      const errorMsg = (((errorRecord?.response as Record<string, unknown>)?.data as Record<string, unknown>)?.message as string | undefined) || 
+        (errorRecord?.message as string | undefined) || "Không thể upload ảnh lên Cloudinary";
+      throw new Error(errorMsg)
     }
   }
 
@@ -479,9 +483,10 @@ export default function AdminAccountsPage() {
           avatarId: uploaded.publicId,
         }))
         toast.success("Upload ảnh đại diện thành công")
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("Error uploading avatar:", error)
-        toast.error(error.message || "Không thể upload ảnh")
+        const errorMsg = (error as Record<string, unknown>)?.message as string | undefined;
+        toast.error(errorMsg || "Không thể upload ảnh")
         setAvatarPreview(null)
         setFormData(prev => ({ ...prev, avatarUrl: "", avatarId: "" }))
       } finally {
@@ -585,7 +590,7 @@ export default function AdminAccountsPage() {
       setSubmitting(true)
       
       // Prepare payload - đảm bảo đúng format và kiểu dữ liệu
-      const payload: any = {
+      const payload: Record<string, string> = {
         hoten: formData.hoten?.trim() || "",
         email: formData.email?.trim().toLowerCase() || "",
         sdt: formData.sdt?.trim() || "",

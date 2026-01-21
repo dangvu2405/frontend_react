@@ -76,7 +76,7 @@ const adminService = {
   getCustomers: (params?: { page?: number; limit?: number; sortBy?: string; sortOrder?: string }) =>
     axiosInstance.get('/admin/customers', { params }),
 
-  updateCustomer: (id: string, payload: any) =>
+  updateCustomer: (id: string, payload: unknown) =>
     axiosInstance.put(`/admin/customers/${id}`, payload),
 
   deleteCustomer: (id: string) =>
@@ -94,7 +94,7 @@ const adminService = {
   // ==========================
   // ORDERS
   // ==========================
-  createOrder: (payload: any) =>
+  createOrder: (payload: unknown) =>
     axiosInstance.post('/admin/orders', payload),
 
   getOrders: (params?: { page?: number; limit?: number; status?: string; sortBy?: string; sortOrder?: string }) =>
@@ -102,7 +102,7 @@ const adminService = {
 
   getOrderById: (id: string) => axiosInstance.get(`/admin/orders/${id}`),
 
-  updateOrder: (id: string, payload: any) =>
+  updateOrder: (id: string, payload: unknown) =>
     axiosInstance.put(`/admin/orders/${id}`, payload),
 
   deleteOrder: (id: string) => axiosInstance.delete(`/admin/orders/${id}`),
@@ -110,18 +110,18 @@ const adminService = {
   cancelOrder: (id: string) =>
     axiosInstance.post(`/admin/orders/${id}/cancel`, {}),
 
-  checkout: (payload: any) =>
+  checkout: (payload: unknown) =>
     axiosInstance.post('/admin/orders/checkout', payload),
 
   // ==========================
   // CART
   // ==========================
-  addToCart: (payload: any) =>
+  addToCart: (payload: unknown) =>
     axiosInstance.post('/admin/cart/items', payload),
 
   getCart: () => axiosInstance.get('/admin/cart'),
 
-  updateCartItem: (id: string, payload: any) =>
+  updateCartItem: (id: string, payload: unknown) =>
     axiosInstance.put(`/admin/cart/items/${id}`, payload),
 
   deleteCartItem: (id: string) =>

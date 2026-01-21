@@ -43,7 +43,6 @@ import {
 } from "@/components/ui/pagination"
 import type { Category, ChartItem, Product } from "@/types/models"
 import { getCloudinaryProductImageUrl } from "@/utils/imageUtils"
-import { API_BASE_URL } from "@/constants"
 import axiosInstance from "@/services/axios"
 import { storage } from "@/utils/storage"
 
@@ -259,7 +258,7 @@ export default function AdminProductsPage() {
       if (categoriesData.length === 0) {
         console.warn("Không có danh mục nào. Vui lòng tạo danh mục trước khi thêm sản phẩm.")
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       categoriesFetchedRef.current = false // Reset on error
       console.error("Error fetching categories:", err)
       toast.error("Không thể tải danh sách danh mục")
@@ -283,7 +282,7 @@ export default function AdminProductsPage() {
   const fetchData = async () => {
     try {
       setLoading(true)
-      const params: any = {
+      const params: Record<string, string | number> = {
         page: currentPage,
         limit: pageSize,
       }
@@ -313,14 +312,14 @@ export default function AdminProductsPage() {
         if (responseData && typeof responseData === 'object' && !Array.isArray(responseData) && 'success' in responseData && 'data' in responseData) {
           if (Array.isArray(responseData.data)) {
             productsData = responseData.data
-            pagination = (responseData as any).pagination
+            pagination = (responseData as Record<string, unknown>).pagination as { totalPages?: number; total?: number } | undefined
           }
         } else if (Array.isArray(responseData)) {
           productsData = responseData
         } else if (responseData && typeof responseData === 'object' && !Array.isArray(responseData) && 'data' in responseData) {
           if (Array.isArray(responseData.data)) {
             productsData = responseData.data
-            pagination = (responseData as any).pagination
+            pagination = (responseData as Record<string, unknown>).pagination as { totalPages?: number; total?: number } | undefined
           }
         }
       }
@@ -375,7 +374,7 @@ export default function AdminProductsPage() {
         
         updateCharts(allProductsData)
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error fetching data:", err)
       toast.error("Không thể tải dữ liệu")
     } finally {
@@ -456,10 +455,14 @@ export default function AdminProductsPage() {
       await fetchData()
       if (currentPage !== 1) {
         const allProductsRes = await adminService.getProducts({ page: 1, limit: 1000 })
-        const allProductsData = (allProductsRes as any)?.data ?? []
+        const allProductsDataRaw = (allProductsRes as unknown as Record<string, unknown>)?.data;
+        const allProductsData = Array.isArray(allProductsDataRaw) ? allProductsDataRaw : 
+          (allProductsDataRaw && typeof allProductsDataRaw === 'object' && 'data' in allProductsDataRaw && Array.isArray((allProductsDataRaw as Record<string, unknown>).data)) 
+            ? (allProductsDataRaw as Record<string, unknown>).data as Product[]
+            : [];
         updateCharts(allProductsData)
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error bulk deleting products:", err)
       toast.error("Không thể xóa một số sản phẩm")
     } finally {
@@ -594,17 +597,21 @@ export default function AdminProductsPage() {
         url: data.data.url as string,
         publicId: data.data.public_id as string,
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Debug: Log chi tiết lỗi
       if (import.meta.env.DEV) {
+        const errorRecord = error as Record<string, unknown>;
         console.error('Upload error:', {
-          message: error?.message,
-          response: error?.response?.data,
-          status: error?.response?.status,
+          message: errorRecord?.message,
+          response: (errorRecord?.response as Record<string, unknown>)?.data,
+          status: (errorRecord?.response as Record<string, unknown>)?.status,
           token: storage.getToken() ? 'present' : 'missing'
         });
       }
-      throw new Error(error?.response?.data?.message || error?.message || "Không thể upload ảnh lên Cloudinary")
+      const errorRecord = error as Record<string, unknown>;
+      const errorMsg = (((errorRecord?.response as Record<string, unknown>)?.data as Record<string, unknown>)?.message as string | undefined) || 
+        (errorRecord?.message as string | undefined) || "Không thể upload ảnh lên Cloudinary";
+      throw new Error(errorMsg)
     }
   }
 
@@ -659,8 +666,9 @@ export default function AdminProductsPage() {
           })
         }
         toast.success("Upload ảnh thành công")
-      } catch (error: any) {
-        toast.error(error?.message || "Không thể upload ảnh. Vui lòng thử lại")
+      } catch (error: unknown) {
+        const errorMsg = (error as Record<string, unknown>)?.message as string | undefined;
+        toast.error(errorMsg || "Không thể upload ảnh. Vui lòng thử lại")
         if (index === -1) {
           setMainImagePreview("")
           setFormData((prev) => ({ ...prev, HinhAnhChinh: "" }))
@@ -799,12 +807,18 @@ export default function AdminProductsPage() {
       // Nếu không, cần fetch lại để update charts
       if (currentPage !== 1) {
         const allProductsRes = await adminService.getProducts({ page: 1, limit: 1000 })
-        const allProductsData = (allProductsRes as any)?.data ?? []
+        const allProductsDataRaw = (allProductsRes as unknown as Record<string, unknown>)?.data;
+        const allProductsData = Array.isArray(allProductsDataRaw) ? allProductsDataRaw : 
+          (allProductsDataRaw && typeof allProductsDataRaw === 'object' && 'data' in allProductsDataRaw && Array.isArray((allProductsDataRaw as Record<string, unknown>).data)) 
+            ? (allProductsDataRaw as Record<string, unknown>).data as Product[]
+            : [];
         updateCharts(allProductsData)
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error submitting product:", err)
-      toast.error(err?.response?.data?.message || "Có lỗi xảy ra")
+      const errorRecord = err as Record<string, unknown>;
+      const errorMsg = (((errorRecord?.response as Record<string, unknown>)?.data as Record<string, unknown>)?.message as string | undefined) || "Có lỗi xảy ra";
+      toast.error(errorMsg)
     } finally {
       setSubmitting(false)
     }
@@ -826,12 +840,18 @@ export default function AdminProductsPage() {
       // Update charts sau khi xóa
       if (currentPage !== 1) {
         const allProductsRes = await adminService.getProducts({ page: 1, limit: 1000 })
-        const allProductsData = (allProductsRes as any)?.data ?? []
+        const allProductsDataRaw = (allProductsRes as unknown as Record<string, unknown>)?.data;
+        const allProductsData = Array.isArray(allProductsDataRaw) ? allProductsDataRaw : 
+          (allProductsDataRaw && typeof allProductsDataRaw === 'object' && 'data' in allProductsDataRaw && Array.isArray((allProductsDataRaw as Record<string, unknown>).data)) 
+            ? (allProductsDataRaw as Record<string, unknown>).data as Product[]
+            : [];
         updateCharts(allProductsData)
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error deleting product:", err)
-      toast.error(err?.response?.data?.message || "Không thể xóa sản phẩm")
+      const errorRecord = err as Record<string, unknown>;
+      const errorMsg = (((errorRecord?.response as Record<string, unknown>)?.data as Record<string, unknown>)?.message as string | undefined) || "Không thể xóa sản phẩm"
+      toast.error(errorMsg)
     }
   }
 

@@ -43,15 +43,16 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [canPlayHero, setCanPlayHero] = useState(false);
 
-  const handleAddToCart = useCallback((product: Product | any, selectedVolume?: ProductVolumeOption) => {
-    const productAny = product as any;
+  const handleAddToCart = useCallback((product: Product, selectedVolume?: ProductVolumeOption) => {
+    const productAny = product as unknown as Record<string, unknown>;
     const productId = productAny._id || productAny.id || '';
     if (!productId) return;
-    const productName = productAny.TenSanPham || productAny.tenSP || 'Sản phẩm';
+    const productName = String(productAny.TenSanPham || productAny.tenSP || 'Sản phẩm');
     const productPrice = Number(productAny.Gia ?? productAny.gia ?? 0);
     const productDiscount = Number(productAny.KhuyenMai ?? productAny.giamGia ?? 0);
-    const productImage = productAny.HinhAnhChinh || productAny.hinhAnh || '';
-    const productCategory = productAny.loaiSP || (typeof productAny.MaLoaiSanPham === 'object' ? productAny.MaLoaiSanPham?.TenLoaiSanPham : '') || 'Nước hoa';
+    const productImage = String(productAny.HinhAnhChinh || productAny.hinhAnh || '');
+    const maLoaiSanPham = productAny.MaLoaiSanPham as Record<string, unknown> | undefined;
+    const productCategory = String(productAny.loaiSP || (typeof maLoaiSanPham === 'object' ? maLoaiSanPham?.TenLoaiSanPham : '') || 'Nước hoa');
     const options = Array.isArray(productAny.DungTichOptions) ? productAny.DungTichOptions : undefined;
 
     const item: CartItemInput = {
@@ -80,12 +81,17 @@ export default function HomePage() {
         const products = result.products || [];
         
         const validProducts = products.map((product, index) => {
-          const p = product as any;
+          const p = product as unknown as Record<string, unknown>;
           let discountPercent = 0;
-          if (p.KhuyenMai > 0) {
-            discountPercent = Number(p.KhuyenMai);
-          } else if (p.GiaKhuyenMai && p.Gia && p.GiaKhuyenMai < p.Gia) {
-            discountPercent = Math.round(((p.Gia - p.GiaKhuyenMai) / p.Gia) * 100);
+          const khuyenMai = Number(p.KhuyenMai ?? 0);
+          if (khuyenMai > 0) {
+            discountPercent = khuyenMai;
+          } else {
+            const giaKhuyenMai = Number(p.GiaKhuyenMai ?? 0);
+            const gia = Number(p.Gia ?? 0);
+            if (giaKhuyenMai > 0 && gia > 0 && giaKhuyenMai < gia) {
+              discountPercent = Math.round(((gia - giaKhuyenMai) / gia) * 100);
+            }
           }
           
           const normalized = {
@@ -99,7 +105,7 @@ export default function HomePage() {
             DungTich: p.DungTich,
             DungTichOptions: Array.isArray(p.DungTichOptions) ? p.DungTichOptions : (p.DungTich ? [{ value: p.DungTich, label: `${p.DungTich} ml`, isDefault: true }] : []),
             HinhAnhChinh: (() => {
-              const img = p.HinhAnhChinh || '';
+              const img = String(p.HinhAnhChinh || '');
               // Nếu là URL đầy đủ, sử dụng trực tiếp
               if (img && (img.startsWith('http://') || img.startsWith('https://'))) {
                 return img;
@@ -108,18 +114,19 @@ export default function HomePage() {
               return getCloudinaryProductImageUrl(img);
             })(),
             HinhAnhPhu: Array.isArray(p.HinhAnhPhu) 
-              ? p.HinhAnhPhu.map((img: string) => {
+              ? p.HinhAnhPhu.map((img: unknown) => {
+                  const imgStr = String(img || '');
                   // Nếu là URL đầy đủ, sử dụng trực tiếp
-                  if (img && (img.startsWith('http://') || img.startsWith('https://'))) {
-                    return img;
+                  if (imgStr && (imgStr.startsWith('http://') || imgStr.startsWith('https://'))) {
+                    return imgStr;
                   }
-                  return getCloudinaryProductImageUrl(img);
+                  return getCloudinaryProductImageUrl(imgStr);
                 })
               : [],
             MaLoaiSanPham: p.MaLoaiSanPham || (typeof p.MaLoaiSanPham === 'object' ? p.MaLoaiSanPham : null),
-            id: p._id || p.id || `product-${index}`,
-            tenSP: p.TenSanPham || 'Sản phẩm',
-            mota: p.MoTa || 'Sản phẩm chính hãng cao cấp',
+            id: String(p._id || p.id || `product-${index}`),
+            tenSP: String(p.TenSanPham || 'Sản phẩm'),
+            mota: String(p.MoTa || 'Sản phẩm chính hãng cao cấp'),
             gia: Number(p.Gia || 0),
             giamGia: discountPercent,
             soLuong: Number(p.SoLuong || 0),
@@ -127,28 +134,29 @@ export default function HomePage() {
             dungTich: p.DungTich,
             dungTichOptions: Array.isArray(p.DungTichOptions) ? p.DungTichOptions : (p.DungTich ? [{ value: p.DungTich, label: `${p.DungTich} ml`, isDefault: true }] : []),
             hinhAnhChinh: (() => {
-              const img = p.HinhAnhChinh || '';
+              const img = String(p.HinhAnhChinh || '');
               if (img && (img.startsWith('http://') || img.startsWith('https://'))) {
                 return img;
               }
               return getCloudinaryProductImageUrl(img);
             })(),
             hinhAnhPhu: Array.isArray(p.HinhAnhPhu) 
-              ? p.HinhAnhPhu.map((img: string) => {
-                  if (img && (img.startsWith('http://') || img.startsWith('https://'))) {
-                    return img;
+              ? p.HinhAnhPhu.map((img: unknown) => {
+                  const imgStr = String(img || '');
+                  if (imgStr && (imgStr.startsWith('http://') || imgStr.startsWith('https://'))) {
+                    return imgStr;
                   }
-                  return getCloudinaryProductImageUrl(img);
+                  return getCloudinaryProductImageUrl(imgStr);
                 })
               : [],
             hinhAnh: (() => {
-              const img = p.HinhAnhChinh || '';
+              const img = String(p.HinhAnhChinh || '');
               if (img && (img.startsWith('http://') || img.startsWith('https://'))) {
                 return img;
               }
               return getCloudinaryProductImageUrl(img);
             })(),
-            loaiSP: typeof p.MaLoaiSanPham === 'object' ? p.MaLoaiSanPham?.TenLoaiSanPham : 'Nước hoa',
+            loaiSP: typeof p.MaLoaiSanPham === 'object' ? String((p.MaLoaiSanPham as Record<string, unknown>)?.TenLoaiSanPham || 'Nước hoa') : 'Nước hoa',
           };
           
           return normalized as unknown as Product;

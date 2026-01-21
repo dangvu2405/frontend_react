@@ -13,9 +13,9 @@ const normalizeSummary = (payload: unknown): SummaryStats => ({
   totalRevenue: Number((payload as Record<string, unknown>)?.totalRevenue ?? 0),
 });
 
-const normalizeChart = (payload: unknown, valueMap: (...args: any[]) => ChartItem): ChartItem[] => {
+const normalizeChart = (payload: unknown, valueMap: (...args: unknown[]) => ChartItem): ChartItem[] => {
   if (!payload) return [];
-  const data = Array.isArray(payload) ? payload : Array.isArray((payload as any)?.data) ? (payload as any).data : [];
+  const data = Array.isArray(payload) ? payload : Array.isArray((payload as Record<string, unknown>)?.data) ? (payload as Record<string, unknown>).data : [];
   if (!Array.isArray(data)) return [];
   return data.map((item, index) => valueMap(item, index));
 };
@@ -39,36 +39,45 @@ export const useAdminDashboard = (): AdminDashboardHookState => {
         adminDashboardService.getTopCustomersByOrders({ limit: 6 }),
       ]);
 
-      setSummaryStats(normalizeSummary((summaryRes as any)?.data ?? summaryRes));
+      setSummaryStats(normalizeSummary((summaryRes as unknown as Record<string, unknown>)?.data ?? summaryRes));
 
       setTopProductsChart(
-        normalizeChart(topProductsRes, (product) => ({
-          name: product?.TenSanPham ?? 'Không tên',
-          sold: Number(product?.DaBan ?? 0),
-          revenue:
-            typeof product?.Gia === 'number' && typeof product?.DaBan === 'number'
-              ? product.Gia * product.DaBan
-              : undefined,
-        })),
+        normalizeChart(topProductsRes, (product) => {
+          const productRecord = product as Record<string, unknown>;
+          return {
+            name: String(productRecord?.TenSanPham ?? 'Không tên'),
+            sold: Number(productRecord?.DaBan ?? 0),
+            revenue:
+              typeof productRecord?.Gia === 'number' && typeof productRecord?.DaBan === 'number'
+                ? productRecord.Gia * productRecord.DaBan
+                : undefined,
+          };
+        }),
       );
 
       setMonthlyOrdersChart(
-        normalizeChart(monthlyOrdersRes, (item) => ({
-          name:
-            item?.month && item?.year
-              ? `Tháng ${String(item.month).padStart(2, '0')}/${item.year}`
-              : 'Không xác định',
-          sold: Number(item?.totalOrders ?? 0),
-          revenue: Number(item?.totalRevenue ?? 0),
-        })),
+        normalizeChart(monthlyOrdersRes, (item) => {
+          const itemRecord = item as Record<string, unknown>;
+          return {
+            name:
+              itemRecord?.month && itemRecord?.year
+                ? `Tháng ${String(itemRecord.month).padStart(2, '0')}/${itemRecord.year}`
+                : 'Không xác định',
+            sold: Number(itemRecord?.totalOrders ?? 0),
+            revenue: Number(itemRecord?.totalRevenue ?? 0),
+          };
+        }),
       );
 
       setTopCustomersChart(
-        normalizeChart(topCustomersRes, (customer, index) => ({
-          name: customer?.name || customer?.email || `Khách hàng ${index + 1}`,
-          sold: Number(customer?.orderCount ?? 0),
-          revenue: Number(customer?.totalRevenue ?? 0),
-        })),
+        normalizeChart(topCustomersRes, (customer, index) => {
+          const customerRecord = customer as Record<string, unknown>;
+          return {
+            name: String(customerRecord?.name || customerRecord?.email || `Khách hàng ${Number(index) + 1}`),
+            sold: Number(customerRecord?.orderCount ?? 0),
+            revenue: Number(customerRecord?.totalRevenue ?? 0),
+          };
+        }),
       );
     } catch (err) {
       console.error('Lỗi khi tải dữ liệu admin:', err);

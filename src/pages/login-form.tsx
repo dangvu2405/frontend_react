@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import type { FormEvent } from "react";
 import React from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -48,7 +48,7 @@ export function LoginForm({
   const [turnstileLoaded, setTurnstileLoaded] = useState(false);
   const turnstileContainerRef = React.useRef<HTMLDivElement>(null);
   const scriptLoadedRef = React.useRef(false);
-  const { login, user, isAdmin } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -126,7 +126,7 @@ export function LoginForm({
         try {
           window.turnstile.remove(turnstileWidgetId);
           setTurnstileWidgetId(null);
-        } catch (e) {
+        } catch {
           // Ignore errors
         }
       }
@@ -173,16 +173,6 @@ export function LoginForm({
     setLoading(true);
 
     try {
-      // Gửi turnstile token nếu có
-      const loginPayload: any = {
-        username: formData.username,
-        password: formData.password,
-      };
-      
-      if (requiresCaptcha && turnstileToken) {
-        loginPayload['cf-turnstile-response'] = turnstileToken;
-      }
-
       await login(formData.username, formData.password, turnstileToken || undefined);
       
       // Reset captcha state on success
@@ -191,7 +181,7 @@ export function LoginForm({
       if (turnstileWidgetId && window.turnstile) {
         try {
           window.turnstile.remove(turnstileWidgetId);
-        } catch (e) {
+        } catch {
           // Ignore
         }
         setTurnstileWidgetId(null);
@@ -215,11 +205,12 @@ export function LoginForm({
           navigate(redirectTo);
         }
       }, 200);
-    } catch (error: any) {
-      const errorData = error?.response?.data || error?.data || {};
-      const message = errorData?.message || "Đăng nhập thất bại";
-      const needsCaptcha = errorData?.requiresCaptcha || false;
-      const failedAttempts = errorData?.failedAttempts || 0;
+    } catch (error: unknown) {
+      const errorRecord = error as Record<string, unknown>;
+      const errorData = ((errorRecord?.response as Record<string, unknown>)?.data as Record<string, unknown>) || (errorRecord?.data as Record<string, unknown>) || {};
+      const message = (errorData?.message as string | undefined) || "Đăng nhập thất bại";
+      const needsCaptcha = Boolean(errorData?.requiresCaptcha || false);
+      const failedAttempts = Number(errorData?.failedAttempts || 0);
 
       if (needsCaptcha && !requiresCaptcha) {
         setRequiresCaptcha(true);
@@ -235,7 +226,7 @@ export function LoginForm({
           try {
             window.turnstile.reset(turnstileWidgetId);
             setTurnstileToken(null);
-          } catch (e) {
+          } catch {
             // Ignore
           }
         }

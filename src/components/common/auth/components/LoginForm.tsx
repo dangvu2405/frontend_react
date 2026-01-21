@@ -32,8 +32,9 @@ export const LoginForm = () => {
       await login(username.trim(), password.trim());
       toast.success('Đăng nhập thành công');
       navigate(redirectPath, { replace: true });
-    } catch (error: any) {
-      toast.error(error?.message || 'Đăng nhập thất bại');
+    } catch (error: unknown) {
+      const errorMsg = error instanceof Error ? error.message : 'Đăng nhập thất bại';
+      toast.error(errorMsg);
     } finally {
       setSubmitting(false);
     }

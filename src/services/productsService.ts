@@ -46,61 +46,58 @@ const normalizeProduct = (product: Product): Product => {
 
 export const productsService = {
   getAllProducts: async (params?: { page?: number; limit?: number }): Promise<{ products: Product[]; pagination?: Pagination }> => {
-    try {
-      const cacheKey = `products:${JSON.stringify(params || {})}`;
-      
-      const cached = apiCache.get<{ products: Product[]; pagination?: Pagination }>(cacheKey);
-      if (cached && cached.products && cached.products.length > 0) {
-        return cached;
-      }
+    const cacheKey = `products:${JSON.stringify(params || {})}`;
+    
+    const cached = apiCache.get<{ products: Product[]; pagination?: Pagination }>(cacheKey);
+    if (cached && cached.products && cached.products.length > 0) {
+      return cached;
+    }
 
-      if (import.meta.env.DEV) {
-        console.log('[productsService] Fetching products with params:', params);
-      }
+    if (import.meta.env.DEV) {
+      console.log('[productsService] Fetching products with params:', params);
+    }
 
-      const response = await axiosInstance.get<ApiListResponse<Product>>("/api/products", { params });
-      const responseData = response.data as any;
+    const response = await axiosInstance.get<ApiListResponse<Product>>("/api/products", { params });
+    const responseData = response.data as Record<string, unknown>;
 
-      if (import.meta.env.DEV) {
-        console.log('[productsService] Raw response for getAllProducts:', responseData);
-      }
-      
-      let products: Product[] = [];
-      let pagination: Pagination | undefined = undefined;
-      
-      if (responseData && 'data' in responseData && Array.isArray(responseData.data)) {
-        products = responseData.data;
-        pagination = responseData.pagination;
-      } else if (Array.isArray(responseData)) {
-        products = responseData;
-      } else if (responseData && 'products' in responseData && Array.isArray(responseData.products)) {
-        products = responseData.products;
-        pagination = responseData.pagination;
-      } else if (responseData && typeof responseData === 'object') {
-        for (const key of Object.keys(responseData)) {
-          if (Array.isArray(responseData[key])) {
-            products = responseData[key];
-            if (responseData.pagination) {
-              pagination = responseData.pagination;
-            }
-            break;
+    if (import.meta.env.DEV) {
+      console.log('[productsService] Raw response for getAllProducts:', responseData);
+    }
+    
+    let products: Product[] = [];
+    let pagination: Pagination | undefined = undefined;
+    
+    const responseDataRecord = responseData as Record<string, unknown>;
+    if (responseData && 'data' in responseDataRecord && Array.isArray(responseDataRecord.data)) {
+      products = responseDataRecord.data;
+      pagination = responseDataRecord.pagination as Pagination | undefined;
+    } else if (Array.isArray(responseData)) {
+      products = responseData;
+    } else if (responseData && 'products' in responseDataRecord && Array.isArray(responseDataRecord.products)) {
+      products = responseDataRecord.products;
+      pagination = responseDataRecord.pagination as Pagination | undefined;
+    } else if (responseData && typeof responseData === 'object') {
+      for (const key of Object.keys(responseDataRecord)) {
+        if (Array.isArray(responseDataRecord[key])) {
+          products = responseDataRecord[key];
+          if (responseDataRecord.pagination) {
+            pagination = responseDataRecord.pagination as Pagination | undefined;
           }
+          break;
         }
       }
-      
-      const result = {
-        products: (products ?? []).map(normalizeProduct),
-        pagination: pagination
-      };
-
-      if (result.products.length > 0) {
-        apiCache.set(cacheKey, result, 5 * 60 * 1000);
-      }
-
-      return result;
-    } catch (error: any) {
-      throw error;
     }
+    
+    const result = {
+      products: (products ?? []).map(normalizeProduct),
+      pagination: pagination
+    };
+
+    if (result.products.length > 0) {
+      apiCache.set(cacheKey, result, 5 * 60 * 1000);
+    }
+
+    return result;
   },
 
   getProductById: async (id: string): Promise<Product | null> => {
@@ -117,7 +114,7 @@ export const productsService = {
       }
 
       const response = await axiosInstance.get<ApiItemResponse<Product>>(`/api/products/${id}`);
-      const responseData = response.data as any;
+      const responseData = response.data as Record<string, unknown>;
 
       if (import.meta.env.DEV) {
         console.log('[productsService] Raw response for getProductById:', responseData);
@@ -134,7 +131,7 @@ export const productsService = {
       } else if (responseData && typeof responseData === 'object' && !responseData.success && !Array.isArray(responseData)) {
         // Fallback: nếu responseData chính là product object
         if (responseData._id || responseData.id) {
-          product = responseData as Product;
+          product = responseData as unknown as Product;
         }
       }
 
@@ -145,7 +142,7 @@ export const productsService = {
       }
 
       return null;
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (import.meta.env.DEV) {
         console.error(`Error fetching product ${id}:`, error);
       }
@@ -158,7 +155,7 @@ export const productsService = {
       const response = await axiosInstance.get<ApiListResponse<Product>>(`/api/products?loaiSP=${category}`);
       const responseData = response.data as unknown as ApiListResponse<Product>;
       return (responseData && 'data' in responseData ? responseData.data : []) ?? [];
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (import.meta.env.DEV) {
         console.error(`Error fetching products by category ${category}:`, error);
       }
@@ -171,7 +168,7 @@ export const productsService = {
       const response = await axiosInstance.get<ApiListResponse<Product>>(`/api/products/search?q=${keyword}`);
       const responseData = response.data as unknown as ApiListResponse<Product>;
       return (responseData && 'data' in responseData ? responseData.data : []) ?? [];
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (import.meta.env.DEV) {
         console.error(`Error searching products with keyword ${keyword}:`, error);
       }

@@ -31,7 +31,7 @@ export interface AdminProductPayload {
   MaLoaiSanPham?: string;     // ID danh mục
   HinhAnhChinh?: string;      // URL ảnh chính
   HinhAnhPhu?: string[];      // Danh sách URL ảnh phụ
-  [key: string]: any;         // Cho phép thêm các field khác
+  [key: string]: unknown;         // Cho phép thêm các field khác
 }
 
 /**
@@ -59,7 +59,7 @@ export interface AdminUserPayload {
   email?: string;     // Email
   sdt?: string;       // Số điện thoại
   diaChi?: string;    // Địa chỉ
-  [key: string]: any; // Cho phép thêm các field khác
+  [key: string]: unknown; // Cho phép thêm các field khác
 }
 
 /**

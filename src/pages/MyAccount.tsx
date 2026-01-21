@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { User, Package, Heart, Settings, LogOut, MapPin, CreditCard, FileText, Camera, Loader2 } from 'lucide-react';
-import { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import type { FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { userService } from '@/services/userService';
@@ -18,13 +18,24 @@ export default function MyAccountPage() {
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
 
+  interface FormattedAddress {
+    id: string;
+    recipientName: string;
+    phone: string;
+    addressLine: string;
+    ward: string;
+    district: string;
+    province: string;
+    isDefault: boolean;
+  }
+
   const [activeTab, setActiveTab] = useState('profile');
-  const [addresses, setAddresses] = useState<any[]>([]);
-  const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
+  const [addresses, setAddresses] = useState<FormattedAddress[]>([]);
+  const [selectedOrder, setSelectedOrder] = useState<Record<string, unknown> | null>(null);
   const [isOrderDetailOpen, setIsOrderDetailOpen] = useState(false);
   
   // ✅ Sử dụng React Query để đồng bộ đơn hàng
-  const { data: orders = [], isLoading: ordersLoading, refetch: refetchOrders } = useOrders();
+  const { data: orders = [], isLoading: ordersLoading } = useOrders();
   const cancelOrderMutation = useCancelOrder();
   const [profileForm, setProfileForm] = useState({
     fullName: user?.fullName || '',
@@ -53,19 +64,23 @@ export default function MyAccountPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ✅ format helpers
-  const formatAddressList = (response: any) => {
-    const list = response?.data || response?.DiaChi || [];
+  const formatAddressList = (response: unknown) => {
+    const responseRecord = response as Record<string, unknown>;
+    const list = (responseRecord?.data as unknown[]) || (responseRecord?.DiaChi as unknown[]) || [];
     return Array.isArray(list)
-      ? list.map((a: any) => ({
-          id: a._id || a.id,
-          recipientName: a.HoTen || '',
-          phone: a.SoDienThoai || '',
-          addressLine: a.DiaChiChiTiet || '',
-          ward: a.PhuongXa || '',
-          district: a.QuanHuyen || '',
-          province: a.TinhThanh || '',
-          isDefault: !!a.MacDinh,
-        }))
+      ? list.map((a: unknown) => {
+          const aRecord = a as Record<string, unknown>;
+          return {
+            id: String(aRecord._id || aRecord.id || ''),
+            recipientName: String(aRecord.HoTen || ''),
+            phone: String(aRecord.SoDienThoai || ''),
+            addressLine: String(aRecord.DiaChiChiTiet || ''),
+            ward: String(aRecord.PhuongXa || ''),
+            district: String(aRecord.QuanHuyen || ''),
+            province: String(aRecord.TinhThanh || ''),
+            isDefault: Boolean(aRecord.MacDinh),
+          };
+        })
       : [];
   };
 
@@ -98,19 +113,21 @@ export default function MyAccountPage() {
         if (user && (!user.phone || !user.birthday)) {
           try {
             const userRes = await userService.getCurrentUser();
-            const userData: any = (userRes as any)?.data || userRes || {};
+            const userResRecord = userRes as unknown as Record<string, unknown>;
+            const userResData = (userResRecord?.data as Record<string, unknown>) || userResRecord || {};
+            const userData = userResData;
             if (!isMounted) return;
             setProfileForm({
-              fullName: userData.HoTen || user?.fullName || '',
-              email: userData.Email || user?.email || '',
-              phone: userData.SoDienThoai || user?.phone || '',
+              fullName: String(userData.HoTen || user?.fullName || ''),
+              email: String(userData.Email || user?.email || ''),
+              phone: String(userData.SoDienThoai || user?.phone || ''),
               birthday: userData.NgaySinh
-                ? new Date(userData.NgaySinh).toISOString().split('T')[0]
+                ? new Date(String(userData.NgaySinh)).toISOString().split('T')[0]
                 : user?.birthday
-                ? new Date(user.birthday).toISOString().split('T')[0]
+                ? new Date(String(user.birthday)).toISOString().split('T')[0]
                 : '',
             });
-          } catch (userErr) {
+          } catch {
             // Fallback to AuthContext user data
             if (!isMounted) return;
             setProfileForm({
@@ -181,8 +198,9 @@ export default function MyAccountPage() {
       });
       setShowAddForm(false);
       toast.success('✅ Đã thêm địa chỉ');
-    } catch (err: any) {
-      toast.error(err?.message || 'Không thể thêm địa chỉ');
+    } catch (err: unknown) {
+      const errorMsg = (err as Record<string, unknown>)?.message as string | undefined;
+      toast.error(errorMsg || 'Không thể thêm địa chỉ');
     }
   };
 
@@ -222,8 +240,9 @@ export default function MyAccountPage() {
         ...(profileForm.birthday ? { birthday: profileForm.birthday } : {}),
       });
       toast.success('Cập nhật thông tin thành công');
-    } catch (err: any) {
-      toast.error(err?.message || 'Cập nhật thất bại');
+    } catch (err: unknown) {
+      const errorMsg = (err as Record<string, unknown>)?.message as string | undefined;
+      toast.error(errorMsg || 'Cập nhật thất bại');
     }
   };
 
@@ -256,8 +275,9 @@ export default function MyAccountPage() {
       const response = await userService.uploadAvatar(file);
       
       // Update user in AuthContext
-      const userData = (response as any)?.data || response || {};
-      const avatarUrl = userData.AvatarUrl || userData.avatar;
+      const responseRecord = response as unknown as Record<string, unknown>;
+      const userData = (responseRecord?.data as Record<string, unknown>) || responseRecord || {};
+      const avatarUrl = String(userData.AvatarUrl || userData.avatar || '');
       
       if (avatarUrl) {
         // Trigger reload để update avatar ở mọi nơi
@@ -268,8 +288,9 @@ export default function MyAccountPage() {
         fileInputRef.current.value = '';
       }
       toast.success('Cập nhật avatar thành công');
-    } catch (err: any) {
-      toast.error(err?.message || 'Không thể cập nhật avatar');
+    } catch (err: unknown) {
+      const errorMsg = (err as Record<string, unknown>)?.message as string | undefined;
+      toast.error(errorMsg || 'Không thể cập nhật avatar');
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -279,23 +300,24 @@ export default function MyAccountPage() {
   };
 
   // ✏️ bắt đầu sửa địa chỉ
-  const startEditAddress = (addr: any) => {
-    setEditingAddressId(addr.id);
+  const startEditAddress = (addr: unknown) => {
+    const addrRecord = addr as Record<string, unknown>;
+    setEditingAddressId(String(addrRecord.id || ''));
     setEditAddressForm({
-      HoTen: addr.recipientName || '',
-      SoDienThoai: addr.phone || '',
-      DiaChiChiTiet: addr.addressLine || '',
-      PhuongXa: addr.ward || '',
-      QuanHuyen: addr.district || '',
-      TinhThanh: addr.province || '',
-      MacDinh: !!addr.isDefault,
+      HoTen: String(addrRecord.recipientName || ''),
+      SoDienThoai: String(addrRecord.phone || ''),
+      DiaChiChiTiet: String(addrRecord.addressLine || ''),
+      PhuongXa: String(addrRecord.ward || ''),
+      QuanHuyen: String(addrRecord.district || ''),
+      TinhThanh: String(addrRecord.province || ''),
+      MacDinh: Boolean(addrRecord.isDefault),
     });
   };
 
   // ⭐ đặt địa chỉ mặc định — tối ưu: sử dụng response từ API thay vì gọi lại
   const setDefaultAddress = async (id: string) => {
     try {
-      const addr = addresses.find(a => a.id === id);
+      const addr = addresses.find((a: FormattedAddress) => a.id === id);
       if (!addr) return;
       
       // Convert back to backend format
@@ -330,8 +352,8 @@ export default function MyAccountPage() {
     { id: 'settings', label: 'Cài đặt', icon: Settings, breadcrumb: 'Settings > Settings' },
   ];
 
-  const handleViewOrderDetail = (order: any) => {
-    setSelectedOrder(order);
+  const handleViewOrderDetail = (order: unknown) => {
+    setSelectedOrder(order as Record<string, unknown>);
     setIsOrderDetailOpen(true);
   };
   const currentTab = tabs.find(tab => tab.id === activeTab);
@@ -603,7 +625,7 @@ export default function MyAccountPage() {
                       <p className="text-muted-foreground">Bạn chưa thêm địa chỉ nào.</p>
                     ) : (
                       <div className="space-y-3">
-                        {addresses.map(addr => (
+                        {addresses.map((addr: FormattedAddress) => (
                           <div key={addr.id} className={`rounded-xl border p-4 flex flex-col gap-3 ${addr.isDefault ? 'border-primary' : 'border-border'}`}>
                             {editingAddressId === addr.id ? (
                               <>
@@ -705,13 +727,13 @@ export default function MyAccountPage() {
                   </div>
                 ) : (
                   <>
-                    {orders.map((order: any) => (
-                      <Card key={order.id} className="border-2 border-border">
+                    {orders.map((order: Record<string, unknown>) => (
+                      <Card key={String(order.id || '')} className="border-2 border-border">
                     <CardContent className="p-6">
                       <div className="flex justify-between items-start mb-4">
                         <div>
-                              <p className="font-bold text-foreground">Đơn #{order.MaDonHang || order.id?.slice(-8)}</p>
-                              <p className="text-sm text-muted-foreground">{order.date}</p>
+                              <p className="font-bold text-foreground">Đơn #{String(order.MaDonHang || (order.id ? String(order.id).slice(-8) : ''))}</p>
+                              <p className="text-sm text-muted-foreground">{String(order.date || '')}</p>
                         </div>
                             <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${
                             order.statusCode === 'delivered'
@@ -721,13 +743,13 @@ export default function MyAccountPage() {
                                 : order.statusCode === 'shipping'
                                 ? 'bg-blue-500/10 text-blue-600 border-blue-500/30'
                                 : 'bg-primary/10 text-primary border-primary/30'
-                            }`}>{order.status}</span>
+                            }`}>{String(order.status || '')}</span>
                       </div>
                       <div className="flex justify-between items-center">
                         <div>
-                              <p className="text-sm text-muted-foreground">{order.products?.length || 0} sản phẩm</p>
+                              <p className="text-sm text-muted-foreground">{Array.isArray(order.products) ? order.products.length : 0} sản phẩm</p>
                               <p className="font-bold text-primary">
-                            {order.total.toLocaleString('vi-VN')}đ
+                            {Number(order.total || 0).toLocaleString('vi-VN')}đ
                           </p>
                         </div>
                             <Button 
@@ -819,93 +841,109 @@ export default function MyAccountPage() {
           <SheetHeader>
             <SheetTitle className="text-2xl">Chi tiết đơn hàng</SheetTitle>
             <SheetDescription>
-              Thông tin chi tiết về đơn hàng #{selectedOrder?.id?.slice(-8)}
+              Thông tin chi tiết về đơn hàng #{selectedOrder?.id ? String(selectedOrder.id).slice(-8) : ''}
             </SheetDescription>
           </SheetHeader>
 
-          {selectedOrder && (
+          {selectedOrder ? ((): React.ReactNode => {
+            const selectedOrderRecord = selectedOrder as Record<string, unknown>;
+            const productsRaw = selectedOrderRecord.products;
+            const products: unknown[] = Array.isArray(productsRaw) ? productsRaw : [];
+            
+            // Render products list - use conditional rendering directly
+            const productsListContent = products.length > 0 ? (
+              <div key="products-list" className="products-list">
+                <h3 className="font-bold text-lg text-foreground mb-3 flex items-center gap-2">
+                  <Package className="w-5 h-5" />
+                  Sản phẩm ({products.length})
+                </h3>
+                <div className="space-y-3">
+                  {products.map((product: unknown, index: number) => {
+                    const productRecord = product as Record<string, unknown>;
+                    return (
+                      <div 
+                        key={`${String(selectedOrderRecord?.id || '')}-${String(productRecord.id || productRecord.MaSanPham || index)}`} 
+                        className="flex gap-4 p-4 rounded-xl border border-border bg-background"
+                      >
+                        {Boolean(productRecord.image) && (
+                          <div className="w-20 h-20 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                            <img 
+                              src={String(productRecord.image || '')} 
+                              alt={String(productRecord.name || '')}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = 'https://via.placeholder.com/80?text=No+Image';
+                              }}
+                            />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-foreground truncate">{String(productRecord.name || '')}</p>
+                          {Boolean(productRecord.category) && (
+                            <p className="text-xs text-muted-foreground">{String(productRecord.category || '')}</p>
+                          )}
+                          <div className="flex items-center gap-4 mt-2">
+                            <p className="text-sm text-muted-foreground">
+                              SL: <span className="font-semibold text-foreground">{Number(productRecord.quantity || 0)}</span>
+                            </p>
+                            <p className="text-sm font-semibold text-primary">
+                              {Number(productRecord.price || 0).toLocaleString('vi-VN')}đ
+                            </p>
+                            {Number(productRecord.discount || 0) > 0 && (
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/10 text-red-600 border border-red-500/30">
+                                -{Number(productRecord.discount || 0)}%
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-foreground">
+                            {(Number(productRecord.price || 0) * Number(productRecord.quantity || 0)).toLocaleString('vi-VN')}đ
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null;
+            
+            return (
             <div className="mt-6 space-y-6">
               {/* Order Info */}
               <div className="rounded-xl border border-border p-4 bg-muted/30">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-xs text-muted-foreground">Mã đơn hàng</p>
-                    <p className="font-semibold text-foreground mt-1">#{selectedOrder.id?.slice(-12)}</p>
+                    <p className="font-semibold text-foreground mt-1">#{selectedOrderRecord.id ? String(selectedOrderRecord.id).slice(-12) : ''}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Ngày đặt</p>
-                    <p className="font-semibold text-foreground mt-1">{selectedOrder.date}</p>
+                    <p className="font-semibold text-foreground mt-1">{String(selectedOrderRecord.date || '')}</p>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Trạng thái</p>
                     <span className={`inline-block mt-1 px-3 py-1 rounded-full text-xs font-semibold border ${
-                      selectedOrder.status === 'Hoàn thành'
+                      selectedOrderRecord.status === 'Hoàn thành'
                         ? 'bg-green-500/10 text-green-600 border-green-500/30'
-                        : selectedOrder.status === 'Đang giao hàng'
+                        : selectedOrderRecord.status === 'Đang giao hàng'
                         ? 'bg-blue-500/10 text-blue-600 border-blue-500/30'
-                        : selectedOrder.status === 'Đã hủy'
+                        : selectedOrderRecord.status === 'Đã hủy'
                         ? 'bg-red-500/10 text-red-600 border-red-500/30'
                         : 'bg-primary/10 text-primary border-primary/30'
                     }`}>
-                      {selectedOrder.status}
+                      {String(selectedOrderRecord.status || '')}
                     </span>
                   </div>
                   <div>
                     <p className="text-xs text-muted-foreground">Phương thức thanh toán</p>
-                    <p className="font-semibold text-foreground mt-1">{selectedOrder.paymentMethod}</p>
+                    <p className="font-semibold text-foreground mt-1">{String(selectedOrderRecord.paymentMethod || '')}</p>
                   </div>
                 </div>
               </div>
 
               {/* Products List */}
-              <div>
-                <h3 className="font-bold text-lg text-foreground mb-3 flex items-center gap-2">
-                  <Package className="w-5 h-5" />
-                  Sản phẩm ({selectedOrder.products?.length || 0})
-                </h3>
-                <div className="space-y-3">
-                  {selectedOrder.products?.map((product: any, index: number) => (
-                    <div key={`${selectedOrder.id}-${product.id || product.MaSanPham || index}`} className="flex gap-4 p-4 rounded-xl border border-border bg-background">
-                      {product.image && (
-                        <div className="w-20 h-20 rounded-lg overflow-hidden bg-muted flex-shrink-0">
-                          <img 
-                            src={product.image} 
-                            alt={product.name}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              (e.target as HTMLImageElement).src = 'https://via.placeholder.com/80?text=No+Image';
-                            }}
-                          />
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-foreground truncate">{product.name}</p>
-                        {product.category && (
-                          <p className="text-xs text-muted-foreground">{product.category}</p>
-                        )}
-                        <div className="flex items-center gap-4 mt-2">
-                          <p className="text-sm text-muted-foreground">
-                            SL: <span className="font-semibold text-foreground">{product.quantity}</span>
-                          </p>
-                          <p className="text-sm font-semibold text-primary">
-                            {product.price.toLocaleString('vi-VN')}đ
-                          </p>
-                          {product.discount > 0 && (
-                            <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/10 text-red-600 border border-red-500/30">
-                              -{product.discount}%
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold text-foreground">
-                          {(product.price * product.quantity).toLocaleString('vi-VN')}đ
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              {(productsListContent as any)}
 
               {/* Address */}
               <div>
@@ -914,19 +952,19 @@ export default function MyAccountPage() {
                   Địa chỉ giao hàng
                 </h3>
                 <div className="p-4 rounded-xl border border-border bg-background">
-                  <p className="text-foreground">{selectedOrder.address}</p>
+                    <p className="text-foreground">{String(selectedOrderRecord.address || '')}</p>
                 </div>
               </div>
 
               {/* Note */}
-              {selectedOrder.note && (
+              {selectedOrderRecord.note && (
                 <div>
                   <h3 className="font-bold text-lg text-foreground mb-3 flex items-center gap-2">
                     <FileText className="w-5 h-5" />
                     Ghi chú
                   </h3>
                   <div className="p-4 rounded-xl border border-border bg-background">
-                    <p className="text-foreground">{selectedOrder.note}</p>
+                    <p className="text-foreground">{String(selectedOrderRecord.note || '')}</p>
                   </div>
                 </div>
               )}
@@ -941,23 +979,23 @@ export default function MyAccountPage() {
                   <div className="flex justify-between items-center">
                     <p className="text-muted-foreground">Tạm tính</p>
                     <p className="font-semibold text-foreground">
-                      {(selectedOrder.total - selectedOrder.shippingFee).toLocaleString('vi-VN')}đ
+                      {(Number(selectedOrderRecord.total || 0) - Number(selectedOrderRecord.shippingFee || 0)).toLocaleString('vi-VN')}đ
                     </p>
                   </div>
                   <div className="flex justify-between items-center">
                     <p className="text-muted-foreground">Phí vận chuyển</p>
                     <p className="font-semibold text-foreground">
-                      {selectedOrder.shippingFee === 0 ? (
+                        {Number(selectedOrderRecord.shippingFee || 0) === 0 ? (
                         <span className="text-green-600">Miễn phí</span>
                       ) : (
-                        `${selectedOrder.shippingFee.toLocaleString('vi-VN')}đ`
+                        `${Number(selectedOrderRecord.shippingFee || 0).toLocaleString('vi-VN')}đ`
                       )}
                     </p>
                   </div>
                   <div className="pt-3 border-t border-border flex justify-between items-center">
                     <p className="font-bold text-lg text-foreground">Tổng cộng</p>
                     <p className="font-bold text-2xl text-primary">
-                      {selectedOrder.total.toLocaleString('vi-VN')}đ
+                      {Number(selectedOrderRecord.total || 0).toLocaleString('vi-VN')}đ
                     </p>
                   </div>
                 </div>
@@ -972,14 +1010,14 @@ export default function MyAccountPage() {
                 >
                   Đóng
                 </Button>
-                {(selectedOrder.statusCode === 'pending' || selectedOrder.statusCode === 'confirmed') && (
+                {(selectedOrderRecord.statusCode === 'pending' || selectedOrderRecord.statusCode === 'confirmed') && (
                   <Button 
                     variant="destructive" 
                     className="flex-1"
                     onClick={() => {
-                      if (selectedOrder.id) {
+                      if (selectedOrderRecord.id) {
                         cancelOrderMutation.mutate({ 
-                          orderId: selectedOrder.id,
+                          orderId: String(selectedOrderRecord.id || ''),
                           reason: 'Khách hàng yêu cầu hủy đơn hàng'
                         });
                         setIsOrderDetailOpen(false);
@@ -999,7 +1037,8 @@ export default function MyAccountPage() {
                 )}
               </div>
             </div>
-          )}
+            ) as React.ReactNode;
+          })() as React.ReactNode : null}
         </SheetContent>
       </Sheet>
     </MainLayout>

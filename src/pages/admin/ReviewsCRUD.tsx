@@ -39,7 +39,6 @@ import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 import { 
   Trash2, 
-  Search, 
   Filter, 
   Star, 
   Eye,
@@ -75,21 +74,6 @@ interface ReviewsParams {
   maxRating?: number
 }
 
-interface ReviewsResponse {
-  data?: Review[]
-  reviews?: Review[]
-  pagination?: {
-    totalPages?: number
-    total?: number
-  }
-}
-
-interface ReviewStatsResponse {
-  summary?: ReviewStats["summary"]
-  data?: {
-    summary?: ReviewStats["summary"]
-  }
-}
 
 // ==========================
 // UTILS
@@ -279,7 +263,7 @@ export default function AdminReviewsPage() {
               : (responseData && !Array.isArray(responseData) && typeof responseData === 'object' && responseData.data && Array.isArray(responseData.data) 
                   ? responseData.data.length 
                   : 'N/A'),
-            paginationValue: responseData && !Array.isArray(responseData) && typeof responseData === 'object' ? (responseData as any)?.pagination : undefined
+            paginationValue: responseData && !Array.isArray(responseData) && typeof responseData === 'object' ? (responseData as Record<string, unknown>)?.pagination : undefined
           })
         }
 
@@ -290,11 +274,11 @@ export default function AdminReviewsPage() {
             if (Array.isArray(responseData.data)) {
               reviewsData = responseData.data
               // pagination ở cùng level với data (đã được normalizeResponse giữ lại)
-              pagination = (responseData as any).pagination
+              pagination = (responseData as Record<string, unknown>).pagination as { totalPages?: number; total?: number } | undefined
             } else if (responseData.data && typeof responseData.data === 'object' && 'reviews' in responseData.data) {
               // Fallback: data là object có reviews
               reviewsData = Array.isArray(responseData.data.reviews) ? responseData.data.reviews : []
-              pagination = responseData.data.pagination || (responseData as any).pagination
+              pagination = responseData.data.pagination || (responseData as Record<string, unknown>).pagination
             }
           }
           // Case 2: responseData là array trực tiếp (fallback - không nên xảy ra nếu normalizeResponse hoạt động đúng)
@@ -307,7 +291,7 @@ export default function AdminReviewsPage() {
           else if (responseData && typeof responseData === 'object' && !Array.isArray(responseData) && 'data' in responseData) {
           if (Array.isArray(responseData.data)) {
             reviewsData = responseData.data
-              pagination = (responseData as any).pagination
+              pagination = (responseData as Record<string, unknown>).pagination as { totalPages?: number; total?: number } | undefined
             }
           }
         }
@@ -354,17 +338,17 @@ export default function AdminReviewsPage() {
           }
           // Case 2: data có nested structure
           else if (typeof responseData.data === 'object' && 'data' in responseData.data) {
-            const nestedData = (responseData.data as any).data
+            const nestedData = ((responseData.data as Record<string, unknown>).data as Record<string, unknown>)
             if (nestedData && 'summary' in nestedData) {
               setStats({
-                summary: nestedData.summary,
-                topReviewedProducts: nestedData.topReviewedProducts || [],
-                monthlyStats: nestedData.monthlyStats || []
+                summary: nestedData.summary as { totalReviews: number; avgRating: number; distribution: { star5: number; star4: number; star3: number; star2: number; star1: number; }; },
+                topReviewedProducts: (nestedData.topReviewedProducts as { productId: string; productName: string; reviewCount: number; avgRating: number; }[]) || [],
+                monthlyStats: (nestedData.monthlyStats as { year: number; month: number; reviewCount: number; avgRating: number; }[]) || []
               })
             }
           }
         }
-      } catch (err: unknown) {
+      } catch {
         // Không set error vì stats không critical
         // Stats sẽ được refresh lại khi có refreshTrigger
       }

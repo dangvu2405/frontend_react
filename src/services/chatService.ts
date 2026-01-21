@@ -1,23 +1,6 @@
 import axiosInstance from './axios';
 import type { ApiItemResponse, ApiListResponse, ChatMessage, ChatRoom, Pagination } from '@/types/models';
 
-const ensureItemSuccess = <T>(response: ApiItemResponse<T>): T => {
-  if (!response.success) {
-    throw new Error(response.message || 'Chat service request failed');
-  }
-  return response.data as T;
-};
-
-const ensureListSuccess = <T>(response: ApiListResponse<T>): { data: T[]; pagination?: Pagination } => {
-  if (!response.success) {
-    return { data: [] };
-  }
-  return {
-    data: response.data ?? [],
-    pagination: response.pagination,
-  };
-};
-
 const chatService = {
   // Get or create chat room for customer
   getOrCreateChatRoom: async (): Promise<ChatRoom> => {

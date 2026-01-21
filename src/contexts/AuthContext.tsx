@@ -6,6 +6,7 @@ import { cartService } from '@/services/cartService';
 import { heartService } from '@/services/heartService';
 import { storage } from '@/utils/storage';
 import { toast } from 'sonner';
+import type { LoginCredentials } from '@/types/models';
 
 interface User {
   id: string;
@@ -93,18 +94,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     isFetchingRef.current = true;
     try {
       // Call API để lấy user info (có populate role)
-      const response: any = await userService.getCurrentUser();
+      const response = await userService.getCurrentUser();
       if (response) {
-        const userData = {
-          id: response._id || response.id,
-          username: response.TenDangNhap || response.username,
-          email: response.Email || response.email,
-          fullName: response.HoTen || response.fullName || response.hoten || '',
-          phone: response.SoDienThoai ,
-          birthday: response.NgaySinh ,
-          avatar: response.AvatarUrl || response.Avatar || response.avatar,
-          role: response.MaVaiTro?._id || response.role,
-          roleName: response.MaVaiTro?.TenVaiTro || response.roleName,
+        const responseAny = response as unknown as Record<string, unknown>;
+        const maVaiTro = responseAny.MaVaiTro as Record<string, unknown> | string | undefined;
+        const userData: User = {
+          id: String(responseAny._id || responseAny.id || ''),
+          username: String(responseAny.TenDangNhap || responseAny.username || ''),
+          email: String(responseAny.Email || responseAny.email || ''),
+          fullName: String(responseAny.HoTen || responseAny.fullName || responseAny.hoten || ''),
+          phone: responseAny.SoDienThoai ? String(responseAny.SoDienThoai) : undefined,
+          birthday: responseAny.NgaySinh ? (responseAny.NgaySinh === null ? undefined : String(responseAny.NgaySinh)) : undefined,
+          avatar: responseAny.AvatarUrl || responseAny.Avatar || responseAny.avatar ? String(responseAny.AvatarUrl || responseAny.Avatar || responseAny.avatar) : undefined,
+          role: typeof maVaiTro === 'object' && maVaiTro?._id ? String(maVaiTro._id) : maVaiTro ? String(maVaiTro) : responseAny.role ? String(responseAny.role) : undefined,
+          roleName: typeof maVaiTro === 'object' && maVaiTro?.TenVaiTro ? String(maVaiTro.TenVaiTro) : responseAny.roleName ? String(responseAny.roleName) : undefined,
         };
         setUser(userData);
         // Save to storage for fallback
@@ -119,9 +122,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           });
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Nếu là lỗi 401 (token không hợp lệ/hết hạn), clear storage và user
-      if (error?.status === 401 || error?.response?.status === 401) {
+      const errorRecord = error as Record<string, unknown>;
+      if (errorRecord?.status === 401 || (errorRecord?.response as Record<string, unknown>)?.status === 401) {
         // Token không hợp lệ, clear tất cả
         storage.clearAll();
         setUser(null);
@@ -133,25 +137,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       // Log errors in both dev and prod for debugging
       console.error('❌ Failed to fetch user info:', {
-        message: error?.message,
-        status: error?.status || error?.response?.status,
-        url: error?.config?.url,
-        baseURL: error?.config?.baseURL,
+        message: errorRecord?.message,
+        status: errorRecord?.status || (errorRecord?.response as Record<string, unknown>)?.status,
+        url: (errorRecord?.config as Record<string, unknown>)?.url,
+        baseURL: (errorRecord?.config as Record<string, unknown>)?.baseURL,
       });
       
       // Nếu không phải 401, thử lấy từ storage
-      const storedUser: any = storage.getUser();
+      const storedUser = storage.getUser() as Record<string, unknown> | null;
       if (storedUser) {
-        const fallbackUser = {
-          id: storedUser._id || storedUser.id,
-          username: storedUser.TenDangNhap || storedUser.username,
-          email: storedUser.Email || storedUser.email,
-          fullName: storedUser.HoTen || storedUser.fullName || storedUser.hoten || '',
-          phone: storedUser.SoDienThoai  ,
-          birthday: storedUser.NgaySinh  ,
-          avatar: storedUser.AvatarUrl || storedUser.Avatar || storedUser.avatar,
-          role: storedUser.MaVaiTro?._id || storedUser.role,
-          roleName: storedUser.MaVaiTro?.TenVaiTro || storedUser.roleName,
+        const storedMaVaiTro = storedUser.MaVaiTro as Record<string, unknown> | string | undefined;
+        const fallbackUser: User = {
+          id: String(storedUser._id || storedUser.id || ''),
+          username: String(storedUser.TenDangNhap || storedUser.username || ''),
+          email: String(storedUser.Email || storedUser.email || ''),
+          fullName: String(storedUser.HoTen || storedUser.fullName || storedUser.hoten || ''),
+          phone: storedUser.SoDienThoai ? String(storedUser.SoDienThoai) : undefined,
+          birthday: storedUser.NgaySinh ? (storedUser.NgaySinh === null ? undefined : String(storedUser.NgaySinh)) : undefined,
+          avatar: storedUser.AvatarUrl || storedUser.Avatar || storedUser.avatar ? String(storedUser.AvatarUrl || storedUser.Avatar || storedUser.avatar) : undefined,
+          role: typeof storedMaVaiTro === 'object' && storedMaVaiTro?._id ? String(storedMaVaiTro._id) : storedMaVaiTro ? String(storedMaVaiTro) : storedUser.role ? String(storedUser.role) : undefined,
+          roleName: typeof storedMaVaiTro === 'object' && storedMaVaiTro?.TenVaiTro ? String(storedMaVaiTro.TenVaiTro) : storedUser.roleName ? String(storedUser.roleName) : undefined,
         };
         setUser(fallbackUser);
         
@@ -241,9 +246,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [user]);
 
-  const login = async (username: string, password: string, turnstileToken?: string) => {
+  const login = useCallback(async (username: string, password: string, turnstileToken?: string) => {
     try {
-      const loginPayload: any = { username, password };
+      const loginPayload: LoginCredentials & { 'cf-turnstile-response'?: string } = { username, password };
       if (turnstileToken) {
         loginPayload['cf-turnstile-response'] = turnstileToken;
       }
@@ -266,9 +271,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               console.log('✅ Hearts loaded from database after login:', heartProductIds.length, 'products');
             }
           }
-        } catch (heartError: any) {
+        } catch (heartError: unknown) {
           if (import.meta.env.DEV) {
-            console.error('⚠️ Error loading hearts from database:', heartError?.message || heartError);
+            const errorMsg = (heartError as Record<string, unknown>)?.message || heartError;
+            console.error('⚠️ Error loading hearts from database:', errorMsg);
           }
         }
         
@@ -279,53 +285,66 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           
           if (cart && Array.isArray(cart.Items) && cart.Items.length > 0) {
             // ✅ Map từ database format (Cart.Items) sang localStorage format (CartItem[])
-            const mappedCart = cart.Items.map((item: any) => {
+            const mappedCart = cart.Items.map((item: unknown) => {
+              const itemRecord = item as Record<string, unknown>;
               // item có thể là CartItem từ backend (IdSanPham, TenSanPham, Gia, SoLuong, ThanhTien)
-              const product = typeof item.IdSanPham === 'object' ? item.IdSanPham : null;
+              const idSanPham = itemRecord.IdSanPham as Record<string, unknown> | string | undefined;
+              const product = typeof idSanPham === 'object' ? idSanPham : null;
+              const productRecord = product as Record<string, unknown> | null;
               
               // Xử lý selectedDungTich từ DB
-              const selectedDungTich = item.SelectedDungTich ? {
-                value: Number(item.SelectedDungTich.value) || 0,
-                label: item.SelectedDungTich.label || `${item.SelectedDungTich.value || 0} ml`,
-                priceDiff: Number(item.SelectedDungTich.priceDiff) || 0,
-                stockDiff: Number(item.SelectedDungTich.stockDiff) || 0,
-                sku: item.SelectedDungTich.sku,
-                isDefault: Boolean(item.SelectedDungTich.isDefault),
+              const selectedDungTichRaw = itemRecord.SelectedDungTich as Record<string, unknown> | undefined;
+              const selectedDungTich = selectedDungTichRaw ? {
+                value: Number(selectedDungTichRaw.value) || 0,
+                label: String(selectedDungTichRaw.label || `${selectedDungTichRaw.value || 0} ml`),
+                priceDiff: Number(selectedDungTichRaw.priceDiff) || 0,
+                stockDiff: Number(selectedDungTichRaw.stockDiff) || 0,
+                sku: selectedDungTichRaw.sku ? String(selectedDungTichRaw.sku) : undefined,
+                isDefault: Boolean(selectedDungTichRaw.isDefault),
               } : undefined;
               
               // Xử lý volumeOptions từ product
-              const volumeOptions = product?.DungTichOptions && Array.isArray(product.DungTichOptions)
-                ? product.DungTichOptions.map((opt: any) => ({
-                    value: Number(opt.value) || 0,
-                    label: opt.label || `${opt.value || 0} ml`,
-                    priceDiff: Number(opt.priceDiff) || 0,
-                    stockDiff: Number(opt.stockDiff) || 0,
-                    sku: opt.sku,
-                    isDefault: Boolean(opt.isDefault),
-                  }))
+              const volumeOptions = productRecord?.DungTichOptions && Array.isArray(productRecord.DungTichOptions)
+                ? productRecord.DungTichOptions.map((opt: unknown) => {
+                    const optRecord = opt as Record<string, unknown>;
+                    return {
+                      value: Number(optRecord.value) || 0,
+                      label: String(optRecord.label || `${optRecord.value || 0} ml`),
+                      priceDiff: Number(optRecord.priceDiff) || 0,
+                      stockDiff: Number(optRecord.stockDiff) || 0,
+                      sku: optRecord.sku ? String(optRecord.sku) : undefined,
+                      isDefault: Boolean(optRecord.isDefault),
+                    };
+                  })
                 : undefined;
               
               // Tính basePrice từ gia và selectedDungTich
-              const finalPrice = Number(item.Gia) || Number(product?.Gia) || 0;
+              const finalPrice = Number(itemRecord.Gia) || (productRecord ? Number(productRecord.Gia) : 0) || 0;
               const basePrice = selectedDungTich && selectedDungTich.priceDiff
                 ? finalPrice - selectedDungTich.priceDiff
                 : finalPrice;
               
               // Tạo cart item ID với volume
+              const maSanPham = itemRecord.MaSanPham as Record<string, unknown> | string | undefined;
+              const productId = productRecord?._id || 
+                (typeof idSanPham === 'object' && idSanPham?._id ? idSanPham._id : idSanPham) ||
+                (typeof maSanPham === 'object' && maSanPham?._id ? maSanPham._id : maSanPham) ||
+                itemRecord.id;
               const cartItemId = selectedDungTich
-                ? `${product?._id || item.IdSanPham?._id || item.MaSanPham?._id || item.MaSanPham || item.id}::volume-${selectedDungTich.value}`
-                : `${product?._id || item.IdSanPham?._id || item.MaSanPham?._id || item.MaSanPham || item.id}::default`;
+                ? `${productId}::volume-${selectedDungTich.value}`
+                : `${productId}::default`;
               
+              const maLoaiSanPham = productRecord?.MaLoaiSanPham as Record<string, unknown> | undefined;
               return {
                 id: cartItemId,
-                productId: product?._id || item.IdSanPham?._id || item.MaSanPham?._id || item.MaSanPham || item.id,
-                tenSP: item.TenSanPham || product?.TenSanPham || item.tenSP || 'Sản phẩm',
+                productId: String(productId),
+                tenSP: String(itemRecord.TenSanPham || productRecord?.TenSanPham || itemRecord.tenSP || 'Sản phẩm'),
                 gia: finalPrice,
                 basePrice,
-                giamGia: product?.KhuyenMai || item.giamGia || 0,
-                hinhAnh: product?.HinhAnhChinh || item.hinhAnh || '',
-                loaiSP: product?.MaLoaiSanPham?.TenLoaiSanPham || item.loaiSP || '',
-                quantity: item.SoLuong || item.quantity || 1,
+                giamGia: Number(productRecord?.KhuyenMai || itemRecord.giamGia || 0),
+                hinhAnh: String(productRecord?.HinhAnhChinh || itemRecord.hinhAnh || ''),
+                loaiSP: String((maLoaiSanPham?.TenLoaiSanPham as string) || itemRecord.loaiSP || ''),
+                quantity: Number(itemRecord.SoLuong || itemRecord.quantity || 1),
                 selectedDungTich,
                 volumeOptions,
               };
@@ -346,36 +365,38 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               console.log('ℹ️ No cart in database, cart cleared');
             }
           }
-        } catch (cartError: any) {
+        } catch (cartError: unknown) {
           // ✅ Log error nhưng không block login
           if (import.meta.env.DEV) {
-            console.error('⚠️ Error loading cart from database:', cartError?.message || cartError);
+            const errorMsg = (cartError as Record<string, unknown>)?.message || cartError;
+            console.error('⚠️ Error loading cart from database:', errorMsg);
           }
           // Cart đã được xóa ở trên, không cần làm gì thêm
         }
       }
       
       toast.success('Đăng nhập thành công!');
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Xử lý error message - có thể là string hoặc object
       let errorMessage = 'Đăng nhập thất bại';
+      const errorRecord = error as Record<string, unknown>;
       
-      if (typeof error?.message === 'string') {
-        errorMessage = error.message;
-      } else if (error?.response?.data?.message) {
-        const msg = error.response.data.message;
-        errorMessage = typeof msg === 'string' ? msg : (msg?.message || 'Đăng nhập thất bại');
-      } else if (error?.data?.message) {
-        const msg = error.data.message;
-        errorMessage = typeof msg === 'string' ? msg : (msg?.message || 'Đăng nhập thất bại');
+      if (typeof errorRecord?.message === 'string') {
+        errorMessage = errorRecord.message;
+      } else if ((errorRecord?.response as Record<string, unknown>)?.data) {
+        const msg = ((errorRecord.response as Record<string, unknown>).data as Record<string, unknown>)?.message;
+        errorMessage = typeof msg === 'string' ? msg : ((msg as Record<string, unknown>)?.message as string || 'Đăng nhập thất bại');
+      } else if (errorRecord?.data) {
+        const msg = (errorRecord.data as Record<string, unknown>)?.message;
+        errorMessage = typeof msg === 'string' ? msg : ((msg as Record<string, unknown>)?.message as string || 'Đăng nhập thất bại');
       }
       
       toast.error(errorMessage);
       throw error;
     }
-  };
+  }, [fetchUserInfo]);
 
-  const register = async (userData: RegisterData) => {
+  const register = useCallback(async (userData: RegisterData) => {
     try {
       const response = await authService.register(userData);
       
@@ -396,9 +417,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               console.log('✅ Hearts loaded from database after register:', heartProductIds.length, 'products');
             }
           }
-        } catch (heartError: any) {
+        } catch (heartError: unknown) {
           if (import.meta.env.DEV) {
-            console.error('⚠️ Error loading hearts from database:', heartError?.message || heartError);
+            const errorMsg = (heartError as Record<string, unknown>)?.message || heartError;
+            console.error('⚠️ Error loading hearts from database:', errorMsg);
           }
         }
         
@@ -408,52 +430,65 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           
           if (cart && Array.isArray(cart.Items) && cart.Items.length > 0) {
             // ✅ Map từ database format sang localStorage format
-            const mappedCart = cart.Items.map((item: any) => {
-              const product = typeof item.IdSanPham === 'object' ? item.IdSanPham : null;
+            const mappedCart = cart.Items.map((item: unknown) => {
+              const itemRecord = item as Record<string, unknown>;
+              const idSanPham = itemRecord.IdSanPham as Record<string, unknown> | string | undefined;
+              const product = typeof idSanPham === 'object' ? idSanPham : null;
+              const productRecord = product as Record<string, unknown> | null;
               
               // Xử lý selectedDungTich từ DB
-              const selectedDungTich = item.SelectedDungTich ? {
-                value: Number(item.SelectedDungTich.value) || 0,
-                label: item.SelectedDungTich.label || `${item.SelectedDungTich.value || 0} ml`,
-                priceDiff: Number(item.SelectedDungTich.priceDiff) || 0,
-                stockDiff: Number(item.SelectedDungTich.stockDiff) || 0,
-                sku: item.SelectedDungTich.sku,
-                isDefault: Boolean(item.SelectedDungTich.isDefault),
+              const selectedDungTichRaw = itemRecord.SelectedDungTich as Record<string, unknown> | undefined;
+              const selectedDungTich = selectedDungTichRaw ? {
+                value: Number(selectedDungTichRaw.value) || 0,
+                label: String(selectedDungTichRaw.label || `${selectedDungTichRaw.value || 0} ml`),
+                priceDiff: Number(selectedDungTichRaw.priceDiff) || 0,
+                stockDiff: Number(selectedDungTichRaw.stockDiff) || 0,
+                sku: selectedDungTichRaw.sku ? String(selectedDungTichRaw.sku) : undefined,
+                isDefault: Boolean(selectedDungTichRaw.isDefault),
               } : undefined;
               
               // Xử lý volumeOptions từ product
-              const volumeOptions = product?.DungTichOptions && Array.isArray(product.DungTichOptions)
-                ? product.DungTichOptions.map((opt: any) => ({
-                    value: Number(opt.value) || 0,
-                    label: opt.label || `${opt.value || 0} ml`,
-                    priceDiff: Number(opt.priceDiff) || 0,
-                    stockDiff: Number(opt.stockDiff) || 0,
-                    sku: opt.sku,
-                    isDefault: Boolean(opt.isDefault),
-                  }))
+              const volumeOptions = productRecord?.DungTichOptions && Array.isArray(productRecord.DungTichOptions)
+                ? productRecord.DungTichOptions.map((opt: unknown) => {
+                    const optRecord = opt as Record<string, unknown>;
+                    return {
+                      value: Number(optRecord.value) || 0,
+                      label: String(optRecord.label || `${optRecord.value || 0} ml`),
+                      priceDiff: Number(optRecord.priceDiff) || 0,
+                      stockDiff: Number(optRecord.stockDiff) || 0,
+                      sku: optRecord.sku ? String(optRecord.sku) : undefined,
+                      isDefault: Boolean(optRecord.isDefault),
+                    };
+                  })
                 : undefined;
               
               // Tính basePrice từ gia và selectedDungTich
-              const finalPrice = Number(item.Gia) || Number(product?.Gia) || 0;
+              const finalPrice = Number(itemRecord.Gia) || (productRecord ? Number(productRecord.Gia) : 0) || 0;
               const basePrice = selectedDungTich && selectedDungTich.priceDiff
                 ? finalPrice - selectedDungTich.priceDiff
                 : finalPrice;
               
               // Tạo cart item ID với volume
+              const maSanPham = itemRecord.MaSanPham as Record<string, unknown> | string | undefined;
+              const productId = productRecord?._id || 
+                (typeof idSanPham === 'object' && idSanPham?._id ? idSanPham._id : idSanPham) ||
+                (typeof maSanPham === 'object' && maSanPham?._id ? maSanPham._id : maSanPham) ||
+                itemRecord.id;
               const cartItemId = selectedDungTich
-                ? `${product?._id || item.IdSanPham?._id || item.MaSanPham?._id || item.MaSanPham || item.id}::volume-${selectedDungTich.value}`
-                : `${product?._id || item.IdSanPham?._id || item.MaSanPham?._id || item.MaSanPham || item.id}::default`;
+                ? `${productId}::volume-${selectedDungTich.value}`
+                : `${productId}::default`;
               
+              const maLoaiSanPham = productRecord?.MaLoaiSanPham as Record<string, unknown> | undefined;
               return {
                 id: cartItemId,
-                productId: product?._id || item.IdSanPham?._id || item.MaSanPham?._id || item.MaSanPham || item.id,
-                tenSP: item.TenSanPham || product?.TenSanPham || item.tenSP || 'Sản phẩm',
+                productId: String(productId),
+                tenSP: String(itemRecord.TenSanPham || productRecord?.TenSanPham || itemRecord.tenSP || 'Sản phẩm'),
                 gia: finalPrice,
                 basePrice,
-                giamGia: product?.KhuyenMai || item.giamGia || 0,
-                hinhAnh: product?.HinhAnhChinh || item.hinhAnh || '',
-                loaiSP: product?.MaLoaiSanPham?.TenLoaiSanPham || item.loaiSP || '',
-                quantity: item.SoLuong || item.quantity || 1,
+                giamGia: Number(productRecord?.KhuyenMai || itemRecord.giamGia || 0),
+                hinhAnh: String(productRecord?.HinhAnhChinh || itemRecord.hinhAnh || ''),
+                loaiSP: String((maLoaiSanPham?.TenLoaiSanPham as string) || itemRecord.loaiSP || ''),
+                quantity: Number(itemRecord.SoLuong || itemRecord.quantity || 1),
                 selectedDungTich,
                 volumeOptions,
               };
@@ -470,24 +505,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               console.log('ℹ️ No cart in database after register, cart cleared');
             }
           }
-        } catch (cartError: any) {
+        } catch (cartError: unknown) {
           if (import.meta.env.DEV) {
-            console.error('⚠️ Error loading cart from database after register:', cartError?.message || cartError);
+            const errorMsg = (cartError as Record<string, unknown>)?.message || cartError;
+            console.error('⚠️ Error loading cart from database after register:', errorMsg);
           }
           // Cart đã được xóa ở trên, không cần làm gì thêm
         }
       }
       
       toast.success('Đăng ký thành công!');
-    } catch (error: any) {
-      toast.error(error.message || 'Đăng ký thất bại');
+    } catch (error: unknown) {
+      const errorMsg = (error as Record<string, unknown>)?.message as string | undefined;
+      toast.error(errorMsg || 'Đăng ký thất bại');
       throw error;
     }
-  };
+  }, [fetchUserInfo]);
 
   const isLoggingOut = useRef(false); // Guard để tránh logout nhiều lần
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     // Tránh logout nhiều lần
     if (isLoggingOut.current) {
       return;
@@ -503,9 +540,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           if (import.meta.env.DEV) {
             console.log('✅ Hearts saved to database before logout:', localHearts.length, 'products');
           }
-        } catch (heartError: any) {
+        } catch (heartError: unknown) {
           if (import.meta.env.DEV) {
-            console.error('⚠️ Error saving hearts to database before logout:', heartError?.message || heartError);
+            const errorMsg = (heartError as Record<string, unknown>)?.message || heartError;
+            console.error('⚠️ Error saving hearts to database before logout:', errorMsg);
           }
         }
       }
@@ -542,10 +580,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           if (import.meta.env.DEV) {
             console.log('✅ Cart saved to database before logout:', cartItems.length, 'items');
           }
-        } catch (cartError: any) {
+        } catch (cartError: unknown) {
           // ✅ Log error nhưng không block logout
           if (import.meta.env.DEV) {
-            console.error('⚠️ Error saving cart to database before logout:', cartError?.message || cartError);
+            const errorMsg = (cartError as Record<string, unknown>)?.message || cartError;
+            console.error('⚠️ Error saving cart to database before logout:', errorMsg);
           }
           // Không block logout nếu lưu cart thất bại
         }
@@ -562,9 +601,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       window.dispatchEvent(new CustomEvent('hearts:updated'));
       
       toast.success('Đăng xuất thành công!');
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errorRecord = error as Record<string, unknown>;
       if (import.meta.env.DEV) {
-        console.error('Logout error:', error?.message || error);
+        console.error('Logout error:', errorRecord?.message || error);
       }
       // ✅ Vẫn clear user, cart và hearts nếu logout thất bại
       setUser(null);
@@ -573,13 +613,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       window.dispatchEvent(new CustomEvent('hearts:updated'));
       
       // ✅ Chỉ show error nếu không phải lỗi network thông thường
-      if (error?.message && !error.message.includes('Network Error') && !error.message.includes('Không có token')) {
-        toast.error('Đăng xuất thất bại: ' + error.message);
+      const errorMsg = errorRecord?.message as string | undefined;
+      if (errorMsg && !errorMsg.includes('Network Error') && !errorMsg.includes('Không có token')) {
+        toast.error('Đăng xuất thất bại: ' + errorMsg);
       }
     } finally {
       isLoggingOut.current = false;
     }
-  };
+  }, [user]);
 
   // Memoize isAdmin to prevent unnecessary recalculations
   const isAdmin = useMemo(() => {
@@ -589,7 +630,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Memoize isAuthenticated
   const isAuthenticated = useMemo(() => {
     return !!authService.isAuthenticated();
-  }, [user]); // Recalculate when user changes
+  }, []); // authService.isAuthenticated() doesn't depend on user
 
   // Memoize the context value to prevent unnecessary re-renders
   const value: AuthContextType = useMemo(() => ({
@@ -606,6 +647,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {

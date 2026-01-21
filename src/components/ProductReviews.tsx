@@ -61,9 +61,10 @@ export function ProductReviews({ productId }: ProductReviewsProps) {
         setReviews(reviewsArray);
         setStats(statsData);
         setMyReview(myReviewData);
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (!isMounted) return;
-        toast.error(error?.message || 'Không thể tải đánh giá');
+        const errorMessage = error instanceof Error ? error.message : 'Không thể tải đánh giá';
+        toast.error(errorMessage);
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -113,7 +114,7 @@ export function ProductReviews({ productId }: ProductReviewsProps) {
           ...stats,
           totalReviews: newTotalReviews,
           avgRating: newAvgRating,
-          [`star${rating}`]: ((stats as any)[`star${rating}`] || 0) + 1,
+          [`star${rating}`]: ((stats as unknown as Record<string, unknown>)[`star${rating}`] as number || 0) + 1,
         };
         setStats(newStats);
       } else {
@@ -121,8 +122,9 @@ export function ProductReviews({ productId }: ProductReviewsProps) {
         const newStats = await reviewService.getProductRatingStats(productId);
         setStats(newStats);
       }
-    } catch (error: any) {
-      toast.error(error?.message || 'Không thể gửi đánh giá');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Không thể gửi đánh giá';
+      toast.error(errorMessage);
     } finally {
       setSubmitting(false);
     }
@@ -180,7 +182,7 @@ export function ProductReviews({ productId }: ProductReviewsProps) {
               {/* Rating Distribution */}
               <div className="space-y-2">
                 {[5, 4, 3, 2, 1].map((star) => {
-                  const count = (stats as any)[`star${star}`] || 0;
+                  const count = (stats as unknown as Record<string, unknown>)[`star${star}`] as number || 0;
                   const percentage = stats.totalReviews > 0 
                     ? (count / stats.totalReviews) * 100 
                     : 0;
