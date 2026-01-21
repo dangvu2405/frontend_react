@@ -52,10 +52,10 @@ const extractArrayFromResponse = <T,>(payload: unknown, nestedKey?: string): T[]
 
 const extractUploadUrl = (payload: unknown): string => {
   if (!payload || typeof payload !== 'object') return '';
-  const obj = payload as Record<string, any>;
+  const obj = payload as Record<string, unknown>;
   const data =
     obj.data && typeof obj.data === 'object'
-      ? (obj.data as Record<string, any>)
+      ? (obj.data as Record<string, unknown>)
       : obj;
   return data.url || data.secure_url || '';
 };
@@ -241,7 +241,7 @@ export const useAdminProducts = (): AdminProductsHookState => {
       const response = await adminProductsService.getProducts(params);
       const responseData = response?.data;
       const productsData = extractArrayFromResponse<Product>(responseData?.data ?? responseData);
-      const paginationInfo = (responseData as Record<string, any>)?.pagination;
+      const paginationInfo = (responseData as Record<string, unknown>)?.pagination;
 
       setProducts(productsData);
       setPagination((prev) => ({
@@ -462,7 +462,7 @@ export const useAdminProducts = (): AdminProductsHookState => {
             });
           }
           toast.success('Upload ảnh thành công');
-        } catch (error: any) {
+        } catch (error: unknown) {
           toast.error(error?.message || 'Không thể upload ảnh. Vui lòng thử lại');
           if (index === -1) {
             setMainImagePreview('');
@@ -578,7 +578,7 @@ export const useAdminProducts = (): AdminProductsHookState => {
       closeDialog();
       await fetchProducts();
       await refreshCharts();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error submitting product:', error);
       toast.error(error?.response?.data?.message || 'Có lỗi xảy ra');
     } finally {
@@ -595,7 +595,7 @@ export const useAdminProducts = (): AdminProductsHookState => {
       closeDeleteDialog();
       await fetchProducts();
       await refreshCharts();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error deleting product:', error);
       toast.error(error?.response?.data?.message || 'Không thể xóa sản phẩm');
     } finally {

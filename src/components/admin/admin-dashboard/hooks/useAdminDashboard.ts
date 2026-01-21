@@ -13,9 +13,9 @@ const normalizeSummary = (payload: unknown): SummaryStats => ({
   totalRevenue: Number((payload as Record<string, unknown>)?.totalRevenue ?? 0),
 });
 
-const normalizeChart = (payload: unknown, valueMap: (...args: any[]) => ChartItem): ChartItem[] => {
+const normalizeChart = (payload: unknown, valueMap: (...args: unknown[]) => ChartItem): ChartItem[] => {
   if (!payload) return [];
-  const data = Array.isArray(payload) ? payload : Array.isArray((payload as any)?.data) ? (payload as any).data : [];
+  const data = Array.isArray(payload) ? payload : Array.isArray((payload as Record<string, unknown>)?.data) ? (payload as Record<string, unknown>).data : [];
   if (!Array.isArray(data)) return [];
   return data.map((item, index) => valueMap(item, index));
 };
@@ -39,7 +39,7 @@ export const useAdminDashboard = (): AdminDashboardHookState => {
         adminDashboardService.getTopCustomersByOrders({ limit: 6 }),
       ]);
 
-      setSummaryStats(normalizeSummary((summaryRes as any)?.data ?? summaryRes));
+      setSummaryStats(normalizeSummary((summaryRes as Record<string, unknown>)?.data ?? summaryRes));
 
       setTopProductsChart(
         normalizeChart(topProductsRes, (product) => ({

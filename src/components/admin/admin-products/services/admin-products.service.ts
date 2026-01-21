@@ -1,5 +1,5 @@
 import axiosInstance from '@/services/axios';
-import type { Category, Product } from '@/types/models';
+import type { Product } from '@/types/models';
 import type { AdminProductsFormState } from '../types';
 
 export interface ProductQuery {

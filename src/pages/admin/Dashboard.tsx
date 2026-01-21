@@ -8,7 +8,7 @@ import type { ChartItem, SummaryStats } from "@/types/models"
 const unwrapResponse = (payload: unknown): any => {
   if (!payload) return null
   if (typeof payload === "object" && payload !== null && "data" in payload) {
-    const data = (payload as any).data
+    const data = (payload as Record<string, unknown>).data
     // Avoid infinite loop if data references itself
     if (data !== payload) {
       return unwrapResponse(data)
@@ -17,7 +17,7 @@ const unwrapResponse = (payload: unknown): any => {
   return payload
 }
 
-const toArray = (payload: unknown): any[] => {
+const toArray = (payload: unknown): unknown[] => {
   const data = unwrapResponse(payload)
   return Array.isArray(data) ? data : []
 }
@@ -25,11 +25,11 @@ const toArray = (payload: unknown): any[] => {
 const normalizeSummary = (payload: unknown): SummaryStats => {
   const data = unwrapResponse(payload) ?? {}
   return {
-    totalProducts: Number((data as any)?.totalProducts ?? 0),
-    totalCategories: Number((data as any)?.totalCategories ?? 0),
-    totalUsers: Number((data as any)?.totalUsers ?? 0),
-    totalOrders: Number((data as any)?.totalOrders ?? 0),
-    totalRevenue: Number((data as any)?.totalRevenue ?? 0),
+    totalProducts: Number((data as Record<string, unknown>)?.totalProducts ?? 0),
+    totalCategories: Number((data as Record<string, unknown>)?.totalCategories ?? 0),
+    totalUsers: Number((data as Record<string, unknown>)?.totalUsers ?? 0),
+    totalOrders: Number((data as Record<string, unknown>)?.totalOrders ?? 0),
+    totalRevenue: Number((data as Record<string, unknown>)?.totalRevenue ?? 0),
   }
 }
 
@@ -72,7 +72,7 @@ export default function AdminDashboard() {
         const topProductData = toArray(topProductsRes)
 
         setTopProductsChart(
-          topProductData.map((product: any) => ({
+          topProductData.map((product: unknown) => ({
             name: product?.TenSanPham ?? "Không tên",
             sold: Number(product?.DaBan ?? 0),
             revenue:
@@ -84,7 +84,7 @@ export default function AdminDashboard() {
 
         const monthlyOrdersData = toArray(monthlyOrdersRes)
         setMonthlyOrdersChart(
-          monthlyOrdersData.map((item: any) => ({
+          monthlyOrdersData.map((item: unknown) => ({
             name: item?.month && item?.year
               ? `Tháng ${String(item.month).padStart(2, "0")}/${item.year}`
               : "Không xác định",
@@ -95,7 +95,7 @@ export default function AdminDashboard() {
 
         const topCustomersData = toArray(topCustomersRes)
         setTopCustomersChart(
-          topCustomersData.map((customer: any, index: number) => ({
+          topCustomersData.map((customer: unknown, index: number) => ({
             name:
               customer?.name ||
               customer?.email ||
@@ -104,7 +104,7 @@ export default function AdminDashboard() {
             revenue: Number(customer?.totalRevenue ?? 0),
           }))
         )
-      } catch (err: any) {
+      } catch (err: unknown) {
         if (!isMounted) return
         console.error("Lỗi khi tải dữ liệu admin:", err)
         setError(err?.message ?? "Không thể tải dữ liệu admin")

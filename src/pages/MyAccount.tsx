@@ -19,12 +19,12 @@ export default function MyAccountPage() {
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState('profile');
-  const [addresses, setAddresses] = useState<any[]>([]);
-  const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
+  const [addresses, setAddresses] = useState<unknown[]>([]);
+  const [selectedOrder, setSelectedOrder] = useState<Record<string, unknown> | null>(null);
   const [isOrderDetailOpen, setIsOrderDetailOpen] = useState(false);
   
   // ✅ Sử dụng React Query để đồng bộ đơn hàng
-  const { data: orders = [], isLoading: ordersLoading, refetch: refetchOrders } = useOrders();
+  const { data: orders = [], isLoading: ordersLoading } = useOrders();
   const cancelOrderMutation = useCancelOrder();
   const [profileForm, setProfileForm] = useState({
     fullName: user?.fullName || '',
@@ -53,10 +53,10 @@ export default function MyAccountPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ✅ format helpers
-  const formatAddressList = (response: any) => {
+  const formatAddressList = (response: unknown) => {
     const list = response?.data || response?.DiaChi || [];
     return Array.isArray(list)
-      ? list.map((a: any) => ({
+      ? list.map((a: unknown) => ({
           id: a._id || a.id,
           recipientName: a.HoTen || '',
           phone: a.SoDienThoai || '',
@@ -98,7 +98,7 @@ export default function MyAccountPage() {
         if (user && (!user.phone || !user.birthday)) {
           try {
             const userRes = await userService.getCurrentUser();
-            const userData: any = (userRes as any)?.data || userRes || {};
+            const userData: any = (userRes as Record<string, unknown>)?.data || userRes || {};
             if (!isMounted) return;
             setProfileForm({
               fullName: userData.HoTen || user?.fullName || '',
@@ -110,7 +110,7 @@ export default function MyAccountPage() {
                 ? new Date(user.birthday).toISOString().split('T')[0]
                 : '',
             });
-          } catch (userErr) {
+          } catch {
             // Fallback to AuthContext user data
             if (!isMounted) return;
             setProfileForm({
@@ -181,7 +181,7 @@ export default function MyAccountPage() {
       });
       setShowAddForm(false);
       toast.success('✅ Đã thêm địa chỉ');
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error(err?.message || 'Không thể thêm địa chỉ');
     }
   };
@@ -222,7 +222,7 @@ export default function MyAccountPage() {
         ...(profileForm.birthday ? { birthday: profileForm.birthday } : {}),
       });
       toast.success('Cập nhật thông tin thành công');
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error(err?.message || 'Cập nhật thất bại');
     }
   };
@@ -256,7 +256,7 @@ export default function MyAccountPage() {
       const response = await userService.uploadAvatar(file);
       
       // Update user in AuthContext
-      const userData = (response as any)?.data || response || {};
+      const userData = (response as Record<string, unknown>)?.data || response || {};
       const avatarUrl = userData.AvatarUrl || userData.avatar;
       
       if (avatarUrl) {
@@ -268,7 +268,7 @@ export default function MyAccountPage() {
         fileInputRef.current.value = '';
       }
       toast.success('Cập nhật avatar thành công');
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error(err?.message || 'Không thể cập nhật avatar');
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
@@ -279,7 +279,7 @@ export default function MyAccountPage() {
   };
 
   // ✏️ bắt đầu sửa địa chỉ
-  const startEditAddress = (addr: any) => {
+  const startEditAddress = (addr: unknown) => {
     setEditingAddressId(addr.id);
     setEditAddressForm({
       HoTen: addr.recipientName || '',
@@ -330,7 +330,7 @@ export default function MyAccountPage() {
     { id: 'settings', label: 'Cài đặt', icon: Settings, breadcrumb: 'Settings > Settings' },
   ];
 
-  const handleViewOrderDetail = (order: any) => {
+  const handleViewOrderDetail = (order: unknown) => {
     setSelectedOrder(order);
     setIsOrderDetailOpen(true);
   };
@@ -705,7 +705,7 @@ export default function MyAccountPage() {
                   </div>
                 ) : (
                   <>
-                    {orders.map((order: any) => (
+                    {orders.map((order: unknown) => (
                       <Card key={order.id} className="border-2 border-border">
                     <CardContent className="p-6">
                       <div className="flex justify-between items-start mb-4">
@@ -864,7 +864,7 @@ export default function MyAccountPage() {
                   Sản phẩm ({selectedOrder.products?.length || 0})
                 </h3>
                 <div className="space-y-3">
-                  {selectedOrder.products?.map((product: any, index: number) => (
+                  {selectedOrder.products?.map((product: unknown, index: number) => (
                     <div key={`${selectedOrder.id}-${product.id || product.MaSanPham || index}`} className="flex gap-4 p-4 rounded-xl border border-border bg-background">
                       {product.image && (
                         <div className="w-20 h-20 rounded-lg overflow-hidden bg-muted flex-shrink-0">

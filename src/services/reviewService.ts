@@ -81,7 +81,7 @@ export const reviewService = {
     } catch (error: unknown) {
       // Axios interceptor đã transform error
       if (error && typeof error === 'object' && ('status' in error || 'response' in error)) {
-        const status = 'status' in error ? error.status : (error as any).response?.status;
+        const status = 'status' in error ? error.status : (error as Record<string, unknown>).response?.status;
         if (status === 404) {
           return null;
         }

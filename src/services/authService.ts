@@ -72,7 +72,7 @@ const authService = {
     try {
       // ✅ Gọi logout API để xóa session trên server (trước khi clear token)
       await axiosInstance.post(API_ENDPOINTS.LOGOUT);
-    } catch (error: any) {
+    } catch (error: unknown) {
       // ✅ Log error nhưng vẫn tiếp tục logout local
       if (import.meta.env.DEV) {
         console.warn('Logout API error (continuing with local logout):', error?.message);

@@ -19,7 +19,7 @@ export const heartService = {
     
     if (responseData && responseData.data) {
       if (typeof responseData.data === 'object' && 'hearts' in responseData.data) {
-        const hearts = (responseData.data as any).hearts;
+        const hearts = (responseData.data as Record<string, unknown>).hearts;
         return Array.isArray(hearts) ? hearts : [];
       }
       if (Array.isArray(responseData.data)) {
@@ -40,7 +40,7 @@ export const heartService = {
       
       if (responseData && responseData.data) {
         if (typeof responseData.data === 'object' && 'productIds' in responseData.data) {
-          const productIds = (responseData.data as any).productIds;
+          const productIds = (responseData.data as Record<string, unknown>).productIds;
           return Array.isArray(productIds) ? productIds : [];
         }
         if (Array.isArray(responseData.data)) {
@@ -65,7 +65,7 @@ export const heartService = {
       
       if (responseData && responseData.data) {
         if (typeof responseData.data === 'object' && 'isHeart' in responseData.data) {
-          return (responseData.data as any).isHeart;
+          return (responseData.data as Record<string, unknown>).isHeart;
         }
       }
       
@@ -88,13 +88,13 @@ export const heartService = {
       
       if (responseData && responseData.data) {
         if (typeof responseData.data === 'object' && 'heart' in responseData.data) {
-          return (responseData.data as any).heart;
+          return (responseData.data as Record<string, unknown>).heart;
         }
         return responseData.data as Heart;
       }
       
       return null;
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Nếu lỗi 401 (chưa đăng nhập), không throw error
       if (error?.response?.status === 401 || error?.status === 401) {
         return null;
@@ -109,7 +109,7 @@ export const heartService = {
   removeHeart: async (productId: string): Promise<void> => {
     try {
       await axiosInstance.delete(`/user/hearts/${productId}`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Nếu lỗi 401 (chưa đăng nhập), không throw error
       if (error?.response?.status === 401 || error?.status === 401) {
         return;
@@ -129,7 +129,7 @@ export const heartService = {
     
     if (responseData && responseData.data) {
       if (typeof responseData.data === 'object' && 'hearts' in responseData.data) {
-        const hearts = (responseData.data as any).hearts;
+        const hearts = (responseData.data as Record<string, unknown>).hearts;
         return Array.isArray(hearts) ? hearts : [];
       }
       if (Array.isArray(responseData.data)) {

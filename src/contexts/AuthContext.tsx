@@ -119,9 +119,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           });
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Nếu là lỗi 401 (token không hợp lệ/hết hạn), clear storage và user
-      if (error?.status === 401 || error?.response?.status === 401) {
+      const errorRecord = error as Record<string, unknown>;
+      if (errorRecord?.status === 401 || (errorRecord?.response as Record<string, unknown>)?.status === 401) {
         // Token không hợp lệ, clear tất cả
         storage.clearAll();
         setUser(null);
@@ -140,7 +141,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       });
       
       // Nếu không phải 401, thử lấy từ storage
-      const storedUser: any = storage.getUser();
+      const storedUser = storage.getUser() as Record<string, unknown> | null;
       if (storedUser) {
         const fallbackUser = {
           id: storedUser._id || storedUser.id,
@@ -243,7 +244,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const login = async (username: string, password: string, turnstileToken?: string) => {
     try {
-      const loginPayload: any = { username, password };
+      const loginPayload: Record<string, string> = { username, password };
       if (turnstileToken) {
         loginPayload['cf-turnstile-response'] = turnstileToken;
       }
@@ -266,7 +267,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               console.log('✅ Hearts loaded from database after login:', heartProductIds.length, 'products');
             }
           }
-        } catch (heartError: any) {
+        } catch (heartError: unknown) {
           if (import.meta.env.DEV) {
             console.error('⚠️ Error loading hearts from database:', heartError?.message || heartError);
           }
@@ -279,7 +280,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           
           if (cart && Array.isArray(cart.Items) && cart.Items.length > 0) {
             // ✅ Map từ database format (Cart.Items) sang localStorage format (CartItem[])
-            const mappedCart = cart.Items.map((item: any) => {
+            const mappedCart = cart.Items.map((item: unknown) => {
               // item có thể là CartItem từ backend (IdSanPham, TenSanPham, Gia, SoLuong, ThanhTien)
               const product = typeof item.IdSanPham === 'object' ? item.IdSanPham : null;
               
@@ -295,7 +296,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               
               // Xử lý volumeOptions từ product
               const volumeOptions = product?.DungTichOptions && Array.isArray(product.DungTichOptions)
-                ? product.DungTichOptions.map((opt: any) => ({
+                ? product.DungTichOptions.map((opt: unknown) => ({
                     value: Number(opt.value) || 0,
                     label: opt.label || `${opt.value || 0} ml`,
                     priceDiff: Number(opt.priceDiff) || 0,
@@ -346,7 +347,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               console.log('ℹ️ No cart in database, cart cleared');
             }
           }
-        } catch (cartError: any) {
+        } catch (cartError: unknown) {
           // ✅ Log error nhưng không block login
           if (import.meta.env.DEV) {
             console.error('⚠️ Error loading cart from database:', cartError?.message || cartError);
@@ -356,7 +357,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
       
       toast.success('Đăng nhập thành công!');
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Xử lý error message - có thể là string hoặc object
       let errorMessage = 'Đăng nhập thất bại';
       
@@ -396,7 +397,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               console.log('✅ Hearts loaded from database after register:', heartProductIds.length, 'products');
             }
           }
-        } catch (heartError: any) {
+        } catch (heartError: unknown) {
           if (import.meta.env.DEV) {
             console.error('⚠️ Error loading hearts from database:', heartError?.message || heartError);
           }
@@ -408,7 +409,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           
           if (cart && Array.isArray(cart.Items) && cart.Items.length > 0) {
             // ✅ Map từ database format sang localStorage format
-            const mappedCart = cart.Items.map((item: any) => {
+            const mappedCart = cart.Items.map((item: unknown) => {
               const product = typeof item.IdSanPham === 'object' ? item.IdSanPham : null;
               
               // Xử lý selectedDungTich từ DB
@@ -423,7 +424,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               
               // Xử lý volumeOptions từ product
               const volumeOptions = product?.DungTichOptions && Array.isArray(product.DungTichOptions)
-                ? product.DungTichOptions.map((opt: any) => ({
+                ? product.DungTichOptions.map((opt: unknown) => ({
                     value: Number(opt.value) || 0,
                     label: opt.label || `${opt.value || 0} ml`,
                     priceDiff: Number(opt.priceDiff) || 0,
@@ -470,7 +471,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               console.log('ℹ️ No cart in database after register, cart cleared');
             }
           }
-        } catch (cartError: any) {
+        } catch (cartError: unknown) {
           if (import.meta.env.DEV) {
             console.error('⚠️ Error loading cart from database after register:', cartError?.message || cartError);
           }
@@ -479,7 +480,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
       
       toast.success('Đăng ký thành công!');
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.error(error.message || 'Đăng ký thất bại');
       throw error;
     }
@@ -503,7 +504,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           if (import.meta.env.DEV) {
             console.log('✅ Hearts saved to database before logout:', localHearts.length, 'products');
           }
-        } catch (heartError: any) {
+        } catch (heartError: unknown) {
           if (import.meta.env.DEV) {
             console.error('⚠️ Error saving hearts to database before logout:', heartError?.message || heartError);
           }
@@ -542,7 +543,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           if (import.meta.env.DEV) {
             console.log('✅ Cart saved to database before logout:', cartItems.length, 'items');
           }
-        } catch (cartError: any) {
+        } catch (cartError: unknown) {
           // ✅ Log error nhưng không block logout
           if (import.meta.env.DEV) {
             console.error('⚠️ Error saving cart to database before logout:', cartError?.message || cartError);
@@ -562,7 +563,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       window.dispatchEvent(new CustomEvent('hearts:updated'));
       
       toast.success('Đăng xuất thành công!');
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (import.meta.env.DEV) {
         console.error('Logout error:', error?.message || error);
       }

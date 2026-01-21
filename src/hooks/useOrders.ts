@@ -26,7 +26,7 @@ export const formatOrderForDisplay = (order: Order) => {
       : order.TrangThai,
     statusCode: order.TrangThai,
     total: order.TongTien || 0,
-    products: order.SanPham?.map((sp: any) => ({
+    products: order.SanPham?.map((sp: unknown) => ({
       id: sp.MaSanPham?._id || sp.MaSanPham || sp.id,
       name: sp.TenSanPham || sp.IdSanPham?.TenSanPham || 'Sản phẩm',
       quantity: sp.SoLuong || sp.quantity || 1,
@@ -81,7 +81,7 @@ export const useCancelOrder = () => {
       queryClient.invalidateQueries({ queryKey: ['user-orders'] });
       toast.success('Yêu cầu hủy đơn hàng đã được gửi. Vui lòng chờ admin xác nhận.');
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast.error(error?.response?.data?.message || error?.message || 'Không thể hủy đơn hàng');
     },
   });

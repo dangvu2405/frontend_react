@@ -159,7 +159,7 @@ export function OAuthCallback() {
                 console.log('✅ Hearts loaded from database after OAuth login:', heartProductIds.length, 'products');
               }
             }
-          } catch (heartError: any) {
+          } catch (heartError: unknown) {
             if (import.meta.env.DEV) {
               console.error('⚠️ Error loading hearts from database:', heartError?.message || heartError);
             }
@@ -172,7 +172,7 @@ export function OAuthCallback() {
             
             if (cart && Array.isArray(cart.Items) && cart.Items.length > 0) {
               // ✅ Map từ database format (Cart.Items) sang localStorage format (CartItem[])
-              const mappedCart = cart.Items.map((item: any) => {
+              const mappedCart = cart.Items.map((item: unknown) => {
                 const product = typeof item.IdSanPham === 'object' ? item.IdSanPham : null;
                 
                 // Xử lý selectedDungTich từ DB
@@ -187,7 +187,7 @@ export function OAuthCallback() {
                 
                 // Xử lý volumeOptions từ product
                 const volumeOptions = product?.DungTichOptions && Array.isArray(product.DungTichOptions)
-                  ? product.DungTichOptions.map((opt: any) => ({
+                  ? product.DungTichOptions.map((opt: unknown) => ({
                       value: Number(opt.value) || 0,
                       label: opt.label || `${opt.value || 0} ml`,
                       priceDiff: Number(opt.priceDiff) || 0,
@@ -234,7 +234,7 @@ export function OAuthCallback() {
                 console.log('ℹ️ No cart in database after OAuth login, cart cleared');
               }
             }
-          } catch (cartError: any) {
+          } catch (cartError: unknown) {
             if (import.meta.env.DEV) {
               console.error('⚠️ Error loading cart from database after OAuth login:', cartError?.message || cartError);
             }
@@ -261,7 +261,7 @@ export function OAuthCallback() {
           } else {
             navigate('/');
           }
-        } catch (exchangeError: any) {
+        } catch (exchangeError: unknown) {
           // Reset processing flag khi có lỗi
           isProcessingRef.current = null;
           

@@ -1,9 +1,6 @@
-import { format, isToday, isYesterday } from 'date-fns';
-import { vi } from 'date-fns/locale';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 
-import { useAuth } from '@/contexts/AuthContext';
 import type { ChatMessage, ChatRoom } from '@/types/models';
 
 import { adminChatService } from '../services/admin-chat.service';
@@ -15,7 +12,6 @@ const getUnreadCounts = (room: ChatRoom) => ({
 });
 
 const useAdminChat = (): AdminChatHookState => {
-  const { user } = useAuth();
   const [chatRooms, setChatRooms] = useState<ChatRoom[]>([]);
   const [selectedRoom, setSelectedRoom] = useState<ChatRoom | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -84,9 +80,9 @@ const useAdminChat = (): AdminChatHookState => {
   }, [loadChatRooms]);
 
   useEffect(() => {
-    const handleNewChatMessage = (data: any) => {
+    const handleNewChatMessage = (data: Record<string, unknown>) => {
       const currentRoomId = selectedRoom?._id;
-      const isCurrentRoom = currentRoomId === data.chatRoomId;
+      const isCurrentRoom = currentRoomId === (data.chatRoomId as string);
       const isFromCustomer = data.message.SenderType === 'customer';
 
       setChatRooms((prev) =>
@@ -141,9 +137,9 @@ const useAdminChat = (): AdminChatHookState => {
       }
     };
 
-    const handleNewMessage = (message: any) => {
+    const handleNewMessage = (message: Record<string, unknown>) => {
       const currentRoomId = selectedRoom?._id;
-      if (currentRoomId === message.ChatRoomId) {
+      if (currentRoomId === (message.ChatRoomId as string)) {
         setMessages((prev) => {
           const exists = prev.some(
             (msg) =>

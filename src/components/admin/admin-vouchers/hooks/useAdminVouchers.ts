@@ -204,7 +204,7 @@ export const useAdminVouchers = (): AdminVouchersHookState => {
       closeDialog();
       fetchVouchers();
       fetchStats();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving voucher:', error);
       const message = error?.response?.data?.message || 'Không thể lưu voucher';
       toast.error(message);

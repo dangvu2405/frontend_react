@@ -193,7 +193,7 @@ export default function AdminAccountsPage() {
           if (Array.isArray(responseData.data)) {
             usersData = responseData.data
             // pagination ở cùng level với data (đã được normalizeResponse giữ lại)
-            pagination = (responseData as any).pagination
+            pagination = (responseData as Record<string, unknown>).pagination
           }
         }
         // Case 2: responseData là array trực tiếp (fallback - không nên xảy ra nếu normalizeResponse hoạt động đúng)
@@ -205,7 +205,7 @@ export default function AdminAccountsPage() {
         else if (responseData && typeof responseData === 'object' && !Array.isArray(responseData) && 'data' in responseData) {
           if (Array.isArray(responseData.data)) {
             usersData = responseData.data
-            pagination = (responseData as any).pagination
+            pagination = (responseData as Record<string, unknown>).pagination
           }
         }
       }
@@ -308,7 +308,7 @@ export default function AdminAccountsPage() {
       setSelectedUsers(new Set())
       setIsSelectMode(false)
       await fetchData()
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error bulk deleting users:", err)
       toast.error("Không thể xóa một số tài khoản")
     } finally {
@@ -333,7 +333,7 @@ export default function AdminAccountsPage() {
       setSelectedUsers(new Set())
       setIsSelectMode(false)
       await fetchData()
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error bulk updating users:", err)
       toast.error("Không thể cập nhật một số tài khoản")
     } finally {
@@ -433,7 +433,7 @@ export default function AdminAccountsPage() {
         url: data.data.url as string,
         publicId: data.data.public_id as string,
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (import.meta.env.DEV) {
         console.error('Upload error:', {
           message: error?.message,
@@ -479,7 +479,7 @@ export default function AdminAccountsPage() {
           avatarId: uploaded.publicId,
         }))
         toast.success("Upload ảnh đại diện thành công")
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("Error uploading avatar:", error)
         toast.error(error.message || "Không thể upload ảnh")
         setAvatarPreview(null)

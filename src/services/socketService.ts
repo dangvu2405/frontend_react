@@ -29,7 +29,7 @@ class SocketService {
     // Re-register all listeners
     this.listeners.forEach((callbacks, event) => {
       callbacks.forEach((callback) => {
-        this.socket?.on(event, callback as any);
+        this.socket?.on(event, callback as Record<string, unknown>);
       });
     });
 
@@ -107,14 +107,14 @@ class SocketService {
   /**
    * Subscribe to an event
    */
-  on(event: string, callback: Function): void {
+  on(event: string, callback: (data: unknown) => void): void {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, new Set());
     }
     this.listeners.get(event)?.add(callback);
 
     if (this.socket) {
-      this.socket.on(event, callback as any);
+      this.socket.on(event, callback as Record<string, unknown>);
     }
   }
 
@@ -124,7 +124,7 @@ class SocketService {
   off(event: string, callback?: Function): void {
     if (callback) {
       this.listeners.get(event)?.delete(callback);
-      this.socket?.off(event, callback as any);
+      this.socket?.off(event, callback as Record<string, unknown>);
     } else {
       this.listeners.delete(event);
       this.socket?.removeAllListeners(event);

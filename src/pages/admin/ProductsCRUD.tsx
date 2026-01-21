@@ -259,7 +259,7 @@ export default function AdminProductsPage() {
       if (categoriesData.length === 0) {
         console.warn("Không có danh mục nào. Vui lòng tạo danh mục trước khi thêm sản phẩm.")
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       categoriesFetchedRef.current = false // Reset on error
       console.error("Error fetching categories:", err)
       toast.error("Không thể tải danh sách danh mục")
@@ -313,14 +313,14 @@ export default function AdminProductsPage() {
         if (responseData && typeof responseData === 'object' && !Array.isArray(responseData) && 'success' in responseData && 'data' in responseData) {
           if (Array.isArray(responseData.data)) {
             productsData = responseData.data
-            pagination = (responseData as any).pagination
+            pagination = (responseData as Record<string, unknown>).pagination
           }
         } else if (Array.isArray(responseData)) {
           productsData = responseData
         } else if (responseData && typeof responseData === 'object' && !Array.isArray(responseData) && 'data' in responseData) {
           if (Array.isArray(responseData.data)) {
             productsData = responseData.data
-            pagination = (responseData as any).pagination
+            pagination = (responseData as Record<string, unknown>).pagination
           }
         }
       }
@@ -375,7 +375,7 @@ export default function AdminProductsPage() {
         
         updateCharts(allProductsData)
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error fetching data:", err)
       toast.error("Không thể tải dữ liệu")
     } finally {
@@ -456,10 +456,10 @@ export default function AdminProductsPage() {
       await fetchData()
       if (currentPage !== 1) {
         const allProductsRes = await adminService.getProducts({ page: 1, limit: 1000 })
-        const allProductsData = (allProductsRes as any)?.data ?? []
+        const allProductsData = (allProductsRes as Record<string, unknown>)?.data ?? []
         updateCharts(allProductsData)
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error bulk deleting products:", err)
       toast.error("Không thể xóa một số sản phẩm")
     } finally {
@@ -594,7 +594,7 @@ export default function AdminProductsPage() {
         url: data.data.url as string,
         publicId: data.data.public_id as string,
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Debug: Log chi tiết lỗi
       if (import.meta.env.DEV) {
         console.error('Upload error:', {
@@ -659,7 +659,7 @@ export default function AdminProductsPage() {
           })
         }
         toast.success("Upload ảnh thành công")
-      } catch (error: any) {
+      } catch (error: unknown) {
         toast.error(error?.message || "Không thể upload ảnh. Vui lòng thử lại")
         if (index === -1) {
           setMainImagePreview("")
@@ -799,10 +799,10 @@ export default function AdminProductsPage() {
       // Nếu không, cần fetch lại để update charts
       if (currentPage !== 1) {
         const allProductsRes = await adminService.getProducts({ page: 1, limit: 1000 })
-        const allProductsData = (allProductsRes as any)?.data ?? []
+        const allProductsData = (allProductsRes as Record<string, unknown>)?.data ?? []
         updateCharts(allProductsData)
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error submitting product:", err)
       toast.error(err?.response?.data?.message || "Có lỗi xảy ra")
     } finally {
@@ -826,10 +826,10 @@ export default function AdminProductsPage() {
       // Update charts sau khi xóa
       if (currentPage !== 1) {
         const allProductsRes = await adminService.getProducts({ page: 1, limit: 1000 })
-        const allProductsData = (allProductsRes as any)?.data ?? []
+        const allProductsData = (allProductsRes as Record<string, unknown>)?.data ?? []
         updateCharts(allProductsData)
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error deleting product:", err)
       toast.error(err?.response?.data?.message || "Không thể xóa sản phẩm")
     }

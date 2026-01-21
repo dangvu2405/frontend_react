@@ -59,7 +59,7 @@ export const productsService = {
       }
 
       const response = await axiosInstance.get<ApiListResponse<Product>>("/api/products", { params });
-      const responseData = response.data as any;
+      const responseData = response.data as Record<string, unknown>;
 
       if (import.meta.env.DEV) {
         console.log('[productsService] Raw response for getAllProducts:', responseData);
@@ -98,7 +98,7 @@ export const productsService = {
       }
 
       return result;
-    } catch (error: any) {
+    } catch (error: unknown) {
       throw error;
     }
   },
@@ -117,7 +117,7 @@ export const productsService = {
       }
 
       const response = await axiosInstance.get<ApiItemResponse<Product>>(`/api/products/${id}`);
-      const responseData = response.data as any;
+      const responseData = response.data as Record<string, unknown>;
 
       if (import.meta.env.DEV) {
         console.log('[productsService] Raw response for getProductById:', responseData);
@@ -145,7 +145,7 @@ export const productsService = {
       }
 
       return null;
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (import.meta.env.DEV) {
         console.error(`Error fetching product ${id}:`, error);
       }
@@ -158,7 +158,7 @@ export const productsService = {
       const response = await axiosInstance.get<ApiListResponse<Product>>(`/api/products?loaiSP=${category}`);
       const responseData = response.data as unknown as ApiListResponse<Product>;
       return (responseData && 'data' in responseData ? responseData.data : []) ?? [];
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (import.meta.env.DEV) {
         console.error(`Error fetching products by category ${category}:`, error);
       }
@@ -171,7 +171,7 @@ export const productsService = {
       const response = await axiosInstance.get<ApiListResponse<Product>>(`/api/products/search?q=${keyword}`);
       const responseData = response.data as unknown as ApiListResponse<Product>;
       return (responseData && 'data' in responseData ? responseData.data : []) ?? [];
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (import.meta.env.DEV) {
         console.error(`Error searching products with keyword ${keyword}:`, error);
       }

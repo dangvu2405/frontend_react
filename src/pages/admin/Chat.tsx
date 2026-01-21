@@ -182,7 +182,7 @@ export default function AdminChatPage() {
       if (!selectedRoom && data.length > 0) {
         setSelectedRoom(data[0]);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error loading chat rooms:', error);
     } finally {
       setLoadingRooms(false);
@@ -194,7 +194,7 @@ export default function AdminChatPage() {
       setLoading(true);
       const { data } = await chatService.getMessages(chatRoomId);
       setMessages(data);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error loading messages:', error);
     } finally {
       setLoading(false);
@@ -212,7 +212,7 @@ export default function AdminChatPage() {
           prev.map((r) => (r._id === room._id ? updatedRoom : r))
         );
         setSelectedRoom(updatedRoom);
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error('Error assigning admin:', error);
       }
     }
@@ -229,7 +229,7 @@ export default function AdminChatPage() {
       setSending(true);
       // Don't add message to state here - wait for socket event to avoid duplicates
       socketService.sendMessage(selectedRoom._id, messageText);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error sending message:', error);
       // Restore message if error
       setNewMessage(messageText);
@@ -253,7 +253,7 @@ export default function AdminChatPage() {
         setMessages([]);
       }
       toast.success('Đã đóng chat room');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error closing room:', error);
       toast.error('Không thể đóng chat room');
     }
@@ -272,7 +272,7 @@ export default function AdminChatPage() {
       setDeleteDialogOpen(false);
       setRoomToDelete(null);
       toast.success('Đã xóa chat room');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error deleting room:', error);
       toast.error('Không thể xóa chat room');
     }
@@ -746,7 +746,7 @@ export default function AdminChatPage() {
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault();
-                            handleSendMessage(e as any);
+                            handleSendMessage(e as Record<string, unknown>);
                           }
                         }}
                       />

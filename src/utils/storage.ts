@@ -57,7 +57,7 @@ export interface CartItem {
   volumeOptions?: ProductVolumeOption[];
 }
 
-const hydrateCartItem = (raw: any): CartItem | null => {
+const hydrateCartItem = (raw: unknown): CartItem | null => {
   if (!raw) return null;
   const productId = raw.productId || raw.IdSanPham?._id || raw.IdSanPham || (typeof raw.id === 'string' ? raw.id.split('::')[0] : null);
   if (!productId) {
@@ -128,7 +128,7 @@ export const storage = {
     return user ? JSON.parse(user) : null;
   },
 
-  setUser: (user: any): void => {
+  setUser: (user: unknown): void => {
     localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
   },
 

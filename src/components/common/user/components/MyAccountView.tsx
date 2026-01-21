@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { MainLayout } from '@/layouts/MainLayout';
@@ -51,7 +51,7 @@ export const MyAccountView = () => {
         }
         
         setAddresses(result);
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (import.meta.env.DEV) {
           console.error('👤 [MyAccount Page] Error fetching addresses:', {
             error,
@@ -95,7 +95,7 @@ export const MyAccountView = () => {
       setAddresses((prev) => [...prev, created]);
       setNewAddress(emptyAddress);
       toast.success('Đã thêm địa chỉ mới');
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (import.meta.env.DEV) {
         console.error('👤 [MyAccount Page] Error creating address:', {
           error,
@@ -117,7 +117,7 @@ export const MyAccountView = () => {
         prev.map((address) => (address._id === addressId ? { ...address, MacDinh: true } : { ...address, MacDinh: false })),
       );
       toast.success('Đã đặt địa chỉ mặc định');
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.error(error?.message || 'Không thể cập nhật địa chỉ');
     }
   };
@@ -128,7 +128,7 @@ export const MyAccountView = () => {
       await userService.deleteAddress(addressId);
       setAddresses((prev) => prev.filter((address) => address._id !== addressId));
       toast.success('Đã xóa địa chỉ');
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.error(error?.message || 'Không thể xóa địa chỉ');
     }
   };

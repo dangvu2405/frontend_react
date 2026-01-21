@@ -68,7 +68,7 @@ const normalizeResponse = <T>(payload: NormalizablePayload<T>): ApiResponse<T> &
 
   // Giữ lại các field khác từ payload gốc (như pagination)
   Object.keys(payload as Record<string, unknown>).forEach(key => {
-    if (!['success', 'message', 'data'].includes(key) && !FALLBACK_DATA_KEYS.includes(key as any)) {
+    if (!['success', 'message', 'data'].includes(key) && !FALLBACK_DATA_KEYS.includes(key as Record<string, unknown>)) {
       normalized[key] = (payload as Record<string, unknown>)[key];
     }
   });

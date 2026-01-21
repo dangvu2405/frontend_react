@@ -135,7 +135,7 @@ export default function AdminCustomersPage() {
           if (Array.isArray(responseData.data)) {
             customersData = responseData.data
             // pagination ở cùng level với data (đã được normalizeResponse giữ lại)
-            pagination = (responseData as any).pagination
+            pagination = (responseData as Record<string, unknown>).pagination
           }
         }
         // Case 2: responseData là array trực tiếp (fallback - không nên xảy ra nếu normalizeResponse hoạt động đúng)
@@ -147,7 +147,7 @@ export default function AdminCustomersPage() {
         else if (responseData && typeof responseData === 'object' && !Array.isArray(responseData) && 'data' in responseData) {
           if (Array.isArray(responseData.data)) {
             customersData = responseData.data
-            pagination = (responseData as any).pagination
+            pagination = (responseData as Record<string, unknown>).pagination
           }
         }
       }
@@ -173,7 +173,7 @@ export default function AdminCustomersPage() {
           rolesData = rolesResponseData
         } else if (rolesResponseData && typeof rolesResponseData === 'object' && !Array.isArray(rolesResponseData)) {
           // Fallback: tìm roles trong các key khác
-          rolesData = (rolesResponseData as any)?.roles ?? (rolesResponseData as any)?.data?.roles ?? []
+          rolesData = (rolesResponseData as Record<string, unknown>)?.roles ?? (rolesResponseData as Record<string, unknown>)?.data?.roles ?? []
         }
       }
       
@@ -217,7 +217,7 @@ export default function AdminCustomersPage() {
       }
       
       updateCharts(allCustomersData)
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error fetching customers:", err)
       toast.error("Không thể tải dữ liệu khách hàng")
     } finally {
@@ -300,7 +300,7 @@ export default function AdminCustomersPage() {
       toast.success("Cập nhật khách hàng thành công")
       setIsEditDialogOpen(false)
       fetchData()
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error(err?.message || "Không thể cập nhật khách hàng")
     } finally {
       setSubmitting(false)
@@ -314,7 +314,7 @@ export default function AdminCustomersPage() {
       toast.success("Đã xóa khách hàng")
       setIsDeleteDialogOpen(false)
       fetchData()
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error(err?.message || "Không thể xóa khách hàng")
     }
   }
@@ -327,7 +327,7 @@ export default function AdminCustomersPage() {
       toast.success(isLocked ? "Đã mở khóa tài khoản" : "Đã khóa tài khoản")
       setIsLockDialogOpen(false)
       fetchData()
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error(err?.message || "Không thể khóa/mở khóa tài khoản")
     }
   }
@@ -340,7 +340,7 @@ export default function AdminCustomersPage() {
       toast.success("Đã đổi role thành công")
       setIsRoleDialogOpen(false)
       fetchData()
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error(err?.message || "Không thể đổi role")
     } finally {
       setSubmitting(false)

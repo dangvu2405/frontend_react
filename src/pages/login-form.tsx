@@ -215,7 +215,7 @@ export function LoginForm({
           navigate(redirectTo);
         }
       }, 200);
-    } catch (error: any) {
+    } catch (error: unknown) {
       const errorData = error?.response?.data || error?.data || {};
       const message = errorData?.message || "Đăng nhập thất bại";
       const needsCaptcha = errorData?.requiresCaptcha || false;

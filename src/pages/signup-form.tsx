@@ -57,9 +57,9 @@ export function SignupForm({
         password: formData.password,
       });
       navigate("/");
-    } catch (error) {
+    } catch {
       // console.error("Register error:", error);
-      // const message = (error as any)?.message || "Đăng ký thất bại";
+      // const message = (error as Record<string, unknown>)?.message || "Đăng ký thất bại";
       // toast.error(message);
     } finally {
       setLoading(false);

@@ -52,7 +52,7 @@ export default function CheckoutPage() {
     ? addresses.find((addr) => addr._id === selectedAddressId)
     : null;
 
-  const extractPaymentRedirectUrl = (metadata: any): string | null => {
+  const extractPaymentRedirectUrl = (metadata: unknown): string | null => {
     if (!metadata) return null;
     if (typeof metadata === 'string') {
       return metadata.startsWith('http') ? metadata : null;
@@ -108,7 +108,7 @@ export default function CheckoutPage() {
             selectedDungTich: item.selectedDungTich,
           })),
         });
-      } catch (syncError: any) {
+      } catch (syncError: unknown) {
         if (import.meta.env.DEV) {
           console.warn('Failed to sync cart:', syncError);
         }
@@ -120,7 +120,7 @@ export default function CheckoutPage() {
               quantity: item.quantity,
               selectedDungTich: item.selectedDungTich,
             });
-          } catch (itemError: any) {
+          } catch (itemError: unknown) {
             if (import.meta.env.DEV) {
               console.warn('Failed to sync cart item:', item.productId, itemError);
             }
@@ -133,7 +133,7 @@ export default function CheckoutPage() {
 
       const apiMethod = method === 'VNPAY' ? 'vnpay' : 'momo';
       const response = await paymentService.createPayment(apiMethod);
-      const metadata = response?.metadata ?? (response as any)?.data ?? response;
+      const metadata = response?.metadata ?? (response as Record<string, unknown>)?.data ?? response;
       const redirectUrl = extractPaymentRedirectUrl(metadata);
 
       toast.dismiss('create-payment');
@@ -144,7 +144,7 @@ export default function CheckoutPage() {
 
       toast.success('Đang chuyển hướng tới cổng thanh toán...');
       window.location.href = redirectUrl;
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.dismiss('sync-cart');
       toast.dismiss('create-payment');
       if (import.meta.env.DEV) {
@@ -159,17 +159,6 @@ export default function CheckoutPage() {
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  // Format địa chỉ để hiển thị trong Select
-  const formatAddressForSelect = (addr: UserAddress): string => {
-    const parts = [
-      addr.HoTen,
-      addr.SoDienThoai,
-      addr.DiaChiChiTiet,
-      [addr.PhuongXa, addr.QuanHuyen, addr.TinhThanh].filter(Boolean).join(', ')
-    ].filter(Boolean);
-    return parts.join(' · ');
   };
 
   // Lấy danh sách quận/huyện và phường/xã dựa trên tỉnh/thành phố đã chọn
@@ -239,7 +228,7 @@ export default function CheckoutPage() {
         const def = formattedList.find((a) => a.MacDinh);
         setSelectedAddressId((def?._id as string) || (formattedList[0]?._id as string) || null);
         setShowNewAddress(formattedList.length === 0);
-      } catch (e: any) {
+      } catch (e: unknown) {
         if (import.meta.env.DEV) {
           console.error('Error fetching addresses:', e);
         }
@@ -308,7 +297,7 @@ export default function CheckoutPage() {
       setShowNewAddress(false);
       setSelectedAddressId(newAddr._id || null);
       setNewAddress({ HoTen: '', SoDienThoai: '', DiaChiChiTiet: '', PhuongXa: '', QuanHuyen: '', TinhThanh: '', MacDinh: false });
-    } catch (e: any) {
+    } catch (e: unknown) {
       toast.error(e?.message || 'Không thể lưu địa chỉ');
     }
   };
@@ -361,10 +350,10 @@ export default function CheckoutPage() {
           PhuongThucThanhToan: selectedPaymentMethod,
           GhiChu: selectedNote,
           Voucher: voucherCode || undefined,
-        } as any);
+        } as Record<string, unknown>);
         
         checkoutResult = response as unknown as CheckoutResponse;
-      } catch (checkoutError: any) {
+      } catch (checkoutError: unknown) {
         const errorMsg = checkoutError?.message || checkoutError?.data?.message || 'Không thể tạo đơn hàng. Vui lòng thử lại.';
         toast.error(errorMsg);
         setPaymentStatus('fail');
@@ -401,7 +390,7 @@ export default function CheckoutPage() {
         const id = checkoutResult._id;
         orderId = typeof id === 'string' ? id : String(id);
       } else if (checkoutResult?.donHang) {
-        const donHang = checkoutResult.donHang as any;
+        const donHang = checkoutResult.donHang as Record<string, unknown>;
         if (donHang._id) {
           orderId = typeof donHang._id === 'string' ? donHang._id : String(donHang._id);
         } else if (donHang.id) {
@@ -432,7 +421,7 @@ export default function CheckoutPage() {
         window.dispatchEvent(new CustomEvent('cart:updated'));
         setPaymentStatus('success');
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       if (import.meta.env.DEV) {
         console.error('Checkout error:', e);
       }

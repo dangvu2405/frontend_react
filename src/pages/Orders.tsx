@@ -12,29 +12,19 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Package,
-  Calendar,
-  MapPin,
-  CreditCard,
   X,
   Loader2,
-  CheckCircle2,
-  Truck,
-  Ban,
   FileText,
   Download,
   MoreVertical,
   ArrowRight,
   ArrowLeft,
-  User,
-  Box,
 } from 'lucide-react';
 import { useState } from 'react';
-import { toast } from 'sonner';
-import type { Order, OrderProduct, Product } from '@/types/models';
+import type { OrderProduct, Product } from '@/types/models';
 import { getCloudinaryProductImageUrl } from '@/utils/imageUtils';
 import { formatCurrency } from '@/utils/format';
 import { useOrders, useCancelOrder } from '@/hooks/useOrders';
@@ -77,7 +67,7 @@ export default function OrdersPage() {
     );
   };
 
-  const getOrderHistory = (order: any) => {
+  const getOrderHistory = (order: unknown) => {
     const history = [];
     const statusCode = order.statusCode || order.raw?.TrangThai;
     
@@ -114,7 +104,7 @@ export default function OrdersPage() {
     return history.reverse();
   };
 
-  const canCancelOrder = (order: any) => {
+  const canCancelOrder = (order: unknown) => {
     const statusCode = order.statusCode || order.raw?.TrangThai;
     return statusCode === 'pending' || statusCode === 'confirmed';
   };
@@ -156,7 +146,7 @@ export default function OrdersPage() {
     setIsCancelDialogOpen(true);
   };
 
-  const openDetailDialog = (order: any, index?: number) => {
+  const openDetailDialog = (order: unknown, index?: number) => {
     setSelectedOrder(order);
     if (index !== undefined) {
       setCurrentOrderIndex(index);
@@ -197,7 +187,7 @@ export default function OrdersPage() {
     }
   };
 
-  const getFirstProductImage = (order: any): string => {
+  const getFirstProductImage = (order: unknown): string => {
     if (order.products && order.products.length > 0) {
       return order.products[0].image || '';
     }
@@ -212,7 +202,7 @@ export default function OrdersPage() {
     return '';
   };
 
-  const getFirstProductName = (order: any): string => {
+  const getFirstProductName = (order: unknown): string => {
     if (order.products && order.products.length > 0) {
       return order.products[0].name || 'Sản phẩm';
     }
@@ -316,7 +306,7 @@ export default function OrdersPage() {
           </Card>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {filteredOrders.map((order, index) => {
+            {filteredOrders.map((order) => {
               const firstProductImage = getFirstProductImage(order);
               const firstProductName = getFirstProductName(order);
               
@@ -530,7 +520,7 @@ export default function OrdersPage() {
 
                 <TabsContent value="items" className="mt-4">
                   <div className="space-y-3">
-                    {(selectedOrder.products || selectedOrder.raw?.SanPham || []).map((product: any, index: number) => {
+                    {(selectedOrder.products || selectedOrder.raw?.SanPham || []).map((product: unknown, index: number) => {
                       // Ưu tiên dùng formatted products từ hook
                       if (selectedOrder.products && selectedOrder.products[index]) {
                         const p = selectedOrder.products[index];
@@ -563,7 +553,6 @@ export default function OrdersPage() {
                       
                       // Fallback về raw data
                       const productEntity = isProductDocument(product.IdSanPham) ? product.IdSanPham : null;
-                      const productId = productEntity?._id || product.IdSanPham;
                       const productName = productEntity?.TenSanPham || product.TenSanPham || 'Sản phẩm';
                       const productImage = productEntity?.HinhAnhChinh
                         || (typeof product.HinhAnhChinh === 'string' ? product.HinhAnhChinh : '');

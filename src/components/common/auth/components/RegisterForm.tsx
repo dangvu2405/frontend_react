@@ -45,8 +45,9 @@ export const RegisterForm = () => {
       });
       toast.success('Đăng ký thành công');
       navigate('/');
-    } catch (error: any) {
-      toast.error(error?.message || 'Đăng ký thất bại');
+    } catch (error: unknown) {
+      const errorMsg = error instanceof Error ? error.message : 'Đăng ký thất bại';
+      toast.error(errorMsg);
     } finally {
       setSubmitting(false);
     }

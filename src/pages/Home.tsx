@@ -44,7 +44,7 @@ export default function HomePage() {
   const [canPlayHero, setCanPlayHero] = useState(false);
 
   const handleAddToCart = useCallback((product: Product | any, selectedVolume?: ProductVolumeOption) => {
-    const productAny = product as any;
+    const productAny = product as Record<string, unknown>;
     const productId = productAny._id || productAny.id || '';
     if (!productId) return;
     const productName = productAny.TenSanPham || productAny.tenSP || 'Sản phẩm';
@@ -80,7 +80,7 @@ export default function HomePage() {
         const products = result.products || [];
         
         const validProducts = products.map((product, index) => {
-          const p = product as any;
+          const p = product as Record<string, unknown>;
           let discountPercent = 0;
           if (p.KhuyenMai > 0) {
             discountPercent = Number(p.KhuyenMai);

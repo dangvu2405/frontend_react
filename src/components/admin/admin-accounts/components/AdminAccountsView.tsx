@@ -32,7 +32,6 @@ import { useAdminAccounts } from '../hooks/useAdminAccounts';
 const AdminAccountsView: FC = () => {
   const {
     loading,
-    users,
     roles,
     roleChart,
     statusChart,

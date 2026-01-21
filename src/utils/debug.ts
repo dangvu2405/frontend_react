@@ -10,7 +10,7 @@ const isDev = import.meta.env.DEV;
 /**
  * Debug logger for API requests
  */
-export const debugApiRequest = (method: string, url: string, config?: any) => {
+export const debugApiRequest = (method: string, url: string, config?: unknown) => {
   if (!isDev) return;
   
   const params = config?.params ? `?${new URLSearchParams(config.params).toString()}` : '';
@@ -26,7 +26,7 @@ export const debugApiRequest = (method: string, url: string, config?: any) => {
 /**
  * Debug logger for API success responses
  */
-export const debugApiSuccess = (method: string, url: string, response: any) => {
+export const debugApiSuccess = (method: string, url: string, response: unknown) => {
   if (!isDev) return;
   
   const fullUrl = `${response?.config?.baseURL || ''}${url}`;
@@ -42,7 +42,7 @@ export const debugApiSuccess = (method: string, url: string, response: any) => {
 /**
  * Debug logger for API errors
  */
-export const debugApiError = (method: string, url: string, error: any) => {
+export const debugApiError = (method: string, url: string, error: unknown) => {
   if (!isDev) return;
   
   const fullUrl = error?.config 
@@ -61,7 +61,7 @@ export const debugApiError = (method: string, url: string, error: any) => {
 /**
  * Debug logger for page operations
  */
-export const debugPage = (pageName: string, operation: string, data?: any) => {
+export const debugPage = (pageName: string, operation: string, data?: unknown) => {
   if (!isDev) return;
   
   const emoji = getPageEmoji(pageName);
@@ -71,7 +71,7 @@ export const debugPage = (pageName: string, operation: string, data?: any) => {
 /**
  * Debug logger for page errors
  */
-export const debugPageError = (pageName: string, operation: string, error: any) => {
+export const debugPageError = (pageName: string, operation: string, error: unknown) => {
   if (!isDev) return;
   
   const emoji = getPageEmoji(pageName);
@@ -102,7 +102,7 @@ const getPageEmoji = (pageName: string): string => {
  */
 export const setDebugMode = (enabled: boolean) => {
   if (typeof window !== 'undefined') {
-    (window as any).__DEBUG_MODE__ = enabled;
+    (window as Record<string, unknown>).__DEBUG_MODE__ = enabled;
   }
 };
 
@@ -111,7 +111,7 @@ export const setDebugMode = (enabled: boolean) => {
  */
 export const isDebugMode = (): boolean => {
   if (typeof window !== 'undefined') {
-    return (window as any).__DEBUG_MODE__ ?? isDev;
+    return (window as Record<string, unknown>).__DEBUG_MODE__ ?? isDev;
   }
   return isDev;
 };

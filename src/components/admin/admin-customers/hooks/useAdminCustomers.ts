@@ -8,7 +8,6 @@ import type {
   AdminCustomerFormState,
   AdminCustomersFilters,
   AdminCustomersHookState,
-  CustomerStatusFilter,
 } from '../types';
 
 const PAGE_SIZE = 10;
@@ -250,8 +249,9 @@ export const useAdminCustomers = (): AdminCustomersHookState => {
       toast.success('Cập nhật khách hàng thành công');
       closeEditDialog();
       fetchCustomers();
-    } catch (error: any) {
-      toast.error(error?.message || 'Không thể cập nhật khách hàng');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Không thể cập nhật khách hàng';
+      toast.error(errorMessage);
     } finally {
       setSubmitting(false);
     }
@@ -265,8 +265,9 @@ export const useAdminCustomers = (): AdminCustomersHookState => {
       toast.success('Đã xóa khách hàng');
       closeDeleteDialog();
       fetchCustomers();
-    } catch (error: any) {
-      toast.error(error?.message || 'Không thể xóa khách hàng');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Không thể xóa khách hàng';
+      toast.error(errorMessage);
     } finally {
       setSubmitting(false);
     }
@@ -281,8 +282,9 @@ export const useAdminCustomers = (): AdminCustomersHookState => {
       toast.success(isLocked ? 'Đã mở khóa tài khoản' : 'Đã khóa tài khoản');
       closeLockDialog();
       fetchCustomers();
-    } catch (error: any) {
-      toast.error(error?.message || 'Không thể cập nhật trạng thái tài khoản');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Không thể cập nhật trạng thái tài khoản';
+      toast.error(errorMessage);
     } finally {
       setSubmitting(false);
     }
@@ -296,8 +298,9 @@ export const useAdminCustomers = (): AdminCustomersHookState => {
       toast.success('Đã đổi role thành công');
       closeRoleDialog();
       fetchCustomers();
-    } catch (error: any) {
-      toast.error(error?.message || 'Không thể đổi role');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Không thể đổi role';
+      toast.error(errorMessage);
     } finally {
       setSubmitting(false);
     }

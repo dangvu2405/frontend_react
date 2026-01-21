@@ -5,8 +5,6 @@
 
 import { memo, useCallback, useState, useEffect, useMemo } from "react"
 import type { Product, ProductVolumeOption, RatingStats } from "@/types/models"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import { useNavigate } from "react-router-dom"
 import { Star, ShoppingCart, Heart } from "lucide-react"
 import { getCloudinaryProductImageUrl } from "@/utils/imageUtils"
@@ -14,7 +12,6 @@ import { reviewService } from "@/services/reviewService"
 import { storage } from "@/utils/storage"
 import { heartService } from "@/services/heartService"
 import { useAuth } from "@/contexts/AuthContext"
-import { toast } from "sonner"
 
 type PaginationProps = {
   currentPage: number
@@ -53,20 +50,17 @@ type ProductCardProps = {
 const ProductCard = memo(({ 
   product, 
   onAddToCart, 
-  showCategoryBadge, 
-  showSoldQuantity, 
   showAddToCartButton,
   showVolumeOptions = true,
   onProductClick
 }: ProductCardProps) => {
   const { isAuthenticated } = useAuth();
   const [rating, setRating] = useState<RatingStats | null>(null);
-  const [loadingRating, setLoadingRating] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
   const [isTogglingHeart, setIsTogglingHeart] = useState(false);
 
   // Get product ID (support both normalized and original)
-  const productId = (product as any).id || (product as any)._id || '';
+  const productId = (product as Record<string, unknown>).id || (product as Record<string, unknown>)._id || '';
   
   // Load heart status from localStorage
   useEffect(() => {
@@ -109,9 +103,9 @@ const ProductCard = memo(({
         }
         
         setRating(stats);
-      } catch (error: any) {
+      } catch (error: unknown) {
         // Handle 401/403/404 gracefully - rating stats might not require auth or might not exist
-        const status = error?.response?.status || error?.status;
+        const status = (error as Record<string, unknown>)?.response?.status || (error as Record<string, unknown>)?.status;
         if (status === 401 || status === 403 || status === 404) {
           // Silently set default stats for unauthorized/not found
           if (import.meta.env.DEV) {
@@ -140,22 +134,23 @@ const ProductCard = memo(({
   }, [productId]);
 
   // Support both normalized và original field names
-  const productAny = product as any;
+  const productAny = product as Record<string, unknown>;
   const volumeOptions = useMemo<ProductVolumeOption[]>(() => {
     const rawOptions = productAny.DungTichOptions || productAny.dungTichOptions;
     let normalized: ProductVolumeOption[] = Array.isArray(rawOptions) ? rawOptions.filter(Boolean) : [];
 
     normalized = normalized
-      .map((option: any) => {
-        const value = Number(option?.value ?? option?.Value);
+      .map((option: unknown) => {
+        const optionRecord = option as Record<string, unknown>;
+        const value = Number(optionRecord?.value ?? optionRecord?.Value);
         if (!Number.isFinite(value) || value <= 0) return null;
         return {
           value,
-          label: option?.label || option?.Label || `${value} ml`,
-          priceDiff: Number(option?.priceDiff ?? option?.PriceDiff) || 0,
-          stockDiff: Number(option?.stockDiff ?? option?.StockDiff) || 0,
-          sku: option?.sku || option?.SKU,
-          isDefault: Boolean(option?.isDefault ?? option?.IsDefault),
+          label: optionRecord?.label || optionRecord?.Label || `${value} ml`,
+          priceDiff: Number(optionRecord?.priceDiff ?? optionRecord?.PriceDiff) || 0,
+          stockDiff: Number(optionRecord?.stockDiff ?? optionRecord?.StockDiff) || 0,
+          sku: optionRecord?.sku || optionRecord?.SKU,
+          isDefault: Boolean(optionRecord?.isDefault ?? optionRecord?.IsDefault),
         };
       })
       .filter(Boolean) as ProductVolumeOption[];
@@ -189,9 +184,7 @@ const ProductCard = memo(({
   const basePrice = Number(productAny.gia ?? productAny.Gia ?? 0);
   const variantBasePrice = basePrice + (selectedVolume?.priceDiff || 0);
   const discountedPrice = discount > 0 ? Math.round(variantBasePrice * (1 - discount / 100)) : variantBasePrice;
-  const soldCount = Number(productAny.daBan ?? productAny.DaBan ?? 0);
   const avgRating = rating?.avgRating || 0;
-  const reviewCount = rating?.totalReviews || 0;
   const formattedVolume = selectedVolume?.label || (selectedVolume ? `${selectedVolume.value} ml` : null);
 
   return (
@@ -219,7 +212,7 @@ const ProductCard = memo(({
                 if (isAuthenticated) {
                   try {
                     await heartService.addHeart(productId);
-                  } catch (error: any) {
+                  } catch (error: unknown) {
                     // Nếu lỗi, vẫn giữ trong localStorage
                     console.error('Error adding heart to database:', error);
                   }
@@ -232,7 +225,7 @@ const ProductCard = memo(({
                 if (isAuthenticated) {
                   try {
                     await heartService.removeHeart(productId);
-                  } catch (error: any) {
+                  } catch (error: unknown) {
                     // Nếu lỗi, vẫn xóa khỏi localStorage
                     console.error('Error removing heart from database:', error);
                   }
@@ -414,7 +407,7 @@ function ProductsGridComponent({
     
     // Tính toán range của pages hiển thị
     let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2))
-    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1)
+    const endPage = Math.min(totalPages, startPage + maxVisiblePages - 1)
     
     // Điều chỉnh nếu không đủ pages ở cuối
     if (endPage - startPage + 1 < maxVisiblePages) {
@@ -500,7 +493,7 @@ function ProductsGridComponent({
     <>
       <div className={className}>
         {products.map((product) => {
-          const productId = (product as any).id || (product as any)._id || '';
+          const productId = (product as Record<string, unknown>).id || (product as Record<string, unknown>)._id || '';
           return (
           <ProductCard
               key={productId}

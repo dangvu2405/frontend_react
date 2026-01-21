@@ -159,14 +159,14 @@ export default function AdminOrdersPage() {
         if (responseData && typeof responseData === 'object' && !Array.isArray(responseData) && 'success' in responseData && 'data' in responseData) {
           if (Array.isArray(responseData.data)) {
             ordersData = responseData.data
-            pagination = (responseData as any).pagination
+            pagination = (responseData as Record<string, unknown>).pagination
           }
         } else if (Array.isArray(responseData)) {
           ordersData = responseData
         } else if (responseData && typeof responseData === 'object' && !Array.isArray(responseData) && 'data' in responseData) {
           if (Array.isArray(responseData.data)) {
             ordersData = responseData.data
-            pagination = (responseData as any).pagination
+            pagination = (responseData as Record<string, unknown>).pagination
           }
         }
       }
@@ -210,7 +210,7 @@ export default function AdminOrdersPage() {
         
         updateCharts(allOrdersData)
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error fetching orders:", err)
       toast.error("Không thể tải dữ liệu đơn hàng")
     } finally {
@@ -243,7 +243,7 @@ export default function AdminOrdersPage() {
       if (!order.createdAt) return false // Skip orders without createdAt
       const orderDate = new Date(order.createdAt)
       const now = new Date()
-      let startDate = new Date()
+      const startDate = new Date()
       
       switch (dateFilter) {
         case "today":
@@ -336,7 +336,7 @@ export default function AdminOrdersPage() {
       setCurrentPage(1)
       await fetchData()
       // Charts sẽ được update tự động vì currentPage = 1
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast.error(err?.response?.data?.message || "Không thể cập nhật đơn hàng")
     } finally {
       setSubmitting(false)
@@ -353,7 +353,7 @@ export default function AdminOrdersPage() {
       setCurrentPage(1)
       await fetchData()
       // Charts sẽ được update tự động vì currentPage = 1
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error cancelling order:", err)
       toast.error(err?.response?.data?.message || "Không thể hủy đơn hàng")
     }
@@ -370,7 +370,7 @@ export default function AdminOrdersPage() {
         // Nếu đang ở trang 1, chỉ refresh data
         await fetchData()
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error updating order status:", err)
       toast.error(err?.response?.data?.message || "Không thể cập nhật trạng thái")
     }
@@ -411,7 +411,7 @@ export default function AdminOrdersPage() {
       setSelectedOrders(new Set())
       setIsSelectMode(false)
       await fetchData()
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error bulk updating orders:", err)
       toast.error("Không thể cập nhật một số đơn hàng")
     } finally {
@@ -436,7 +436,7 @@ export default function AdminOrdersPage() {
       setSelectedOrders(new Set())
       setIsSelectMode(false)
       await fetchData()
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error bulk cancelling orders:", err)
       toast.error("Không thể hủy một số đơn hàng")
     } finally {
@@ -910,7 +910,7 @@ export default function AdminOrdersPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {selectedOrder.SanPham.map((item: any, idx: number) => {
+                        {selectedOrder.SanPham.map((item: unknown, idx: number) => {
                           // Hỗ trợ cả MaSanPham và IdSanPham
                           const productId = item.MaSanPham || item.IdSanPham || item._id || idx;
                           const productName = item.TenSanPham || item.name || "Sản phẩm không xác định";

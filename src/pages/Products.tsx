@@ -55,7 +55,7 @@ export default function ProductsPage() {
       : 'Nước hoa';
 
     const item: CartItemInput = {
-      productId: String(product._id || (product as any).id),
+      productId: String(product._id || (product as Record<string, unknown>).id),
       tenSP: product.TenSanPham,
       basePrice: product.Gia,
       giamGia: product.KhuyenMai || 0,
@@ -115,7 +115,7 @@ export default function ProductsPage() {
 
         setProducts(normalized);
         setTotalProducts(normalized.length);
-      } catch (error: any) {
+      } catch (error: unknown) {
         if (!isMounted) return;
         if (import.meta.env.DEV) {
           console.error('Error fetching products:', error);
