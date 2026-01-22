@@ -98,6 +98,7 @@ export default function AdminOrdersPage() {
 
   useEffect(() => {
     fetchData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, paymentMethodFilter, dateFilter, currentPage])
   
   // Reset selected orders when filter changes

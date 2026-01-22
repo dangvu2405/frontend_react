@@ -943,7 +943,8 @@ export default function MyAccountPage() {
               </div>
 
               {/* Products List */}
-              {(productsListContent as any)}
+              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+              {(productsListContent as any as React.ReactNode)}
 
               {/* Address */}
               <div>

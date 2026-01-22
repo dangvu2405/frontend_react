@@ -57,7 +57,6 @@ const ProductCard = memo(({
 }: ProductCardProps) => {
   const { isAuthenticated } = useAuth();
   const [rating, setRating] = useState<RatingStats | null>(null);
-  const [loadingRating, setLoadingRating] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
   const [isTogglingHeart, setIsTogglingHeart] = useState(false);
 
@@ -172,7 +171,7 @@ const ProductCard = memo(({
     }
 
     return normalized;
-  }, [productId, productAny.DungTichOptions, productAny.DungTich, productAny.dungTich]);
+  }, [productAny.DungTichOptions, productAny.DungTich, productAny.dungTich, productAny.dungTichOptions]);
 
   const [selectedVolume, setSelectedVolume] = useState<ProductVolumeOption>(
     volumeOptions.find(opt => opt.isDefault) || volumeOptions[0]

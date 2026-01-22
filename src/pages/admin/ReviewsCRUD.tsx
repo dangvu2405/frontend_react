@@ -228,7 +228,7 @@ export default function AdminReviewsPage() {
     }
 
     return params
-  }, [currentPage, sortBy, sortOrder, productIdFilter, customerIdFilter, minRating, maxRating, refreshTrigger])
+  }, [currentPage, sortBy, sortOrder, productIdFilter, customerIdFilter, minRating, maxRating])
 
   // Fetch reviews data
   useEffect(() => {

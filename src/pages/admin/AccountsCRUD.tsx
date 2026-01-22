@@ -148,10 +148,11 @@ export default function AdminAccountsPage() {
       }
     }
     fetchRoles()
-  }, [])
+  }, [roles.length])
   
   useEffect(() => {
     fetchData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, roleFilter, statusFilter])
   
   // Reset selected users when filter changes

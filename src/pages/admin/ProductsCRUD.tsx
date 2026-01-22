@@ -267,10 +267,12 @@ export default function AdminProductsPage() {
 
   useEffect(() => {
     fetchCategories()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
     fetchData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, categoryFilter])
   
   // Reset selected products when filter changes

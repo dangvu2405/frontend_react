@@ -51,6 +51,7 @@ export default function AdminChatPage() {
     loadChatRooms();
     // Connect to socket - admin will automatically join admin-room
     socketService.connect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Set up socket listeners

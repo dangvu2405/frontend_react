@@ -109,6 +109,7 @@ export default function AdminVouchersPage() {
   useEffect(() => {
     fetchData()
     fetchStats()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, sortBy, sortOrder, search, minGiaTri, maxGiaTri, minSoLuong, maxSoLuong])
 
   const fetchData = async () => {

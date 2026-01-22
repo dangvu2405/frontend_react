@@ -89,6 +89,7 @@ export default function AdminCustomersPage() {
 
   useEffect(() => {
     fetchData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, statusFilter])
   
   // Filter customers locally by search query

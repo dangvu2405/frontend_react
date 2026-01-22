@@ -625,7 +625,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   // Memoize isAdmin to prevent unnecessary recalculations
   const isAdmin = useMemo(() => {
     return checkAdminRole();
-  }, [user, checkAdminRole]);
+  }, [checkAdminRole]);
 
   // Memoize isAuthenticated
   const isAuthenticated = useMemo(() => {
