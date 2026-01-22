@@ -152,11 +152,11 @@ export function OAuthCallback() {
           // ✅ Load hearts từ database và sync vào localStorage
           try {
             const { heartService } = await import('@/services/heartService');
-            const heartProductIds = await heartService.getUserHeartProductIds();
-            if (heartProductIds && heartProductIds.length > 0) {
-              storage.setHearts(heartProductIds);
+            const heartProjectIds = await heartService.getUserHeartProjectIds();
+            if (heartProjectIds && heartProjectIds.length > 0) {
+              storage.setHearts(heartProjectIds);
               if (import.meta.env.DEV) {
-                console.log('✅ Hearts loaded from database after OAuth login:', heartProductIds.length, 'products');
+                console.log('✅ Hearts loaded from database after OAuth login:', heartProjectIds.length, 'projects');
               }
             }
           } catch (heartError: unknown) {
@@ -176,8 +176,8 @@ export function OAuthCallback() {
               const mappedCart = cart.Items.map((item: unknown) => {
                 const itemRecord = item as Record<string, unknown>;
                 const idSanPham = itemRecord.IdSanPham as Record<string, unknown> | string | undefined;
-                const product = typeof idSanPham === 'object' ? idSanPham : null;
-                const productRecord = product as Record<string, unknown> | null;
+                const project = typeof idSanPham === 'object' ? idSanPham : null;
+                const projectRecord = project as Record<string, unknown> | null;
                 
                 // Xử lý selectedDungTich từ DB
                 const selectedDungTichRaw = itemRecord.SelectedDungTich as Record<string, unknown> | undefined;
@@ -190,9 +190,9 @@ export function OAuthCallback() {
                   isDefault: Boolean(selectedDungTichRaw.isDefault),
                 } : undefined;
                 
-                // Xử lý volumeOptions từ product
-                const volumeOptions = productRecord?.DungTichOptions && Array.isArray(productRecord.DungTichOptions)
-                  ? productRecord.DungTichOptions.map((opt: unknown) => {
+                // Xử lý includesOptions từ project
+                const includesOptions = projectRecord?.DungTichOptions && Array.isArray(projectRecord.DungTichOptions)
+                  ? projectRecord.DungTichOptions.map((opt: unknown) => {
                       const optRecord = opt as Record<string, unknown>;
                       return {
                         value: Number(optRecord.value) || 0,
@@ -206,34 +206,34 @@ export function OAuthCallback() {
                   : undefined;
                 
                 // Tính basePrice từ gia và selectedDungTich
-                const finalPrice = Number(itemRecord.Gia) || (productRecord ? Number(productRecord.Gia) : 0) || 0;
+                const finalPrice = Number(itemRecord.Gia) || (projectRecord ? Number(projectRecord.Gia) : 0) || 0;
                 const basePrice = selectedDungTich && selectedDungTich.priceDiff
                   ? finalPrice - selectedDungTich.priceDiff
                   : finalPrice;
                 
-                // Tạo cart item ID với volume
+                // Tạo cart item ID với includes
                 const maSanPham = itemRecord.MaSanPham as Record<string, unknown> | string | undefined;
-                const productId = productRecord?._id || 
+                const projectId = projectRecord?._id || 
                   (typeof idSanPham === 'object' && idSanPham?._id ? idSanPham._id : idSanPham) ||
                   (typeof maSanPham === 'object' && maSanPham?._id ? maSanPham._id : maSanPham) ||
                   itemRecord.id;
                 const cartItemId = selectedDungTich
-                  ? `${productId}::volume-${selectedDungTich.value}`
-                  : `${productId}::default`;
+                  ? `${projectId}::includes-${selectedDungTich.value}`
+                  : `${projectId}::default`;
                 
-                const maLoaiSanPham = productRecord?.MaLoaiSanPham as Record<string, unknown> | undefined;
+                const maLoaiSanPham = projectRecord?.MaLoaiSanPham as Record<string, unknown> | undefined;
                 return {
                   id: cartItemId,
-                  productId: String(productId),
-                  tenSP: String(itemRecord.TenSanPham || productRecord?.TenSanPham || itemRecord.tenSP || 'Sản phẩm'),
+                  projectId: String(projectId),
+                  tenSP: String(itemRecord.TenSanPham || projectRecord?.TenSanPham || itemRecord.tenSP || 'Đồ án'),
                   gia: finalPrice,
                   basePrice,
-                  giamGia: Number(productRecord?.KhuyenMai || itemRecord.giamGia || 0),
-                  hinhAnh: String(productRecord?.HinhAnhChinh || itemRecord.hinhAnh || ''),
+                  giamGia: Number(projectRecord?.KhuyenMai || itemRecord.giamGia || 0),
+                  hinhAnh: String(projectRecord?.HinhAnhChinh || itemRecord.hinhAnh || ''),
                   loaiSP: String((maLoaiSanPham?.TenLoaiSanPham as string) || itemRecord.loaiSP || ''),
                   quantity: Number(itemRecord.SoLuong || itemRecord.quantity || 1),
                   selectedDungTich,
-                  volumeOptions,
+                  includesOptions,
                 };
               });
               

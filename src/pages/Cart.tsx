@@ -6,7 +6,7 @@ import { Link } from 'react-router-dom';
 import { Minus, Plus, Trash2, ShoppingBag } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { storage, type CartItem } from '@/utils/storage';
-import { getCloudinaryProductImageUrl } from '@/utils/imageUtils';
+import { getCloudinaryProjectImageUrl } from '@/utils/imageUtils';
 import { toast } from 'sonner';
 
 export default function CartPage() {
@@ -63,17 +63,17 @@ export default function CartPage() {
     window.dispatchEvent(new CustomEvent('cart:updated'));
   };
 
-  const handleVolumeChange = (cartItemId: string, value: string) => {
+  const handleIncludesChange = (cartItemId: string, value: string) => {
     const target = cartItems.find((item) => item.id === cartItemId);
-    if (!target || !target.volumeOptions) return;
-    const option = target.volumeOptions.find((opt) => String(opt?.value) === value);
+    if (!target || !target.includesOptions) return;
+    const option = target.includesOptions.find((opt) => String(opt?.value) === value);
     if (!option) return;
 
-    storage.updateCartItemVolume(cartItemId, option);
+    storage.updateCartItemIncludes(cartItemId, option);
     const updated = storage.getCart();
     setCartItems(updated);
     window.dispatchEvent(new CustomEvent('cart:updated'));
-    toast.success('Đã cập nhật dung tích');
+    toast.success('Đã cập nhật bao gồm');
   };
   return (
     <MainLayout>
@@ -87,9 +87,9 @@ export default function CartPage() {
               Giỏ hàng trống
             </h2>
             <p className="text-muted-foreground mb-8">
-              Bạn chưa có sản phẩm nào trong giỏ hàng
+              Bạn chưa có đồ án nào trong giỏ hàng
             </p>
-            <Link to="/products">
+            <Link to="/projects">
               <Button className="bg-primary hover:bg-primary/90 text-primary-foreground">
                 Tiếp tục mua sắm
               </Button>
@@ -103,7 +103,7 @@ export default function CartPage() {
                 const discount = Number(item.giamGia) || 0;
                 const basePrice = Number(item.gia) || 0;
                 const finalPrice = discount > 0 ? Math.round(basePrice * (1 - discount / 100)) : basePrice;
-                const imageUrl = getCloudinaryProductImageUrl(item.hinhAnh || '') || 'https://placehold.co/200x200/E5E5EA/000?text=No+Image';
+                const imageUrl = getCloudinaryProjectImageUrl(item.hinhAnh || '') || 'https://placehold.co/200x200/E5E5EA/000?text=No+Image';
 
                 return (
                   <Card key={item.id}>
@@ -120,14 +120,14 @@ export default function CartPage() {
                           />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs text-muted-foreground mb-1">{item.loaiSP || 'Nước hoa'}</p>
+                          <p className="text-xs text-muted-foreground mb-1">{item.loaiSP || 'Đồ án'}</p>
                           <h3 className="font-bold text-foreground mb-2 line-clamp-2">{item.tenSP}</h3>
                           
-                          {/* Hiển thị dung tích đã chọn */}
+                          {/* Hiển thị bao gồm đã chọn */}
                           {item.selectedDungTich && (
                             <div className="mb-2">
                               <p className="text-xs text-muted-foreground">
-                                Dung tích:{' '}
+                                Bao gồm:{' '}
                                 <span className="font-medium text-foreground">
                                   {item.selectedDungTich.label || `${item.selectedDungTich.value} ml`}
                                 </span>
@@ -135,18 +135,18 @@ export default function CartPage() {
                             </div>
                           )}
                           
-                          {/* Select để thay đổi dung tích nếu có nhiều options */}
-                          {item.volumeOptions && item.volumeOptions.length > 1 && (
+                          {/* Select để thay đổi bao gồm nếu có nhiều options */}
+                          {item.includesOptions && item.includesOptions.length > 1 && (
                             <div className="mb-2 w-full max-w-xs">
                               <Select
-                                value={String(item.selectedDungTich?.value ?? item.volumeOptions[0]?.value ?? '')}
-                                onValueChange={(value) => handleVolumeChange(item.id, value)}
+                                value={String(item.selectedDungTich?.value ?? item.includesOptions[0]?.value ?? '')}
+                                onValueChange={(value) => handleIncludesChange(item.id, value)}
                               >
                                 <SelectTrigger className="h-8 text-xs">
-                                  <SelectValue placeholder="Chọn dung tích" />
+                                  <SelectValue placeholder="Chọn bao gồm" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  {item.volumeOptions.map((option) => (
+                                  {item.includesOptions.map((option) => (
                                     <SelectItem
                                       key={`${item.id}-${option?.value ?? 'default'}`}
                                       value={String(option?.value ?? '')}
@@ -238,7 +238,7 @@ export default function CartPage() {
                       Tiến hành thanh toán
                     </Button>
                   </Link>
-                  <Link to="/products">
+                  <Link to="/projects">
                     <Button variant="outline" className="w-full mt-3 border-border">
                       Tiếp tục mua sắm
                     </Button>

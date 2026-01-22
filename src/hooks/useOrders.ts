@@ -26,13 +26,13 @@ export const formatOrderForDisplay = (order: Order) => {
       : order.TrangThai,
     statusCode: order.TrangThai,
     total: order.TongTien || 0,
-    products: order.SanPham?.map((sp: unknown) => {
+    projects: order.SanPham?.map((sp: unknown) => {
       const spRecord = sp as Record<string, unknown>;
       const maSanPham = spRecord.MaSanPham as Record<string, unknown> | string | undefined;
       const idSanPham = spRecord.IdSanPham as Record<string, unknown> | undefined;
       return {
         id: (typeof maSanPham === 'object' && maSanPham?._id ? maSanPham._id : maSanPham) || spRecord.id,
-        name: String(spRecord.TenSanPham || idSanPham?.TenSanPham || 'Sản phẩm'),
+        name: String(spRecord.TenSanPham || idSanPham?.TenSanPham || 'Đồ án'),
         quantity: Number(spRecord.SoLuong || spRecord.quantity || 1),
         price: Number(spRecord.Gia || spRecord.price || 0),
         image: String(spRecord.HinhAnhChinh || idSanPham?.HinhAnhChinh || ''),

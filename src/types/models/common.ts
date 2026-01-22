@@ -84,7 +84,7 @@ export interface ChartItem {
 export interface SummaryStats {
   totalRevenue?: number;     // Tổng doanh thu
   totalOrders?: number;      // Tổng số đơn hàng
-  totalProducts?: number;    // Tổng số sản phẩm
+  totalProjects?: number;    // Tổng số đồ án
   totalUsers?: number;       // Tổng số người dùng
   totalCategories?: number;   // Tổng số danh mục
 }

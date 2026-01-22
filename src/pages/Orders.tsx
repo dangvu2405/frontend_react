@@ -24,8 +24,8 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 import { useState } from 'react';
-import type { Order, OrderProduct, Product } from '@/types/models';
-import { getCloudinaryProductImageUrl } from '@/utils/imageUtils';
+import type { Order, OrderProject, Project } from '@/types/models';
+import { getCloudinaryProjectImageUrl } from '@/utils/imageUtils';
 import { formatCurrency } from '@/utils/format';
 import { useOrders, useCancelOrder } from '@/hooks/useOrders';
 
@@ -43,7 +43,7 @@ export default function OrdersPage() {
   const { data: orders = [], isLoading: loading } = useOrders();
   const cancelOrderMutation = useCancelOrder();
 
-  const isProductDocument = (value: OrderProduct['IdSanPham']): value is Product => {
+  const isProjectDocument = (value: OrderProject['IdSanPham']): value is Project => {
     return Boolean(value) && typeof value === 'object';
   };
 
@@ -97,7 +97,7 @@ export default function OrdersPage() {
     }
     
     history.push({
-      event: 'Đặt hàng',
+      event: 'Đặt mua',
       timestamp: orderRecord.createdAt,
       details: ['Đơn hàng đã được tạo'],
     });
@@ -190,40 +190,40 @@ export default function OrdersPage() {
     }
   };
 
-  const getFirstProductImage = (order: unknown): string => {
+  const getFirstProjectImage = (order: unknown): string => {
     const orderRecord = order as Record<string, unknown>;
-    if (Array.isArray(orderRecord.products) && orderRecord.products.length > 0) {
-      const firstProduct = orderRecord.products[0] as Record<string, unknown>;
-      return String(firstProduct.image || '');
+    if (Array.isArray(orderRecord.projects) && orderRecord.projects.length > 0) {
+      const firstProject = orderRecord.projects[0] as Record<string, unknown>;
+      return String(firstProject.image || '');
     }
     const orderRaw = orderRecord.raw as Record<string, unknown> | undefined;
     if (orderRaw?.SanPham && Array.isArray(orderRaw.SanPham) && orderRaw.SanPham.length > 0) {
-      const firstProduct = orderRaw.SanPham[0] as Record<string, unknown>;
-      if (isProductDocument(firstProduct.IdSanPham as OrderProduct['IdSanPham'])) {
-        return String((firstProduct.IdSanPham as Product).HinhAnhChinh || '');
+      const firstProject = orderRaw.SanPham[0] as Record<string, unknown>;
+      if (isProjectDocument(firstProject.IdSanPham as OrderProject['IdSanPham'])) {
+        return String((firstProject.IdSanPham as Project).HinhAnhChinh || '');
       }
-      const fallbackImage = (firstProduct as Record<string, unknown>).HinhAnhChinh;
+      const fallbackImage = (firstProject as Record<string, unknown>).HinhAnhChinh;
       return typeof fallbackImage === 'string' ? fallbackImage : '';
     }
     return '';
   };
 
-  const getFirstProductName = (order: unknown): string => {
+  const getFirstProjectName = (order: unknown): string => {
     const orderRecord = order as Record<string, unknown>;
-    if (Array.isArray(orderRecord.products) && orderRecord.products.length > 0) {
-      const firstProduct = orderRecord.products[0] as Record<string, unknown>;
-      return String(firstProduct.name || 'Sản phẩm');
+    if (Array.isArray(orderRecord.projects) && orderRecord.projects.length > 0) {
+      const firstProject = orderRecord.projects[0] as Record<string, unknown>;
+      return String(firstProject.name || 'Đồ án');
     }
     const orderRaw = orderRecord.raw as Record<string, unknown> | undefined;
     if (orderRaw?.SanPham && Array.isArray(orderRaw.SanPham) && orderRaw.SanPham.length > 0) {
-      const firstProduct = orderRaw.SanPham[0] as Record<string, unknown>;
-      if (isProductDocument(firstProduct.IdSanPham as OrderProduct['IdSanPham'])) {
-        return String((firstProduct.IdSanPham as Product).TenSanPham || 'Sản phẩm');
+      const firstProject = orderRaw.SanPham[0] as Record<string, unknown>;
+      if (isProjectDocument(firstProject.IdSanPham as OrderProject['IdSanPham'])) {
+        return String((firstProject.IdSanPham as Project).TenSanPham || 'Đồ án');
       }
-      const fallbackName = (firstProduct as Record<string, unknown>).TenSanPham;
+      const fallbackName = (firstProject as Record<string, unknown>).TenSanPham;
       return typeof fallbackName === 'string' && fallbackName.trim()
         ? fallbackName
-        : 'Sản phẩm';
+        : 'Đồ án';
     }
     return 'Đơn hàng';
   };
@@ -316,8 +316,8 @@ export default function OrdersPage() {
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {filteredOrders.map((order) => {
-              const firstProductImage = getFirstProductImage(order);
-              const firstProductName = getFirstProductName(order);
+              const firstProjectImage = getFirstProjectImage(order);
+              const firstProjectName = getFirstProjectName(order);
               
               return (
                 <Card key={order._id} className="hover:shadow-lg transition-shadow">
@@ -325,10 +325,10 @@ export default function OrdersPage() {
                     {/* Header with image and status */}
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-center gap-4">
-                        {firstProductImage && (
+                        {firstProjectImage && (
                           <img
-                            src={getCloudinaryProductImageUrl(firstProductImage)}
-                            alt={firstProductName}
+                            src={getCloudinaryProjectImageUrl(firstProjectImage)}
+                            alt={firstProjectName}
                             className="w-16 h-16 object-cover rounded-lg border"
                           />
                         )}
@@ -344,10 +344,10 @@ export default function OrdersPage() {
                     {/* Order Info Grid */}
                     <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
                       <div>
-                        <p className="text-muted-foreground mb-1">Sản phẩm</p>
-                        <p className="font-medium">{firstProductName}</p>
-                        {(order.products?.length > 1 || order.raw?.SanPham?.length > 1) && (
-                          <p className="text-xs text-muted-foreground">+{(order.products?.length || order.raw?.SanPham?.length || 1) - 1} sản phẩm khác</p>
+                        <p className="text-muted-foreground mb-1">Đồ án</p>
+                        <p className="font-medium">{firstProjectName}</p>
+                        {(order.projects?.length > 1 || order.raw?.SanPham?.length > 1) && (
+                          <p className="text-xs text-muted-foreground">+{(order.projects?.length || order.raw?.SanPham?.length || 1) - 1} đồ án khác</p>
                         )}
                       </div>
                       <div>
@@ -423,10 +423,10 @@ export default function OrdersPage() {
               <DialogHeader>
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-4">
-                    {getFirstProductImage(selectedOrder) && (
+                    {getFirstProjectImage(selectedOrder) && (
                       <img
-                        src={getCloudinaryProductImageUrl(getFirstProductImage(selectedOrder))}
-                        alt={getFirstProductName(selectedOrder)}
+                        src={getCloudinaryProjectImageUrl(getFirstProjectImage(selectedOrder))}
+                        alt={getFirstProjectName(selectedOrder)}
                         className="w-20 h-20 object-cover rounded-lg border"
                       />
                     )}
@@ -435,7 +435,7 @@ export default function OrdersPage() {
                         Đơn #{selectedOrder.MaDonHang || selectedOrder._id?.slice(-6)}
                       </DialogTitle>
                       <DialogDescription className="mt-1">
-                        {getFirstProductName(selectedOrder)}
+                        {getFirstProjectName(selectedOrder)}
                       </DialogDescription>
                     </div>
                   </div>
@@ -451,8 +451,8 @@ export default function OrdersPage() {
               {/* Order Info Grid */}
               <div className="grid grid-cols-2 gap-4 my-4 text-sm border-b pb-4">
                 <div>
-                  <p className="text-muted-foreground mb-1">Sản phẩm</p>
-                  <p className="font-medium">{getFirstProductName(selectedOrder)}</p>
+                  <p className="text-muted-foreground mb-1">Đồ án</p>
+                  <p className="font-medium">{getFirstProjectName(selectedOrder)}</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground mb-1">Ngày đặt</p>
@@ -503,7 +503,7 @@ export default function OrdersPage() {
               <Tabs defaultValue="history" className="w-full">
                 <TabsList className="grid w-full grid-cols-4">
                   <TabsTrigger value="history">Lịch sử</TabsTrigger>
-                  <TabsTrigger value="items">Sản phẩm</TabsTrigger>
+                  <TabsTrigger value="items">Đồ án</TabsTrigger>
                   <TabsTrigger value="shipping">Vận chuyển</TabsTrigger>
                   <TabsTrigger value="receiver">Người nhận</TabsTrigger>
                 </TabsList>
@@ -542,19 +542,19 @@ export default function OrdersPage() {
                   <div className="space-y-3">
                     {(() => {
                       const orderRecord = selectedOrder as unknown as Record<string, unknown>;
-                      const products = (Array.isArray(orderRecord.products) ? orderRecord.products : []) || 
+                      const projects = (Array.isArray(orderRecord.projects) ? orderRecord.projects : []) || 
                         (Array.isArray((orderRecord.raw as Record<string, unknown> | undefined)?.SanPham) ? (orderRecord.raw as Record<string, unknown>).SanPham : []) || 
                         [];
-                      return products.map((product: unknown, index: number) => {
-                        // Ưu tiên dùng formatted products từ hook
-                        const orderProducts = Array.isArray(orderRecord.products) ? orderRecord.products : [];
-                        if (orderProducts.length > index) {
-                          const p = orderProducts[index];
+                      return projects.map((project: unknown, index: number) => {
+                        // Ưu tiên dùng formatted projects từ hook
+                        const orderProjects = Array.isArray(orderRecord.projects) ? orderRecord.projects : [];
+                        if (orderProjects.length > index) {
+                          const p = orderProjects[index];
                         return (
                           <div key={index} className="flex gap-4 p-3 border rounded-lg">
                             {p.image && (
                               <img
-                                src={getCloudinaryProductImageUrl(p.image)}
+                                src={getCloudinaryProjectImageUrl(p.image)}
                                 alt={p.name}
                                 className="w-20 h-20 object-cover rounded"
                               />
@@ -570,7 +570,7 @@ export default function OrdersPage() {
                                 {formatCurrency(p.price * p.quantity)}
                               </p>
                               <p className="text-sm text-muted-foreground">
-                                {formatCurrency(p.price)}/sản phẩm
+                                {formatCurrency(p.price)}/đồ án
                               </p>
                             </div>
                           </div>
@@ -578,39 +578,39 @@ export default function OrdersPage() {
                       }
                       
                       // Fallback về raw data
-                      const productRecord = product as Record<string, unknown>;
-                      const productEntity = isProductDocument(productRecord.IdSanPham as OrderProduct['IdSanPham']) ? (productRecord.IdSanPham as Product) : null;
-                      const productName = (productEntity as Record<string, unknown> | null)?.TenSanPham || String(productRecord.TenSanPham || 'Sản phẩm');
-                      const productImage = (productEntity as Record<string, unknown> | null)?.HinhAnhChinh
-                        || (typeof productRecord.HinhAnhChinh === 'string' ? productRecord.HinhAnhChinh : '');
+                      const projectRecord = project as Record<string, unknown>;
+                      const projectEntity = isProjectDocument(projectRecord.IdSanPham as OrderProject['IdSanPham']) ? (projectRecord.IdSanPham as Project) : null;
+                      const projectName = (projectEntity as Record<string, unknown> | null)?.TenSanPham || String(projectRecord.TenSanPham || 'Đồ án');
+                      const projectImage = (projectEntity as Record<string, unknown> | null)?.HinhAnhChinh
+                        || (typeof projectRecord.HinhAnhChinh === 'string' ? projectRecord.HinhAnhChinh : '');
 
-                      const selectedDungTich = productRecord.SelectedDungTich as Record<string, unknown> | undefined;
+                      const selectedDungTich = projectRecord.SelectedDungTich as Record<string, unknown> | undefined;
                       return (
                         <div key={index} className="flex gap-4 p-3 border rounded-lg">
-                          {productImage && (
+                          {projectImage && (
                             <img
-                              src={getCloudinaryProductImageUrl(String(productImage))}
-                              alt={String(productName)}
+                              src={getCloudinaryProjectImageUrl(String(projectImage))}
+                              alt={String(projectName)}
                               className="w-20 h-20 object-cover rounded"
                             />
                           )}
                           <div className="flex-1">
-                            <h4 className="font-medium">{String(productName)}</h4>
+                            <h4 className="font-medium">{String(projectName)}</h4>
                             {selectedDungTich && (
                               <p className="text-sm text-muted-foreground">
-                                Dung tích: {String(selectedDungTich.label || `${selectedDungTich.value || ''}ml`)}
+                                Bao gồm: {String(selectedDungTich.label || `${selectedDungTich.value || ''}ml`)}
                               </p>
                             )}
                             <p className="text-sm text-muted-foreground">
-                              Số lượng: {Number(productRecord.SoLuong || 1)}
+                              Số lượng: {Number(projectRecord.SoLuong || 1)}
                             </p>
                           </div>
                           <div className="text-right">
                             <p className="font-semibold">
-                              {formatCurrency(Number(productRecord.Gia || 0) * Number(productRecord.SoLuong || 1))}
+                              {formatCurrency(Number(projectRecord.Gia || 0) * Number(projectRecord.SoLuong || 1))}
                             </p>
                             <p className="text-sm text-muted-foreground">
-                              {formatCurrency(Number(productRecord.Gia || 0))}/sản phẩm
+                              {formatCurrency(Number(projectRecord.Gia || 0))}/đồ án
                             </p>
                           </div>
                         </div>

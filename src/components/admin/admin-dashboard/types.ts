@@ -2,7 +2,7 @@ import type { ChartItem, SummaryStats } from '@/types/models';
 
 export interface AdminDashboardData {
   summaryStats: SummaryStats | null;
-  topProductsChart: ChartItem[];
+  topProjectsChart: ChartItem[];
   monthlyOrdersChart: ChartItem[];
   topCustomersChart: ChartItem[];
 }

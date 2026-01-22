@@ -14,7 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 type SummaryStats = {
   totalRevenue?: number
   totalOrders?: number
-  totalProducts?: number
+  totalProjects?: number
   totalUsers?: number
   totalCategories?: number
 }
@@ -99,9 +99,9 @@ export function SectionCards({ stats, loading }: SectionCardsProps) {
       </Card>
       <Card className="@container/card">
         <CardHeader>
-          <CardDescription>Sản phẩm</CardDescription>
+          <CardDescription>Đồ án</CardDescription>
           <Value loading={loading}>
-            {numberFormatter.format(stats?.totalProducts ?? 0)}
+            {numberFormatter.format(stats?.totalProjects ?? 0)}
           </Value>
           <CardAction>
             <Badge variant="outline">
@@ -112,7 +112,7 @@ export function SectionCards({ stats, loading }: SectionCardsProps) {
         </CardHeader>
         <CardFooter className="flex-col items-start gap-1.5 text-sm">
           <div className="line-clamp-1 flex gap-2 font-medium">
-            Số lượng sản phẩm đang kinh doanh{" "}
+            Số lượng đồ án đang kinh doanh{" "}
             <IconTrendingUp className="size-4" />
           </div>
           <div className="text-muted-foreground">

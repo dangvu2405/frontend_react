@@ -264,11 +264,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         
         // ✅ Load hearts từ database và sync vào localStorage
         try {
-          const heartProductIds = await heartService.getUserHeartProductIds();
-          if (heartProductIds && heartProductIds.length > 0) {
-            storage.setHearts(heartProductIds);
+          const heartProjectIds = await heartService.getUserHeartProjectIds();
+          if (heartProjectIds && heartProjectIds.length > 0) {
+            storage.setHearts(heartProjectIds);
             if (import.meta.env.DEV) {
-              console.log('✅ Hearts loaded from database after login:', heartProductIds.length, 'products');
+              console.log('✅ Hearts loaded from database after login:', heartProjectIds.length, 'projects');
             }
           }
         } catch (heartError: unknown) {
@@ -289,8 +289,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               const itemRecord = item as Record<string, unknown>;
               // item có thể là CartItem từ backend (IdSanPham, TenSanPham, Gia, SoLuong, ThanhTien)
               const idSanPham = itemRecord.IdSanPham as Record<string, unknown> | string | undefined;
-              const product = typeof idSanPham === 'object' ? idSanPham : null;
-              const productRecord = product as Record<string, unknown> | null;
+              const project = typeof idSanPham === 'object' ? idSanPham : null;
+              const projectRecord = project as Record<string, unknown> | null;
               
               // Xử lý selectedDungTich từ DB
               const selectedDungTichRaw = itemRecord.SelectedDungTich as Record<string, unknown> | undefined;
@@ -303,9 +303,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 isDefault: Boolean(selectedDungTichRaw.isDefault),
               } : undefined;
               
-              // Xử lý volumeOptions từ product
-              const volumeOptions = productRecord?.DungTichOptions && Array.isArray(productRecord.DungTichOptions)
-                ? productRecord.DungTichOptions.map((opt: unknown) => {
+              // Xử lý includesOptions từ project
+              const includesOptions = projectRecord?.DungTichOptions && Array.isArray(projectRecord.DungTichOptions)
+                ? projectRecord.DungTichOptions.map((opt: unknown) => {
                     const optRecord = opt as Record<string, unknown>;
                     return {
                       value: Number(optRecord.value) || 0,
@@ -319,34 +319,34 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 : undefined;
               
               // Tính basePrice từ gia và selectedDungTich
-              const finalPrice = Number(itemRecord.Gia) || (productRecord ? Number(productRecord.Gia) : 0) || 0;
+              const finalPrice = Number(itemRecord.Gia) || (projectRecord ? Number(projectRecord.Gia) : 0) || 0;
               const basePrice = selectedDungTich && selectedDungTich.priceDiff
                 ? finalPrice - selectedDungTich.priceDiff
                 : finalPrice;
               
-              // Tạo cart item ID với volume
+              // Tạo cart item ID với includes
               const maSanPham = itemRecord.MaSanPham as Record<string, unknown> | string | undefined;
-              const productId = productRecord?._id || 
+              const projectId = projectRecord?._id || 
                 (typeof idSanPham === 'object' && idSanPham?._id ? idSanPham._id : idSanPham) ||
                 (typeof maSanPham === 'object' && maSanPham?._id ? maSanPham._id : maSanPham) ||
                 itemRecord.id;
               const cartItemId = selectedDungTich
-                ? `${productId}::volume-${selectedDungTich.value}`
-                : `${productId}::default`;
+                ? `${projectId}::includes-${selectedDungTich.value}`
+                : `${projectId}::default`;
               
-              const maLoaiSanPham = productRecord?.MaLoaiSanPham as Record<string, unknown> | undefined;
+              const maLoaiSanPham = projectRecord?.MaLoaiSanPham as Record<string, unknown> | undefined;
               return {
                 id: cartItemId,
-                productId: String(productId),
-                tenSP: String(itemRecord.TenSanPham || productRecord?.TenSanPham || itemRecord.tenSP || 'Sản phẩm'),
+                projectId: String(projectId),
+                tenSP: String(itemRecord.TenSanPham || projectRecord?.TenSanPham || itemRecord.tenSP || 'Đồ án'),
                 gia: finalPrice,
                 basePrice,
-                giamGia: Number(productRecord?.KhuyenMai || itemRecord.giamGia || 0),
-                hinhAnh: String(productRecord?.HinhAnhChinh || itemRecord.hinhAnh || ''),
+                giamGia: Number(projectRecord?.KhuyenMai || itemRecord.giamGia || 0),
+                hinhAnh: String(projectRecord?.HinhAnhChinh || itemRecord.hinhAnh || ''),
                 loaiSP: String((maLoaiSanPham?.TenLoaiSanPham as string) || itemRecord.loaiSP || ''),
                 quantity: Number(itemRecord.SoLuong || itemRecord.quantity || 1),
                 selectedDungTich,
-                volumeOptions,
+                includesOptions,
               };
             });
             
@@ -410,11 +410,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         
         // ✅ Load hearts từ database và sync vào localStorage (tương tự login)
         try {
-          const heartProductIds = await heartService.getUserHeartProductIds();
-          if (heartProductIds && heartProductIds.length > 0) {
-            storage.setHearts(heartProductIds);
+          const heartProjectIds = await heartService.getUserHeartProjectIds();
+          if (heartProjectIds && heartProjectIds.length > 0) {
+            storage.setHearts(heartProjectIds);
             if (import.meta.env.DEV) {
-              console.log('✅ Hearts loaded from database after register:', heartProductIds.length, 'products');
+              console.log('✅ Hearts loaded from database after register:', heartProjectIds.length, 'projects');
             }
           }
         } catch (heartError: unknown) {
@@ -433,8 +433,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             const mappedCart = cart.Items.map((item: unknown) => {
               const itemRecord = item as Record<string, unknown>;
               const idSanPham = itemRecord.IdSanPham as Record<string, unknown> | string | undefined;
-              const product = typeof idSanPham === 'object' ? idSanPham : null;
-              const productRecord = product as Record<string, unknown> | null;
+              const project = typeof idSanPham === 'object' ? idSanPham : null;
+              const projectRecord = project as Record<string, unknown> | null;
               
               // Xử lý selectedDungTich từ DB
               const selectedDungTichRaw = itemRecord.SelectedDungTich as Record<string, unknown> | undefined;
@@ -447,9 +447,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 isDefault: Boolean(selectedDungTichRaw.isDefault),
               } : undefined;
               
-              // Xử lý volumeOptions từ product
-              const volumeOptions = productRecord?.DungTichOptions && Array.isArray(productRecord.DungTichOptions)
-                ? productRecord.DungTichOptions.map((opt: unknown) => {
+              // Xử lý includesOptions từ project
+              const includesOptions = projectRecord?.DungTichOptions && Array.isArray(projectRecord.DungTichOptions)
+                ? projectRecord.DungTichOptions.map((opt: unknown) => {
                     const optRecord = opt as Record<string, unknown>;
                     return {
                       value: Number(optRecord.value) || 0,
@@ -463,34 +463,34 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 : undefined;
               
               // Tính basePrice từ gia và selectedDungTich
-              const finalPrice = Number(itemRecord.Gia) || (productRecord ? Number(productRecord.Gia) : 0) || 0;
+              const finalPrice = Number(itemRecord.Gia) || (projectRecord ? Number(projectRecord.Gia) : 0) || 0;
               const basePrice = selectedDungTich && selectedDungTich.priceDiff
                 ? finalPrice - selectedDungTich.priceDiff
                 : finalPrice;
               
-              // Tạo cart item ID với volume
+              // Tạo cart item ID với includes
               const maSanPham = itemRecord.MaSanPham as Record<string, unknown> | string | undefined;
-              const productId = productRecord?._id || 
+              const projectId = projectRecord?._id || 
                 (typeof idSanPham === 'object' && idSanPham?._id ? idSanPham._id : idSanPham) ||
                 (typeof maSanPham === 'object' && maSanPham?._id ? maSanPham._id : maSanPham) ||
                 itemRecord.id;
               const cartItemId = selectedDungTich
-                ? `${productId}::volume-${selectedDungTich.value}`
-                : `${productId}::default`;
+                ? `${projectId}::includes-${selectedDungTich.value}`
+                : `${projectId}::default`;
               
-              const maLoaiSanPham = productRecord?.MaLoaiSanPham as Record<string, unknown> | undefined;
+              const maLoaiSanPham = projectRecord?.MaLoaiSanPham as Record<string, unknown> | undefined;
               return {
                 id: cartItemId,
-                productId: String(productId),
-                tenSP: String(itemRecord.TenSanPham || productRecord?.TenSanPham || itemRecord.tenSP || 'Sản phẩm'),
+                projectId: String(projectId),
+                tenSP: String(itemRecord.TenSanPham || projectRecord?.TenSanPham || itemRecord.tenSP || 'Đồ án'),
                 gia: finalPrice,
                 basePrice,
-                giamGia: Number(productRecord?.KhuyenMai || itemRecord.giamGia || 0),
-                hinhAnh: String(productRecord?.HinhAnhChinh || itemRecord.hinhAnh || ''),
+                giamGia: Number(projectRecord?.KhuyenMai || itemRecord.giamGia || 0),
+                hinhAnh: String(projectRecord?.HinhAnhChinh || itemRecord.hinhAnh || ''),
                 loaiSP: String((maLoaiSanPham?.TenLoaiSanPham as string) || itemRecord.loaiSP || ''),
                 quantity: Number(itemRecord.SoLuong || itemRecord.quantity || 1),
                 selectedDungTich,
-                volumeOptions,
+                includesOptions,
               };
             });
             
@@ -538,7 +538,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         try {
           await heartService.syncHearts(localHearts);
           if (import.meta.env.DEV) {
-            console.log('✅ Hearts saved to database before logout:', localHearts.length, 'products');
+            console.log('✅ Hearts saved to database before logout:', localHearts.length, 'projects');
           }
         } catch (heartError: unknown) {
           if (import.meta.env.DEV) {
@@ -552,18 +552,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const localCart = storage.getCart();
       if (localCart && localCart.length > 0 && user?.id) {
         try {
-          // ✅ Format cart items để gửi lên backend (backend mong đợi productId hoặc id)
+          // ✅ Format cart items để gửi lên backend (backend mong đợi projectId hoặc id)
           const cartItems = localCart.map(item => {
-            // Lấy productId - có thể từ productId trực tiếp hoặc từ id (format: "productId::volume-xxx")
-            let productId = item.productId;
-            if (!productId && item.id) {
-              // Nếu id có format "productId::volume-xxx", lấy phần trước "::"
-              productId = item.id.includes('::') ? item.id.split('::')[0] : item.id;
+            // Lấy projectId - có thể từ projectId trực tiếp hoặc từ id (format: "projectId::includes-xxx")
+            let projectId = item.projectId;
+            if (!projectId && item.id) {
+              // Nếu id có format "projectId::includes-xxx", lấy phần trước "::"
+              projectId = item.id.includes('::') ? item.id.split('::')[0] : item.id;
             }
             
             return {
-              id: productId, // Backend sẽ tìm productId, IdSanPham, hoặc id
-              productId: productId, // Thêm productId để đảm bảo
+              id: projectId, // Backend sẽ tìm projectId, IdSanPham, hoặc id
+              projectId: projectId, // Thêm projectId để đảm bảo
               quantity: item.quantity || 1,
               tenSP: item.tenSP, // Giữ lại để backend có thể dùng nếu cần
               selectedDungTich: item.selectedDungTich ? {

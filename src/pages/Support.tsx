@@ -8,14 +8,14 @@ export default function SupportPage() {
 
   const faqs = [
     {
-      question: 'Làm thế nào để biết sản phẩm là hàng chính hãng?',
+      question: 'Làm thế nào để biết đồ án là hàng chính hãng?',
       answer:
-        'Tất cả sản phẩm tại Perfume Shop đều được nhập khẩu trực tiếp từ các nhà phân phối ủy quyền chính thức. Mỗi sản phẩm đều có tem chống giả và giấy tờ chứng nhận nguồn gốc xuất xứ.',
+        'Tất cả đồ án tại Project Shop đều được nhập khẩu trực tiếp từ các nhà phân phối ủy quyền chính thức. Mỗi đồ án đều có tem chống giả và giấy tờ chứng nhận nguồn gốc xuất xứ.',
     },
     {
       question: 'Chính sách đổi trả như thế nào?',
       answer:
-        'Chúng tôi chấp nhận đổi trả trong vòng 7 ngày kể từ ngày nhận hàng nếu sản phẩm còn nguyên seal, chưa qua sử dụng. Vui lòng liên hệ hotline để được hỗ trợ.',
+        'Chúng tôi chấp nhận đổi trả trong vòng 7 ngày kể từ ngày nhận hàng nếu đồ án còn nguyên seal, chưa qua sử dụng. Vui lòng liên hệ hotline để được hỗ trợ.',
     },
     {
       question: 'Thời gian giao hàng mất bao lâu?',
@@ -28,9 +28,9 @@ export default function SupportPage() {
         'Chúng tôi hỗ trợ nhiều hình thức thanh toán: COD (thanh toán khi nhận hàng), chuyển khoản ngân hàng, thẻ tín dụng/ghi nợ, ví điện tử (Momo, ZaloPay).',
     },
     {
-      question: 'Làm sao để bảo quản nước hoa đúng cách?',
+      question: 'Làm sao để bảo quản đồ án đúng cách?',
       answer:
-        'Nên bảo quản nước hoa ở nơi khô ráo, thoáng mát, tránh ánh nắng trực tiếp. Nhiệt độ lý tưởng là 15-25°C. Tránh để nước hoa trong xe hơi hoặc phòng tắm.',
+        'Nên bảo quản đồ án ở nơi khô ráo, thoáng mát, tránh ánh nắng trực tiếp. Nhiệt độ lý tưởng là 15-25°C. Tránh để đồ án trong xe hơi hoặc phòng tắm.',
     },
     {
       question: 'Có chương trình ưu đãi cho khách hàng thân thiết không?',
@@ -49,7 +49,7 @@ export default function SupportPage() {
     {
       icon: <Mail className="w-8 h-8" />,
       title: 'Email',
-      description: 'support@perfumeshop.com',
+      description: 'support@projectshop.com',
       subtitle: 'Phản hồi trong 24h',
     },
     {

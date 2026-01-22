@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react"
 import { ChartAreaInteractive } from "@/components/chart-area-interactive"
-import adminService, { type AdminProductPayload, type AdminProductVolumeOptionPayload } from "@/services/adminService"
+import adminService, { type AdminProjectPayload, type AdminProjectIncludesOptionPayload } from "@/services/adminService"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -41,8 +41,9 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
-import type { Category, ChartItem, Product } from "@/types/models"
-import { getCloudinaryProductImageUrl } from "@/utils/imageUtils"
+import type { Category, Project } from "@/types/models/product"
+import type { ChartItem } from "@/types/models"
+import { getCloudinaryProjectImageUrl } from "@/utils/imageUtils"
 import axiosInstance from "@/services/axios"
 import { storage } from "@/utils/storage"
 
@@ -52,7 +53,7 @@ const currencyFormatter = new Intl.NumberFormat("vi-VN", {
   maximumFractionDigits: 0,
 })
 
-const createDefaultVolumeOption = (value = 100): AdminProductVolumeOptionPayload => ({
+const createDefaultIncludesOption = (value = 100): AdminProjectIncludesOptionPayload => ({
   value,
   label: `${value} ml`,
   isDefault: false,
@@ -60,16 +61,16 @@ const createDefaultVolumeOption = (value = 100): AdminProductVolumeOptionPayload
   stockDiff: 0,
 })
 
-const ensureVolumeOptionList = (
-  options?: AdminProductVolumeOptionPayload[],
-  fallbackVolume?: number | null,
-): AdminProductVolumeOptionPayload[] => {
-  let normalized: AdminProductVolumeOptionPayload[] = Array.isArray(options) ? options.filter(Boolean) : []
+const ensureIncludesOptionList = (
+  options?: AdminProjectIncludesOptionPayload[],
+  fallbackIncludes?: number | null,
+): AdminProjectIncludesOptionPayload[] => {
+  let normalized: AdminProjectIncludesOptionPayload[] = Array.isArray(options) ? options.filter(Boolean) : []
 
-  if (!normalized.length && fallbackVolume) {
+  if (!normalized.length && fallbackIncludes) {
     normalized = [{
-      value: fallbackVolume,
-      label: `${fallbackVolume} ml`,
+      value: fallbackIncludes,
+      label: `${fallbackIncludes} ml`,
       isDefault: true,
       priceDiff: 0,
       stockDiff: 0,
@@ -77,7 +78,7 @@ const ensureVolumeOptionList = (
   }
 
   if (!normalized.length) {
-    normalized = [createDefaultVolumeOption(100)]
+    normalized = [createDefaultIncludesOption(100)]
   }
 
   normalized = normalized.map((option) => {
@@ -111,9 +112,9 @@ const ensureVolumeOptionList = (
   return normalized
 }
 
-export default function AdminProductsPage() {
+export default function AdminProjectsPage() {
   const [loading, setLoading] = useState(true)
-  const [products, setProducts] = useState<Product[]>([])
+  const [projects, setProjects] = useState<Project[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [categorySalesChart, setCategorySalesChart] = useState<ChartItem[]>([])
   const [priceTrendChart, setPriceTrendChart] = useState<ChartItem[]>([])
@@ -128,51 +129,51 @@ export default function AdminProductsPage() {
   const [stockFilter, setStockFilter] = useState<string>("all")
   
   // Multi-select states
-  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set())
+  const [selectedProjects, setSelectedProjects] = useState<Set<string>>(new Set())
   const [isSelectMode, setIsSelectMode] = useState(false)
 
   // Dialog states
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null)
-  const [deletingProduct, setDeletingProduct] = useState<Product | null>(null)
+  const [editingProject, setEditingProject] = useState<Project | null>(null)
+  const [deletingProject, setDeletingProject] = useState<Project | null>(null)
 
   // Form states
-  const [formData, setFormData] = useState<AdminProductPayload>({
+  const [formData, setFormData] = useState<AdminProjectPayload>({
     TenSanPham: "",
     MoTa: "",
     Gia: 0,
     KhuyenMai: 0,
     SoLuong: 0,
-    DungTichOptions: ensureVolumeOptionList(),
+    DungTichOptions: ensureIncludesOptionList(),
     MaLoaiSanPham: "",
     HinhAnhChinh: "",
     HinhAnhPhu: [],
   })
   const [submitting, setSubmitting] = useState(false)
 
-  const updateVolumeOptions = (updater: AdminProductVolumeOptionPayload[] | ((prev: AdminProductVolumeOptionPayload[]) => AdminProductVolumeOptionPayload[])) => {
+  const updateIncludesOptions = (updater: AdminProjectIncludesOptionPayload[] | ((prev: AdminProjectIncludesOptionPayload[]) => AdminProjectIncludesOptionPayload[])) => {
     setFormData((prev) => {
-      const previousOptions = prev.DungTichOptions ?? ensureVolumeOptionList([], prev.DungTich ?? null)
+      const previousOptions = prev.DungTichOptions ?? ensureIncludesOptionList([], prev.DungTich ?? null)
       const nextOptions = typeof updater === "function" ? updater(previousOptions) : updater
       return {
         ...prev,
-        DungTichOptions: ensureVolumeOptionList(nextOptions, prev.DungTich ?? null),
+        DungTichOptions: ensureIncludesOptionList(nextOptions, prev.DungTich ?? null),
       }
     })
   }
 
-  const handleAddVolumeOption = () => {
-    updateVolumeOptions((prev) => [
+  const handleAddIncludesOption = () => {
+    updateIncludesOptions((prev) => [
       ...prev,
-      createDefaultVolumeOption(100 + prev.length * 10),
+      createDefaultIncludesOption(100 + prev.length * 10),
     ])
   }
 
-  const handleRemoveVolumeOption = (index: number) => {
-    updateVolumeOptions((prev) => {
+  const handleRemoveIncludesOption = (index: number) => {
+    updateIncludesOptions((prev) => {
       if (prev.length <= 1) {
-        toast.error("Cần ít nhất một dung tích")
+        toast.error("Cần ít nhất một bao gồm")
         return prev
       }
       const next = prev.filter((_, idx) => idx !== index)
@@ -180,12 +181,12 @@ export default function AdminProductsPage() {
     })
   }
 
-  const handleVolumeOptionChange = (
+  const handleIncludesOptionChange = (
     index: number,
-    field: keyof AdminProductVolumeOptionPayload,
+    field: keyof AdminProjectIncludesOptionPayload,
     value: string | number,
   ) => {
-    updateVolumeOptions((prev) =>
+    updateIncludesOptions((prev) =>
       prev.map((option, idx) =>
         idx === index
           ? {
@@ -197,8 +198,8 @@ export default function AdminProductsPage() {
     )
   }
 
-  const handleSetDefaultVolumeOption = (index: number) => {
-    updateVolumeOptions((prev) =>
+  const handleSetDefaultIncludesOption = (index: number) => {
+    updateIncludesOptions((prev) =>
       prev.map((option, idx) => ({
         ...option,
         isDefault: idx === index,
@@ -256,7 +257,7 @@ export default function AdminProductsPage() {
       setCategories(categoriesData)
       
       if (categoriesData.length === 0) {
-        console.warn("Không có danh mục nào. Vui lòng tạo danh mục trước khi thêm sản phẩm.")
+        console.warn("Không có danh mục nào. Vui lòng tạo danh mục trước khi thêm đồ án.")
       }
     } catch (err: unknown) {
       categoriesFetchedRef.current = false // Reset on error
@@ -275,9 +276,9 @@ export default function AdminProductsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, categoryFilter])
   
-  // Reset selected products when filter changes
+  // Reset selected projects when filter changes
   useEffect(() => {
-    setSelectedProducts(new Set())
+    setSelectedProjects(new Set())
     setIsSelectMode(false)
   }, [categoryFilter, stockFilter, searchQuery])
 
@@ -293,88 +294,88 @@ export default function AdminProductsPage() {
         params.categoryId = categoryFilter
       }
       
-      const productsRes = await adminService.getProducts(params)
+      const projectsRes = await adminService.getProjects(params)
       
       // Debug log trong development
       if (import.meta.env.DEV) {
-        console.log('📥 Products Response Raw:', {
-          hasResponse: !!productsRes,
-          responseData: productsRes?.data,
-          responseDataType: productsRes?.data ? (Array.isArray(productsRes.data) ? 'array' : typeof productsRes.data) : 'undefined',
-          responseDataKeys: productsRes?.data && !Array.isArray(productsRes.data) && typeof productsRes.data === 'object' ? Object.keys(productsRes.data) : 'N/A',
+        console.log('📥 Projects Response Raw:', {
+          hasResponse: !!projectsRes,
+          responseData: projectsRes?.data,
+          responseDataType: projectsRes?.data ? (Array.isArray(projectsRes.data) ? 'array' : typeof projectsRes.data) : 'undefined',
+          responseDataKeys: projectsRes?.data && !Array.isArray(projectsRes.data) && typeof projectsRes.data === 'object' ? Object.keys(projectsRes.data) : 'N/A',
         })
       }
       
       // Parse response - normalizeResponse đã giữ lại pagination
-      const responseData = productsRes?.data
-      let productsData: Product[] = []
+      const responseData = projectsRes?.data
+      let projectsData: Project[] = []
       let pagination: { totalPages?: number; total?: number } | undefined
 
       if (responseData) {
         if (responseData && typeof responseData === 'object' && !Array.isArray(responseData) && 'success' in responseData && 'data' in responseData) {
           if (Array.isArray(responseData.data)) {
-            productsData = responseData.data
+            projectsData = responseData.data
             pagination = (responseData as Record<string, unknown>).pagination as { totalPages?: number; total?: number } | undefined
           }
         } else if (Array.isArray(responseData)) {
-          productsData = responseData
+          projectsData = responseData
         } else if (responseData && typeof responseData === 'object' && !Array.isArray(responseData) && 'data' in responseData) {
           if (Array.isArray(responseData.data)) {
-            productsData = responseData.data
+            projectsData = responseData.data
             pagination = (responseData as Record<string, unknown>).pagination as { totalPages?: number; total?: number } | undefined
           }
         }
       }
       
-      if (!Array.isArray(productsData)) {
-        productsData = []
+      if (!Array.isArray(projectsData)) {
+        projectsData = []
       }
       
       // Debug log sau khi parse
       if (import.meta.env.DEV) {
-        console.log('📥 Products Parsed:', {
-          productsCount: productsData.length,
+        console.log('📥 Projects Parsed:', {
+          projectsCount: projectsData.length,
           pagination: pagination,
           totalPages: pagination?.totalPages,
           total: pagination?.total
         })
       }
 
-      setProducts(productsData)
+      setProjects(projectsData)
       if (pagination) {
         setTotalPages(pagination.totalPages || 1)
         setTotal(pagination.total || 0)
       }
       
-      // Chỉ update charts lần đầu hoặc khi cần thiết (không fetch 1000 products mỗi lần)
+      // Chỉ update charts lần đầu hoặc khi cần thiết (không fetch 1000 projects mỗi lần)
       // Charts sẽ được update khi có thay đổi dữ liệu (create/update/delete)
       if (currentPage === 1) {
-        // Chỉ fetch all products cho charts ở trang đầu tiên
-        const allProductsParams = { ...params, page: 1, limit: 1000 }
-        const allProductsRes = await adminService.getProducts(allProductsParams)
-        const allProductsResponseData = allProductsRes?.data
+        // Chỉ fetch all projects cho charts ở trang đầu tiên
+        const allProjectsParams = { ...params, page: 1, limit: 1000 }
+        const allProjectsRes = await adminService.getProjects(allProjectsParams)
+        const allProjectsResponseData = allProjectsRes?.data
         
-        let allProductsData: Product[] = []
+        let allProjectsData: Project[] = []
         
-        if (allProductsResponseData) {
-          if (allProductsResponseData && typeof allProductsResponseData === 'object' && !Array.isArray(allProductsResponseData) && 'success' in allProductsResponseData && 'data' in allProductsResponseData) {
-            if (Array.isArray(allProductsResponseData.data)) {
-              allProductsData = allProductsResponseData.data
+        if (allProjectsResponseData) {
+          if (allProjectsResponseData && typeof allProjectsResponseData === 'object' && !Array.isArray(allProjectsResponseData) && 'success' in allProjectsResponseData && 'data' in allProjectsResponseData) {
+            if (Array.isArray(allProjectsResponseData.data)) {
+              allProjectsData = allProjectsResponseData.data
             }
-          } else if (Array.isArray(allProductsResponseData)) {
-            allProductsData = allProductsResponseData
-          } else if (allProductsResponseData && typeof allProductsResponseData === 'object' && !Array.isArray(allProductsResponseData) && 'data' in allProductsResponseData) {
-            if (Array.isArray(allProductsResponseData.data)) {
-              allProductsData = allProductsResponseData.data
+          } else if (Array.isArray(allProjectsResponseData)) {
+            allProjectsData = allProjectsResponseData
+          } else if (allProjectsResponseData && typeof allProjectsResponseData === 'object' && !Array.isArray(allProjectsResponseData) && 'data' in allProjectsResponseData) {
+            if (Array.isArray(allProjectsResponseData.data)) {
+              allProjectsData = allProjectsResponseData.data
             }
           }
         }
         
-        if (!Array.isArray(allProductsData)) {
-          allProductsData = []
+        if (!Array.isArray(allProjectsData)) {
+          allProjectsData = []
         }
         
-        updateCharts(allProductsData)
+        updateCharts(allProjectsData)
       }
     } catch (err: unknown) {
       console.error("Error fetching data:", err)
@@ -384,19 +385,19 @@ export default function AdminProductsPage() {
     }
   }
   
-  // Filter products locally by search query and stock
-  // Đảm bảo products luôn là array
-  const filteredProducts = (Array.isArray(products) ? products : []).filter((product) => {
+  // Filter projects locally by search query and stock
+  // Đảm bảo projects luôn là array
+  const filteredProjects = (Array.isArray(projects) ? projects : []).filter((project) => {
     // Search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase()
-      const categoryName = typeof product.MaLoaiSanPham === "string" 
+      const categoryName = typeof project.MaLoaiSanPham === "string" 
         ? "Không phân loại" 
-        : product.MaLoaiSanPham?.TenLoaiSanPham ?? "Không phân loại"
+        : project.MaLoaiSanPham?.TenLoaiSanPham ?? "Không phân loại"
       
       const matchesSearch = (
-        product.TenSanPham?.toLowerCase().includes(query) ||
-        product.MoTa?.toLowerCase().includes(query) ||
+        project.TenSanPham?.toLowerCase().includes(query) ||
+        project.MoTa?.toLowerCase().includes(query) ||
         categoryName.toLowerCase().includes(query)
       )
       if (!matchesSearch) return false
@@ -406,13 +407,13 @@ export default function AdminProductsPage() {
     if (stockFilter !== "all") {
       switch (stockFilter) {
         case "out":
-          if (product.SoLuong !== 0) return false
+          if ((project.SoLuong || 0) !== 0) return false
           break
         case "low":
-          if (product.SoLuong >= 10 || product.SoLuong === 0) return false
+          if ((project.SoLuong || 0) >= 10 || (project.SoLuong || 0) === 0) return false
           break
         case "in":
-          if (product.SoLuong < 10) return false
+          if ((project.SoLuong || 0) < 10) return false
           break
       }
     }
@@ -421,76 +422,76 @@ export default function AdminProductsPage() {
   })
   
   const handleToggleSelectAll = () => {
-    if (selectedProducts.size === filteredProducts.length) {
-      setSelectedProducts(new Set())
+    if (selectedProjects.size === filteredProjects.length) {
+      setSelectedProjects(new Set())
     } else {
-      setSelectedProducts(new Set(filteredProducts.map(product => product._id)))
+      setSelectedProjects(new Set(filteredProjects.map(project => project._id)))
     }
   }
   
-  const handleToggleSelectProduct = (productId: string) => {
-    const newSelected = new Set(selectedProducts)
-    if (newSelected.has(productId)) {
-      newSelected.delete(productId)
+  const handleToggleSelectProject = (projectId: string) => {
+    const newSelected = new Set(selectedProjects)
+    if (newSelected.has(projectId)) {
+      newSelected.delete(projectId)
     } else {
-      newSelected.add(productId)
+      newSelected.add(projectId)
     }
-    setSelectedProducts(newSelected)
+    setSelectedProjects(newSelected)
   }
   
   const handleBulkDelete = async () => {
-    if (selectedProducts.size === 0) {
-      toast.error("Vui lòng chọn ít nhất một sản phẩm")
+    if (selectedProjects.size === 0) {
+      toast.error("Vui lòng chọn ít nhất một đồ án")
       return
     }
     
     try {
       setSubmitting(true)
-      const promises = Array.from(selectedProducts).map(productId =>
-        adminService.deleteProduct(productId)
+      const promises = Array.from(selectedProjects).map(projectId =>
+        adminService.deleteProject(projectId)
       )
       
       await Promise.all(promises)
-      toast.success(`Đã xóa ${selectedProducts.size} sản phẩm thành công`)
-      setSelectedProducts(new Set())
+      toast.success(`Đã xóa ${selectedProjects.size} đồ án thành công`)
+      setSelectedProjects(new Set())
       setIsSelectMode(false)
       await fetchData()
       if (currentPage !== 1) {
-        const allProductsRes = await adminService.getProducts({ page: 1, limit: 1000 })
-        const allProductsDataRaw = (allProductsRes as unknown as Record<string, unknown>)?.data;
-        const allProductsData = Array.isArray(allProductsDataRaw) ? allProductsDataRaw : 
-          (allProductsDataRaw && typeof allProductsDataRaw === 'object' && 'data' in allProductsDataRaw && Array.isArray((allProductsDataRaw as Record<string, unknown>).data)) 
-            ? (allProductsDataRaw as Record<string, unknown>).data as Product[]
+        const allProjectsRes = await adminService.getProjects({ page: 1, limit: 1000 })
+        const allProjectsDataRaw = (allProjectsRes as unknown as Record<string, unknown>)?.data;
+        const allProjectsData = Array.isArray(allProjectsDataRaw) ? allProjectsDataRaw : 
+          (allProjectsDataRaw && typeof allProjectsDataRaw === 'object' && 'data' in allProjectsDataRaw && Array.isArray((allProjectsDataRaw as Record<string, unknown>).data)) 
+            ? (allProjectsDataRaw as Record<string, unknown>).data as Project[]
             : [];
-        updateCharts(allProductsData)
+        updateCharts(allProjectsData)
       }
     } catch (err: unknown) {
-      console.error("Error bulk deleting products:", err)
-      toast.error("Không thể xóa một số sản phẩm")
+      console.error("Error bulk deleting projects:", err)
+      toast.error("Không thể xóa một số đồ án")
     } finally {
       setSubmitting(false)
     }
   }
 
-  const updateCharts = (productsData: Product[]) => {
-    // Đảm bảo productsData luôn là array
-    if (!Array.isArray(productsData)) {
-      productsData = []
+  const updateCharts = (projectsData: Project[]) => {
+    // Đảm bảo projectsData luôn là array
+    if (!Array.isArray(projectsData)) {
+      projectsData = []
     }
     
     // Chart theo category
     const categoryMap = new Map<string, ChartItem>()
-    productsData.forEach((product) => {
-      const categoryName = typeof product.MaLoaiSanPham === "string" 
+    projectsData.forEach((project) => {
+      const categoryName = typeof project.MaLoaiSanPham === "string" 
         ? "Không phân loại" 
-        : product.MaLoaiSanPham?.TenLoaiSanPham ?? "Không phân loại"
+        : project.MaLoaiSanPham?.TenLoaiSanPham ?? "Không phân loại"
       
     if (!categoryMap.has(categoryName)) {
       categoryMap.set(categoryName, { name: categoryName, sold: 0, revenue: 0 })
     }
     const catData = categoryMap.get(categoryName)!
-    catData.sold = (catData.sold ?? 0) + product.DaBan
-    catData.revenue = (catData.revenue ?? 0) + product.DaBan * product.Gia
+    catData.sold = (catData.sold ?? 0) + (project.DaBan || 0)
+    catData.revenue = (catData.revenue ?? 0) + (project.DaBan || 0) * (project.Gia || 0)
     })
     setCategorySalesChart(Array.from(categoryMap.values()))
 
@@ -504,8 +505,8 @@ export default function AdminProductsPage() {
       { name: "> 5 triệu", sold: 0 },
     ]
     
-    productsData.forEach((product) => {
-      const price = product.Gia
+    projectsData.forEach((project) => {
+      const price = project.Gia
       let rangeIndex = 0
       if (price >= 5000000) rangeIndex = 5
       else if (price >= 4000000) rangeIndex = 4
@@ -514,7 +515,7 @@ export default function AdminProductsPage() {
       else if (price >= 1000000) rangeIndex = 1
       
       const targetRange = priceRanges[rangeIndex] || priceRanges[0]
-      targetRange.sold = (targetRange.sold ?? 0) + product.DaBan
+      targetRange.sold = (targetRange.sold ?? 0) + project.DaBan
     })
     setPriceTrendChart(priceRanges)
   }
@@ -525,14 +526,14 @@ export default function AdminProductsPage() {
       fetchCategories()
     }
     
-    setEditingProduct(null)
+    setEditingProject(null)
     setFormData({
       TenSanPham: "",
       MoTa: "",
       Gia: 0,
       KhuyenMai: 0,
       SoLuong: 0,
-      DungTichOptions: ensureVolumeOptionList(),
+      DungTichOptions: ensureIncludesOptionList(),
       MaLoaiSanPham: "",
       HinhAnhChinh: "",
       HinhAnhPhu: [],
@@ -546,30 +547,30 @@ export default function AdminProductsPage() {
     if (!path) return ""
     if (path.startsWith("http")) return path
     if (path.startsWith("/uploads")) return path
-    return getCloudinaryProductImageUrl(path)
+    return getCloudinaryProjectImageUrl(path)
   }
 
-  const openEditDialog = (product: Product) => {
-    setEditingProduct(product)
-    const hinhAnhPhu = product.HinhAnhPhu || []
-    const normalizedVolumes = ensureVolumeOptionList(product.DungTichOptions as AdminProductVolumeOptionPayload[] | undefined, product.DungTich ?? null)
+  const openEditDialog = (project: Project) => {
+    setEditingProject(project)
+    const hinhAnhPhu = project.HinhAnhPhu || []
+    const normalizedIncludess = ensureIncludesOptionList(project.DungTichOptions as AdminProjectIncludesOptionPayload[] | undefined, project.DungTich ?? null)
     setFormData({
-      TenSanPham: product.TenSanPham,
-      MoTa: product.MoTa || "",
-      Gia: product.Gia,
-      KhuyenMai: product.KhuyenMai || 0,
-      SoLuong: product.SoLuong,
-      DungTichOptions: normalizedVolumes,
+      TenSanPham: project.TenSanPham,
+      MoTa: project.MoTa || "",
+      Gia: project.Gia,
+      KhuyenMai: project.KhuyenMai || 0,
+      SoLuong: project.SoLuong,
+      DungTichOptions: normalizedIncludess,
       // MaLoaiSanPham: ObjectId của LoaiSanPham trong database
       // Nếu đã populate thì lấy _id, nếu chưa thì đã là string (ObjectId)
-      MaLoaiSanPham: typeof product.MaLoaiSanPham === "string" 
-        ? product.MaLoaiSanPham 
-        : product.MaLoaiSanPham?._id || "",
-      HinhAnhChinh: product.HinhAnhChinh || "",
+      MaLoaiSanPham: typeof project.MaLoaiSanPham === "string" 
+        ? project.MaLoaiSanPham 
+        : project.MaLoaiSanPham?._id || "",
+      HinhAnhChinh: project.HinhAnhChinh || "",
       HinhAnhPhu: hinhAnhPhu,
     })
     // Set previews
-    setMainImagePreview(resolvePreviewUrl(product.HinhAnhChinh))
+    setMainImagePreview(resolvePreviewUrl(project.HinhAnhChinh))
     setSubImagePreviews([
       resolvePreviewUrl(hinhAnhPhu[0]),
       resolvePreviewUrl(hinhAnhPhu[1]),
@@ -721,17 +722,17 @@ export default function AdminProductsPage() {
     
     // Validate required fields
     if (!formData.TenSanPham || !formData.TenSanPham.trim()) {
-      toast.error("Vui lòng nhập tên sản phẩm")
+      toast.error("Vui lòng nhập tên đồ án")
       return
     }
     
     if (!formData.MaLoaiSanPham) {
-      toast.error("Vui lòng chọn loại sản phẩm")
+      toast.error("Vui lòng chọn loại đồ án")
       return
     }
     
     if (!formData.HinhAnhChinh || !formData.HinhAnhChinh.trim()) {
-      toast.error("Vui lòng chọn và upload ảnh chính cho sản phẩm")
+      toast.error("Vui lòng chọn và upload ảnh chính cho đồ án")
       return
     }
 
@@ -742,7 +743,7 @@ export default function AdminProductsPage() {
 
     // Validate number fields
     if (formData.Gia === undefined || formData.Gia === null || formData.Gia < 0) {
-      toast.error("Giá sản phẩm phải lớn hơn hoặc bằng 0")
+      toast.error("Giá đồ án phải lớn hơn hoặc bằng 0")
       return
     }
     
@@ -759,7 +760,7 @@ export default function AdminProductsPage() {
     try {
       setSubmitting(true)
       
-      const sanitizedVolumeOptions = ensureVolumeOptionList(formData.DungTichOptions, formData.DungTich ?? null)
+      const sanitizedIncludesOptions = ensureIncludesOptionList(formData.DungTichOptions, formData.DungTich ?? null)
         .map((option) => ({
           ...option,
           value: Math.max(0, Number(option.value) || 0),
@@ -770,36 +771,36 @@ export default function AdminProductsPage() {
         }))
         .filter((option) => option.value > 0)
 
-      if (!sanitizedVolumeOptions.length) {
-        toast.error("Vui lòng thêm ít nhất một dung tích hợp lệ")
+      if (!sanitizedIncludesOptions.length) {
+        toast.error("Vui lòng thêm ít nhất một bao gồm hợp lệ")
         return
       }
 
-      const defaultVolume = sanitizedVolumeOptions.find((option) => option.isDefault) || sanitizedVolumeOptions[0]
-      sanitizedVolumeOptions.forEach((option) => {
-        option.isDefault = option === defaultVolume
+      const defaultIncludes = sanitizedIncludesOptions.find((option) => option.isDefault) || sanitizedIncludesOptions[0]
+      sanitizedIncludesOptions.forEach((option) => {
+        option.isDefault = option === defaultIncludes
       })
 
       // Prepare payload - đảm bảo đúng kiểu dữ liệu
-      const payload: AdminProductPayload = {
+      const payload: AdminProjectPayload = {
         TenSanPham: formData.TenSanPham.trim(),
         MoTa: formData.MoTa?.trim() || "",
         Gia: Number(formData.Gia) || 0,
         KhuyenMai: Number(formData.KhuyenMai) || 0,
-        DungTich: defaultVolume?.value,
-        DungTichOptions: sanitizedVolumeOptions,
+        DungTich: defaultIncludes?.value,
+        DungTichOptions: sanitizedIncludesOptions,
         SoLuong: Number(formData.SoLuong) || 0,
         MaLoaiSanPham: formData.MaLoaiSanPham, // ObjectId của LoaiSanPham
         HinhAnhChinh: formData.HinhAnhChinh?.trim() || "",
         HinhAnhPhu: (formData.HinhAnhPhu || []).filter(img => img && img.trim() !== ""),
       }
       
-      if (editingProduct) {
-        await adminService.updateProduct(editingProduct._id, payload)
-        toast.success("Cập nhật sản phẩm thành công")
+      if (editingProject) {
+        await adminService.updateProject(editingProject._id, payload)
+        toast.success("Cập nhật đồ án thành công")
       } else {
-        await adminService.createProduct(payload)
-        toast.success("Thêm sản phẩm thành công")
+        await adminService.createProject(payload)
+        toast.success("Thêm đồ án thành công")
       }
       
       setIsDialogOpen(false)
@@ -808,16 +809,16 @@ export default function AdminProductsPage() {
       // Nếu đang ở trang 1, charts đã được update trong fetchData
       // Nếu không, cần fetch lại để update charts
       if (currentPage !== 1) {
-        const allProductsRes = await adminService.getProducts({ page: 1, limit: 1000 })
-        const allProductsDataRaw = (allProductsRes as unknown as Record<string, unknown>)?.data;
-        const allProductsData = Array.isArray(allProductsDataRaw) ? allProductsDataRaw : 
-          (allProductsDataRaw && typeof allProductsDataRaw === 'object' && 'data' in allProductsDataRaw && Array.isArray((allProductsDataRaw as Record<string, unknown>).data)) 
-            ? (allProductsDataRaw as Record<string, unknown>).data as Product[]
+        const allProjectsRes = await adminService.getProjects({ page: 1, limit: 1000 })
+        const allProjectsDataRaw = (allProjectsRes as unknown as Record<string, unknown>)?.data;
+        const allProjectsData = Array.isArray(allProjectsDataRaw) ? allProjectsDataRaw : 
+          (allProjectsDataRaw && typeof allProjectsDataRaw === 'object' && 'data' in allProjectsDataRaw && Array.isArray((allProjectsDataRaw as Record<string, unknown>).data)) 
+            ? (allProjectsDataRaw as Record<string, unknown>).data as Project[]
             : [];
-        updateCharts(allProductsData)
+        updateCharts(allProjectsData)
       }
     } catch (err: unknown) {
-      console.error("Error submitting product:", err)
+      console.error("Error submitting project:", err)
       const errorRecord = err as Record<string, unknown>;
       const errorMsg = (((errorRecord?.response as Record<string, unknown>)?.data as Record<string, unknown>)?.message as string | undefined) || "Có lỗi xảy ra";
       toast.error(errorMsg)
@@ -826,33 +827,33 @@ export default function AdminProductsPage() {
     }
   }
 
-  const openDeleteDialog = (product: Product) => {
-    setDeletingProduct(product)
+  const openDeleteDialog = (project: Project) => {
+    setDeletingProject(project)
     setIsDeleteDialogOpen(true)
   }
 
   const handleDelete = async () => {
-    if (!deletingProduct) return
+    if (!deletingProject) return
 
     try {
-      await adminService.deleteProduct(deletingProduct._id)
-      toast.success("Xóa sản phẩm thành công")
+      await adminService.deleteProject(deletingProject._id)
+      toast.success("Xóa đồ án thành công")
       setIsDeleteDialogOpen(false)
       await fetchData()
       // Update charts sau khi xóa
       if (currentPage !== 1) {
-        const allProductsRes = await adminService.getProducts({ page: 1, limit: 1000 })
-        const allProductsDataRaw = (allProductsRes as unknown as Record<string, unknown>)?.data;
-        const allProductsData = Array.isArray(allProductsDataRaw) ? allProductsDataRaw : 
-          (allProductsDataRaw && typeof allProductsDataRaw === 'object' && 'data' in allProductsDataRaw && Array.isArray((allProductsDataRaw as Record<string, unknown>).data)) 
-            ? (allProductsDataRaw as Record<string, unknown>).data as Product[]
+        const allProjectsRes = await adminService.getProjects({ page: 1, limit: 1000 })
+        const allProjectsDataRaw = (allProjectsRes as unknown as Record<string, unknown>)?.data;
+        const allProjectsData = Array.isArray(allProjectsDataRaw) ? allProjectsDataRaw : 
+          (allProjectsDataRaw && typeof allProjectsDataRaw === 'object' && 'data' in allProjectsDataRaw && Array.isArray((allProjectsDataRaw as Record<string, unknown>).data)) 
+            ? (allProjectsDataRaw as Record<string, unknown>).data as Project[]
             : [];
-        updateCharts(allProductsData)
+        updateCharts(allProjectsData)
       }
     } catch (err: unknown) {
-      console.error("Error deleting product:", err)
+      console.error("Error deleting project:", err)
       const errorRecord = err as Record<string, unknown>;
-      const errorMsg = (((errorRecord?.response as Record<string, unknown>)?.data as Record<string, unknown>)?.message as string | undefined) || "Không thể xóa sản phẩm"
+      const errorMsg = (((errorRecord?.response as Record<string, unknown>)?.data as Record<string, unknown>)?.message as string | undefined) || "Không thể xóa đồ án"
       toast.error(errorMsg)
     }
   }
@@ -867,9 +868,9 @@ export default function AdminProductsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Quản lý sản phẩm</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Quản lý đồ án</h1>
           <p className="text-muted-foreground">
-            Quản lý danh sách sản phẩm và tồn kho
+            Quản lý danh sách đồ án và tồn kho
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -878,14 +879,14 @@ export default function AdminProductsPage() {
             onClick={() => {
               setIsSelectMode(!isSelectMode)
               if (isSelectMode) {
-                setSelectedProducts(new Set())
+                setSelectedProjects(new Set())
               }
             }}
           >
             {isSelectMode ? (
               <>
                 <CheckSquare className="mr-2 h-4 w-4" />
-                Đã chọn: {selectedProducts.size}
+                Đã chọn: {selectedProjects.size}
               </>
             ) : (
               <>
@@ -896,7 +897,7 @@ export default function AdminProductsPage() {
           </Button>
           <Button onClick={openCreateDialog}>
             <Plus className="mr-2 h-4 w-4" />
-            Thêm sản phẩm
+            Thêm đồ án
           </Button>
         </div>
       </div>
@@ -908,7 +909,7 @@ export default function AdminProductsPage() {
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Tìm kiếm theo tên sản phẩm, mô tả, danh mục..."
+              placeholder="Tìm kiếm theo tên đồ án, mô tả, danh mục..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
@@ -969,10 +970,10 @@ export default function AdminProductsPage() {
         </div>
         
         {/* Bulk Actions */}
-        {isSelectMode && selectedProducts.size > 0 && (
+        {isSelectMode && selectedProjects.size > 0 && (
           <div className="flex items-center gap-2 pt-2 border-t">
             <span className="text-sm font-medium">
-              Đã chọn {selectedProducts.size} sản phẩm:
+              Đã chọn {selectedProjects.size} đồ án:
             </span>
             <Button
               variant="destructive"
@@ -981,7 +982,7 @@ export default function AdminProductsPage() {
               disabled={submitting}
             >
               <Trash2 className="mr-2 h-4 w-4" />
-              Xóa sản phẩm
+              Xóa đồ án
             </Button>
           </div>
         )}
@@ -993,17 +994,17 @@ export default function AdminProductsPage() {
           data={categorySalesChart}
           loading={loading}
           title="Doanh số theo danh mục"
-          description="Số lượng bán và doanh thu theo từng danh mục sản phẩm"
+          description="Số lượng bán và doanh thu theo từng danh mục đồ án"
         />
         <ChartAreaInteractive
           data={priceTrendChart}
           loading={loading}
           title="Phân bổ theo giá"
-          description="Số lượng sản phẩm bán được theo phân khúc giá"
+          description="Số lượng đồ án bán được theo phân khúc giá"
         />
       </div>
 
-      {/* Products Table */}
+      {/* Projects Table */}
       <div className="rounded-md border">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -1017,7 +1018,7 @@ export default function AdminProductsPage() {
                       className="h-6 w-6"
                       onClick={handleToggleSelectAll}
                     >
-                      {selectedProducts.size === filteredProducts.length && filteredProducts.length > 0 ? (
+                      {selectedProjects.size === filteredProjects.length && filteredProjects.length > 0 ? (
                         <CheckSquare className="h-4 w-4" />
                       ) : (
                         <Square className="h-4 w-4" />
@@ -1025,7 +1026,7 @@ export default function AdminProductsPage() {
                     </Button>
                   </th>
                 )}
-                <th className="px-4 py-3 text-left text-sm font-medium">Tên sản phẩm</th>
+                <th className="px-4 py-3 text-left text-sm font-medium">Tên đồ án</th>
                 <th className="px-4 py-3 text-left text-sm font-medium">Danh mục</th>
                 <th className="px-4 py-3 text-right text-sm font-medium">Giá</th>
                 {/* <th className="px-4 py-3 text-right text-sm font-medium">Giá khuyến mãi</th> */}
@@ -1042,24 +1043,24 @@ export default function AdminProductsPage() {
                     Đang tải...
                   </td>
                 </tr>
-              ) : filteredProducts.length === 0 ? (
+              ) : filteredProjects.length === 0 ? (
                 <tr>
                   <td colSpan={isSelectMode ? 8 : 7} className="px-4 py-8 text-center text-sm text-muted-foreground">
-                    {searchQuery ? "Không tìm thấy sản phẩm phù hợp" : "Chưa có sản phẩm nào"}
+                    {searchQuery ? "Không tìm thấy đồ án phù hợp" : "Chưa có đồ án nào"}
                   </td>
                 </tr>
               ) : (
-                filteredProducts.map((product) => {
+                filteredProjects.map((project) => {
                   // MaLoaiSanPham có thể là string (ObjectId) hoặc object (đã populate từ database)
-                  const categoryName = typeof product.MaLoaiSanPham === "string" 
+                  const categoryName = typeof project.MaLoaiSanPham === "string" 
                     ? "Không phân loại" 
-                    : product.MaLoaiSanPham?.TenLoaiSanPham ?? "Không phân loại"
-                  const stockStatus = getStockStatus(product.SoLuong)
+                    : project.MaLoaiSanPham?.TenLoaiSanPham ?? "Không phân loại"
+                  const stockStatus = getStockStatus(project.SoLuong)
                   
                   return (
                     <tr 
-                      key={product._id} 
-                      className={`border-b hover:bg-muted/50 ${selectedProducts.has(product._id) ? 'bg-primary/5' : ''}`}
+                      key={project._id} 
+                      className={`border-b hover:bg-muted/50 ${selectedProjects.has(project._id) ? 'bg-primary/5' : ''}`}
                     >
                       {isSelectMode && (
                         <td className="px-4 py-3 text-center">
@@ -1067,9 +1068,9 @@ export default function AdminProductsPage() {
                             variant="ghost"
                             size="icon"
                             className="h-6 w-6"
-                            onClick={() => handleToggleSelectProduct(product._id)}
+                            onClick={() => handleToggleSelectProject(project._id)}
                           >
-                            {selectedProducts.has(product._id) ? (
+                            {selectedProjects.has(project._id) ? (
                               <CheckSquare className="h-4 w-4 text-primary" />
                             ) : (
                               <Square className="h-4 w-4" />
@@ -1077,13 +1078,13 @@ export default function AdminProductsPage() {
                           </Button>
                         </td>
                       )}
-                      <td className="px-4 py-3 text-sm font-medium">{product.TenSanPham}</td>
+                      <td className="px-4 py-3 text-sm font-medium">{project.TenSanPham}</td>
                       <td className="px-4 py-3 text-sm">{categoryName}</td>
                       <td className="px-4 py-3 text-right text-sm">
-                        {currencyFormatter.format(product.Gia)}
+                        {currencyFormatter.format(project.Gia)}
                       </td>
-                      <td className="px-4 py-3 text-center text-sm">{product.SoLuong}</td>
-                      <td className="px-4 py-3 text-center text-sm">{product.DaBan}</td>
+                      <td className="px-4 py-3 text-center text-sm">{project.SoLuong}</td>
+                      <td className="px-4 py-3 text-center text-sm">{project.DaBan}</td>
                       <td className={`px-4 py-3 text-center text-sm font-medium ${stockStatus.color}`}>
                         {stockStatus.text}
                       </td>
@@ -1092,14 +1093,14 @@ export default function AdminProductsPage() {
                           <Button
                             size="icon"
                             variant="ghost"
-                            onClick={() => openEditDialog(product)}
+                            onClick={() => openEditDialog(project)}
                           >
                             <Edit className="h-4 w-4" />
                           </Button>
                           <Button
                             size="icon"
                             variant="ghost"
-                            onClick={() => openDeleteDialog(product)}
+                            onClick={() => openDeleteDialog(project)}
                           >
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
@@ -1118,8 +1119,8 @@ export default function AdminProductsPage() {
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
           <div className="text-sm text-muted-foreground">
-            Hiển thị {((currentPage - 1) * pageSize) + 1} - {Math.min(currentPage * pageSize, total)} trong tổng số {total} sản phẩm
-            {searchQuery && ` (${filteredProducts.length} kết quả tìm kiếm)`}
+            Hiển thị {((currentPage - 1) * pageSize) + 1} - {Math.min(currentPage * pageSize, total)} trong tổng số {total} đồ án
+            {searchQuery && ` (${filteredProjects.length} kết quả tìm kiếm)`}
           </div>
           <Pagination>
             <PaginationContent>
@@ -1184,16 +1185,16 @@ export default function AdminProductsPage() {
         <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {editingProduct ? "Chỉnh sửa sản phẩm" : "Thêm sản phẩm mới"}
+              {editingProject ? "Chỉnh sửa đồ án" : "Thêm đồ án mới"}
             </DialogTitle>
             <DialogDescription>
-              Điền thông tin sản phẩm. Các trường có dấu * là bắt buộc.
+              Điền thông tin đồ án. Các trường có dấu * là bắt buộc.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid gap-4 md:grid-cols-3">
               <div className="space-y-2">
-                <Label htmlFor="TenSanPham">Tên sản phẩm *</Label>
+                <Label htmlFor="TenSanPham">Tên đồ án *</Label>
                 <Input
                   id="TenSanPham"
                   value={formData.TenSanPham}
@@ -1202,16 +1203,16 @@ export default function AdminProductsPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="MaLoaiSanPham">Loại sản phẩm *</Label>
+                <Label htmlFor="MaLoaiSanPham">Loại đồ án *</Label>
                 {categories.length === 0 ? (
                   <div className="space-y-2">
                     <Select disabled>
                       <SelectTrigger>
-                        <SelectValue placeholder="Chưa có loại sản phẩm nào" />
+                        <SelectValue placeholder="Chưa có loại đồ án nào" />
                       </SelectTrigger>
                     </Select>
                     <p className="text-xs text-destructive">
-                      ⚠️ Chưa có loại sản phẩm nào. Vui lòng tạo loại sản phẩm trước khi thêm sản phẩm.
+                      ⚠️ Chưa có loại đồ án nào. Vui lòng tạo loại đồ án trước khi thêm đồ án.
                     </p>
                   </div>
                 ) : (
@@ -1224,7 +1225,7 @@ export default function AdminProductsPage() {
                     required
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Chọn loại sản phẩm" />
+                      <SelectValue placeholder="Chọn loại đồ án" />
                     </SelectTrigger>
                     <SelectContent>
                       {(Array.isArray(categories) ? categories : []).map((cat) => (
@@ -1286,7 +1287,7 @@ export default function AdminProductsPage() {
                       className="cursor-pointer"
                     />
                     <p className="text-xs text-muted-foreground mt-1">
-                      Chọn ảnh chính cho sản phẩm (JPG, PNG, tối đa 5MB)
+                      Chọn ảnh chính cho đồ án (JPG, PNG, tối đa 5MB)
                     </p>
                     {formData.HinhAnhChinh && (
                       <p className="text-xs text-blue-600 mt-1">
@@ -1335,7 +1336,7 @@ export default function AdminProductsPage() {
                   ))}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Chọn tối đa 3 ảnh phụ cho sản phẩm (JPG, PNG, tối đa 5MB mỗi ảnh)
+                  Chọn tối đa 3 ảnh phụ cho đồ án (JPG, PNG, tối đa 5MB mỗi ảnh)
                 </p>
                 {(formData.HinhAnhPhu || []).length > 0 && (
                   <p className="text-xs text-blue-600 mt-1">
@@ -1393,21 +1394,21 @@ export default function AdminProductsPage() {
             {/* DungTichOptions Section */}
             <div className="space-y-4 border-t pt-4">
               <div className="flex items-center justify-between">
-                <Label className="text-base font-semibold">Dung tích sản phẩm *</Label>
+                <Label className="text-base font-semibold">Bao gồm đồ án *</Label>
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={handleAddVolumeOption}
+                  onClick={handleAddIncludesOption}
                   className="flex items-center gap-2"
                 >
                   <Plus className="h-4 w-4" />
-                  Thêm dung tích
+                  Thêm bao gồm
                 </Button>
               </div>
               
               <p className="text-xs text-muted-foreground">
-                Thêm các dung tích có sẵn cho sản phẩm. Ít nhất một dung tích là bắt buộc.
+                Thêm các bao gồm có sẵn cho đồ án. Ít nhất một bao gồm là bắt buộc.
               </p>
 
               <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
@@ -1422,7 +1423,7 @@ export default function AdminProductsPage() {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <Label className="text-sm font-medium">
-                            Dung tích {index + 1}
+                            Bao gồm {index + 1}
                             {option.isDefault && (
                               <span className="ml-2 text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded">
                                 Mặc định
@@ -1435,7 +1436,7 @@ export default function AdminProductsPage() {
                             type="button"
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleSetDefaultVolumeOption(index)}
+                            onClick={() => handleSetDefaultIncludesOption(index)}
                             disabled={option.isDefault}
                             className="h-8 text-xs"
                           >
@@ -1445,7 +1446,7 @@ export default function AdminProductsPage() {
                             type="button"
                             variant="ghost"
                             size="icon"
-                            onClick={() => handleRemoveVolumeOption(index)}
+                            onClick={() => handleRemoveIncludesOption(index)}
                             disabled={formData.DungTichOptions && formData.DungTichOptions.length <= 1}
                             className="h-8 w-8 text-destructive hover:text-destructive"
                           >
@@ -1456,16 +1457,16 @@ export default function AdminProductsPage() {
 
                       <div className="grid gap-3 md:grid-cols-5">
                         <div className="space-y-2">
-                          <Label htmlFor={`volume-value-${index}`} className="text-xs">
-                            Dung tích (ml) *
+                          <Label htmlFor={`includes-value-${index}`} className="text-xs">
+                            Bao gồm (ml) *
                           </Label>
                           <Input
-                            id={`volume-value-${index}`}
+                            id={`includes-value-${index}`}
                             type="number"
                             min="1"
                             value={option.value || ''}
                             onChange={(e) =>
-                              handleVolumeOptionChange(index, 'value', Number(e.target.value) || 0)
+                              handleIncludesOptionChange(index, 'value', Number(e.target.value) || 0)
                             }
                             required
                             className="h-9"
@@ -1473,15 +1474,15 @@ export default function AdminProductsPage() {
                         </div>
 
                         <div className="space-y-2">
-                          <Label htmlFor={`volume-label-${index}`} className="text-xs">
+                          <Label htmlFor={`includes-label-${index}`} className="text-xs">
                             Nhãn hiển thị
                           </Label>
                           <Input
-                            id={`volume-label-${index}`}
+                            id={`includes-label-${index}`}
                             type="text"
                             value={option.label || ''}
                             onChange={(e) =>
-                              handleVolumeOptionChange(index, 'label', e.target.value)
+                              handleIncludesOptionChange(index, 'label', e.target.value)
                             }
                             placeholder={`${option.value || 0} ml`}
                             className="h-9"
@@ -1489,15 +1490,15 @@ export default function AdminProductsPage() {
                         </div>
 
                         <div className="space-y-2">
-                          <Label htmlFor={`volume-priceDiff-${index}`} className="text-xs">
+                          <Label htmlFor={`includes-priceDiff-${index}`} className="text-xs">
                             Chênh lệch giá (VNĐ)
                           </Label>
                           <Input
-                            id={`volume-priceDiff-${index}`}
+                            id={`includes-priceDiff-${index}`}
                             type="number"
                             value={option.priceDiff || 0}
                             onChange={(e) =>
-                              handleVolumeOptionChange(
+                              handleIncludesOptionChange(
                                 index,
                                 'priceDiff',
                                 Number(e.target.value) || 0
@@ -1509,15 +1510,15 @@ export default function AdminProductsPage() {
                         </div>
 
                         <div className="space-y-2">
-                          <Label htmlFor={`volume-stockDiff-${index}`} className="text-xs">
+                          <Label htmlFor={`includes-stockDiff-${index}`} className="text-xs">
                             Chênh lệch tồn kho
                           </Label>
                           <Input
-                            id={`volume-stockDiff-${index}`}
+                            id={`includes-stockDiff-${index}`}
                             type="number"
                             value={option.stockDiff || 0}
                             onChange={(e) =>
-                              handleVolumeOptionChange(
+                              handleIncludesOptionChange(
                                 index,
                                 'stockDiff',
                                 Number(e.target.value) || 0
@@ -1529,15 +1530,15 @@ export default function AdminProductsPage() {
                         </div>
 
                         <div className="space-y-2">
-                          <Label htmlFor={`volume-sku-${index}`} className="text-xs">
+                          <Label htmlFor={`includes-sku-${index}`} className="text-xs">
                             SKU
                           </Label>
                           <Input
-                            id={`volume-sku-${index}`}
+                            id={`includes-sku-${index}`}
                             type="text"
                             value={option.sku || ''}
                             onChange={(e) =>
-                              handleVolumeOptionChange(index, 'sku', e.target.value)
+                              handleIncludesOptionChange(index, 'sku', e.target.value)
                             }
                             placeholder="Mã SKU"
                             className="h-9"
@@ -1553,7 +1554,7 @@ export default function AdminProductsPage() {
                   ))
                 ) : (
                   <div className="p-4 border border-dashed border-border rounded-lg text-center text-sm text-muted-foreground">
-                    Chưa có dung tích nào. Nhấn "Thêm dung tích" để thêm.
+                    Chưa có bao gồm nào. Nhấn "Thêm bao gồm" để thêm.
                   </div>
                 )}
               </div>
@@ -1569,7 +1570,7 @@ export default function AdminProductsPage() {
                 Hủy
               </Button>
               <Button type="submit" disabled={submitting}>
-                {submitting ? "Đang xử lý..." : editingProduct ? "Cập nhật" : "Thêm mới"}
+                {submitting ? "Đang xử lý..." : editingProject ? "Cập nhật" : "Thêm mới"}
               </Button>
             </DialogFooter>
           </form>
@@ -1580,9 +1581,9 @@ export default function AdminProductsPage() {
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Xác nhận xóa sản phẩm</AlertDialogTitle>
+            <AlertDialogTitle>Xác nhận xóa đồ án</AlertDialogTitle>
             <AlertDialogDescription>
-              Bạn có chắc chắn muốn xóa sản phẩm "{deletingProduct?.TenSanPham}"? 
+              Bạn có chắc chắn muốn xóa đồ án "{deletingProject?.TenSanPham}"? 
               Hành động này không thể hoàn tác.
             </AlertDialogDescription>
           </AlertDialogHeader>

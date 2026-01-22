@@ -1,2 +1,2 @@
-export { ProductsView } from './components/ProductsView';
+export { ProjectsView } from './components/ProjectsView';
 

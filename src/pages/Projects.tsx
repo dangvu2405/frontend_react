@@ -20,23 +20,23 @@ import {
 } from '@/components/ui/select';
 import { Search, SlidersHorizontal, X } from 'lucide-react';
 import { Suspense, useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
-import { productsService } from '@/services/productsService';
-import type { Product, Category, ProductVolumeOption } from '@/types/models';
+import { projectsService } from '@/services/projectsService';
+import type { Project, Category, ProjectIncludesOption } from '@/types/models/product';
 import adminService from '@/services/adminService';
 import { toast } from 'sonner';
 import { storage, type CartItemInput } from '@/utils/storage';
-import { getCloudinaryProductImageUrl } from '@/utils/imageUtils';
-import { ProductsGrid } from '@/components/products';
+import { getCloudinaryProjectImageUrl } from '@/utils/imageUtils';
+import { ProjectsGrid } from '@/components/projects';
 
 const NO_IMAGE_PLACEHOLDER = 'https://placehold.co/600x600/E5E5EA/000?text=No+Image';
 
-export default function ProductsPage() {
-  const [products, setProducts] = useState<Product[]>([]);
+export default function ProjectsPage() {
+  const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [totalProducts, setTotalProducts] = useState(0);
-  const productsPerPage = 12;
+  const [totalProjects, setTotalProjects] = useState(0);
+  const projectsPerPage = 12;
   const LOAD_ALL_LIMIT = 200;
   const deferredQuery = useDeferredValue(query);
   
@@ -48,21 +48,21 @@ export default function ProductsPage() {
   const [stockFilter, setStockFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('default');
 
-  const handleAddToCart = useCallback((product: Product, selectedVolume?: ProductVolumeOption) => {
+  const handleAddToCart = useCallback((project: Project, selectedIncludes?: ProjectIncludesOption) => {
     // Lấy category name
-    const categoryName = typeof product.MaLoaiSanPham === 'object' && product.MaLoaiSanPham
-      ? product.MaLoaiSanPham.TenLoaiSanPham
-      : 'Nước hoa';
+    const categoryName = typeof project.MaLoaiSanPham === 'object' && project.MaLoaiSanPham
+      ? project.MaLoaiSanPham.TenLoaiSanPham
+      : 'Đồ án';
 
     const item: CartItemInput = {
-      productId: String(product._id || (product as unknown as Record<string, unknown>).id),
-      tenSP: product.TenSanPham,
-      basePrice: product.Gia,
-      giamGia: product.KhuyenMai || 0,
-      hinhAnh: product.HinhAnhChinh,
+      projectId: String(project._id || (project as unknown as Record<string, unknown>).id || ''),
+      tenSP: project.TenSanPham || '',
+      basePrice: project.Gia || 0,
+      giamGia: project.KhuyenMai || 0,
+      hinhAnh: project.HinhAnhChinh || '',
       loaiSP: categoryName,
-      selectedDungTich: selectedVolume,
-      volumeOptions: product.DungTichOptions,
+      selectedDungTich: selectedIncludes,
+      includesOptions: project.DungTichOptions,
     };
     storage.addCartItem(item, 1);
     window.dispatchEvent(new CustomEvent('cart:updated'));
@@ -92,42 +92,55 @@ export default function ProductsPage() {
   useEffect(() => {
     let isMounted = true;
 
-    const fetchProducts = async () => {
+    const fetchProjects = async () => {
       try {
         setLoading(true);
-        const result = await productsService.getAllProducts({
+        const result = await projectsService.getAllProjects({
           page: 1,
           limit: LOAD_ALL_LIMIT
         });
         
         if (!isMounted) return;
 
-        const apiProducts = result.products || [];
+        const apiProjects = result.projects || [];
         // ✅ Đơn giản hóa: chỉ transform ảnh, giữ nguyên các field khác từ API
-        const normalized: Product[] = apiProducts.map((raw: Product) => ({
+        const normalized: Project[] = apiProjects.map((raw: Project) => ({
           ...raw,
           // Chỉ transform ảnh qua Cloudinary
-          HinhAnhChinh: getCloudinaryProductImageUrl(raw.HinhAnhChinh) || NO_IMAGE_PLACEHOLDER,
+          HinhAnhChinh: getCloudinaryProjectImageUrl(raw.HinhAnhChinh) || NO_IMAGE_PLACEHOLDER,
           HinhAnhPhu: Array.isArray(raw.HinhAnhPhu) && raw.HinhAnhPhu.length > 0
-            ? raw.HinhAnhPhu.map((img: string) => getCloudinaryProductImageUrl(img) || NO_IMAGE_PLACEHOLDER)
+            ? raw.HinhAnhPhu.map((img: string) => getCloudinaryProjectImageUrl(img) || NO_IMAGE_PLACEHOLDER)
             : [],
         }));
 
-        setProducts(normalized);
-        setTotalProducts(normalized.length);
+        setProjects(normalized);
+        setTotalProjects(normalized.length);
       } catch (error: unknown) {
         if (!isMounted) return;
-        if (import.meta.env.DEV) {
-          console.error('Error fetching products:', error);
+        
+        const errorRecord = error as Record<string, unknown>;
+        const status = errorRecord?.status || (errorRecord?.response as Record<string, unknown>)?.status;
+        
+        // Don't show error toast for 404 (API not implemented yet)
+        if (status !== 404) {
+          if (import.meta.env.DEV) {
+            console.error('Error fetching projects:', error);
+          }
+          const errorMsg = errorRecord?.message as string | undefined;
+          toast.error(errorMsg || 'Không thể tải đồ án');
+        } else if (import.meta.env.DEV) {
+          console.warn('Projects API not implemented yet (404). Showing empty state.');
         }
-        const errorMsg = (error as Record<string, unknown>)?.message as string | undefined;
-      toast.error(errorMsg || 'Không thể tải sản phẩm');
+        
+        // Set empty array on error
+        setProjects([]);
+        setTotalProjects(0);
       } finally {
         if (isMounted) setLoading(false);
       }
     };
 
-    fetchProducts();
+    fetchProjects();
     return () => {
       isMounted = false;
     };
@@ -138,16 +151,16 @@ export default function ProductsPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
-  const getCategoryName = (product: Product) => {
-    if (typeof product.MaLoaiSanPham === 'object' && product.MaLoaiSanPham) {
-      return product.MaLoaiSanPham.TenLoaiSanPham;
+  const getCategoryName = (project: Project) => {
+    if (typeof project.MaLoaiSanPham === 'object' && project.MaLoaiSanPham) {
+      return project.MaLoaiSanPham.TenLoaiSanPham;
     }
     return '';
   };
 
   const filtered = useMemo(
     () => {
-      let result = products;
+      let result = projects;
 
       // Search filter
       if (deferredQuery) {
@@ -161,8 +174,8 @@ export default function ProductsPage() {
       if (selectedCategories.size > 0) {
         result = result.filter((p) => {
           const categoryNames = Array.from(selectedCategories);
-          const productCategoryName = getCategoryName(p);
-          return categoryNames.some(catName => productCategoryName === catName);
+          const projectCategoryName = getCategoryName(p);
+          return categoryNames.some(catName => projectCategoryName === catName);
         });
       }
 
@@ -239,11 +252,11 @@ export default function ProductsPage() {
 
       return result;
     },
-    [products, deferredQuery, selectedCategories, priceRange, discountFilter, stockFilter, sortBy]
+    [projects, deferredQuery, selectedCategories, priceRange, discountFilter, stockFilter, sortBy]
   );
 
   const totalFiltered = filtered.length;
-  const computedTotalPages = Math.max(1, Math.ceil(totalFiltered / productsPerPage));
+  const computedTotalPages = Math.max(1, Math.ceil(totalFiltered / projectsPerPage));
 
   useEffect(() => {
     if (currentPage > computedTotalPages) {
@@ -251,10 +264,10 @@ export default function ProductsPage() {
     }
   }, [computedTotalPages, currentPage]);
 
-  const paginatedProducts = useMemo(() => {
-    const start = (currentPage - 1) * productsPerPage;
-    return filtered.slice(start, start + productsPerPage);
-  }, [filtered, currentPage, productsPerPage]);
+  const paginatedProjects = useMemo(() => {
+    const start = (currentPage - 1) * projectsPerPage;
+    return filtered.slice(start, start + projectsPerPage);
+  }, [filtered, currentPage, projectsPerPage]);
 
   const handleCategoryToggle = (categoryName: string) => {
     const newSelected = new Set(selectedCategories);
@@ -285,15 +298,15 @@ export default function ProductsPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
             <div>
-          <h1 className="text-4xl font-bold text-foreground mb-4">Sản phẩm</h1>
-          <p className="text-lg text-muted-foreground">Khám phá bộ sưu tập nước hoa cao cấp chính hãng</p>
+          <h1 className="text-4xl font-bold text-foreground mb-4">Đồ án</h1>
+          <p className="text-lg text-muted-foreground">Khám phá bộ sưu tập đồ án cao cấp chính hãng</p>
             </div>
             <div className="text-right">
               <p className="text-sm text-muted-foreground">
-                {hasActiveFilters || deferredQuery ? 'Kết quả tìm kiếm' : 'Tổng số sản phẩm'}
+                {hasActiveFilters || deferredQuery ? 'Kết quả tìm kiếm' : 'Tổng số đồ án'}
               </p>
               <p className="text-3xl font-bold text-primary">
-                {hasActiveFilters || deferredQuery ? filtered.length : totalProducts}
+                {hasActiveFilters || deferredQuery ? filtered.length : totalProjects}
               </p>
             </div>
           </div>
@@ -307,7 +320,7 @@ export default function ProductsPage() {
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
               <Input
                 type="text"
-                placeholder="Tìm kiếm sản phẩm..."
+                placeholder="Tìm kiếm đồ án..."
                 className="pl-12 bg-muted border-input"
                 value={query}
                 onChange={(e) => {
@@ -344,9 +357,9 @@ export default function ProductsPage() {
                 </SheetTrigger>
                 <SheetContent side="right" className="w-[400px] sm:w-[540px] overflow-y-auto">
                   <SheetHeader>
-                    <SheetTitle>Bộ lọc sản phẩm</SheetTitle>
+                    <SheetTitle>Bộ lọc đồ án</SheetTitle>
                     <SheetDescription>
-                      Lọc sản phẩm theo danh mục, giá, khuyến mãi và tồn kho
+                      Lọc đồ án theo danh mục, giá, khuyến mãi và tồn kho
                     </SheetDescription>
                   </SheetHeader>
                   
@@ -445,7 +458,7 @@ export default function ProductsPage() {
 
           <Suspense
             fallback={
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {Array.from({ length: 8 }).map((_, index) => (
                   <div
                     key={index}
@@ -455,11 +468,11 @@ export default function ProductsPage() {
               </div>
             }
           >
-            <ProductsGrid
-              products={paginatedProducts}
+            <ProjectsGrid
+              projects={paginatedProjects}
               loading={loading}
-              emptyMessage="Không có sản phẩm nào"
-              className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6"
+              emptyMessage="Không có đồ án nào"
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
               showSoldQuantity={true}
               showAddToCartButton={true}
               onAddToCart={handleAddToCart}

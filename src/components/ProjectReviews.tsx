@@ -7,8 +7,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { Star } from 'lucide-react';
 
-interface ProductReviewsProps {
-  productId: string;
+interface ProjectReviewsProps {
+  projectId: string;
 }
 
 const getReviewerName = (reviewer: Review['IdKhachHang']): string => {
@@ -26,7 +26,7 @@ const getReviewDate = (date?: string | null): string => {
   return date;
 };
 
-export function ProductReviews({ productId }: ProductReviewsProps) {
+export function ProjectReviews({ projectId }: ProjectReviewsProps) {
   const { isAuthenticated } = useAuth();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [stats, setStats] = useState<RatingStats | null>(null);
@@ -49,9 +49,9 @@ export function ProductReviews({ productId }: ProductReviewsProps) {
         setLoading(true);
 
         const [reviewsData, statsData, myReviewData] = await Promise.all([
-          reviewService.getProductReviews(productId, { limit: 10 }),
-          reviewService.getProductRatingStats(productId),
-          isAuthenticated ? reviewService.getMyReview(productId) : Promise.resolve(null)
+          reviewService.getProjectReviews(projectId, { limit: 10 }),
+          reviewService.getProjectRatingStats(projectId),
+          isAuthenticated ? reviewService.getMyReview(projectId) : Promise.resolve(null)
         ]);
 
         if (!isMounted) return;
@@ -75,7 +75,7 @@ export function ProductReviews({ productId }: ProductReviewsProps) {
     return () => {
       isMounted = false;
     };
-  }, [productId, isAuthenticated]);
+  }, [projectId, isAuthenticated]);
 
   const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,7 +94,7 @@ export function ProductReviews({ productId }: ProductReviewsProps) {
       setSubmitting(true);
       
       const newReview = await reviewService.createReview({
-        IdSanPham: productId,
+        IdSanPham: projectId,
         NoiDung: reviewText.trim(),
         SoSao: rating
       });
@@ -119,7 +119,7 @@ export function ProductReviews({ productId }: ProductReviewsProps) {
         setStats(newStats);
       } else {
         // Nếu chưa có stats, mới gọi API
-        const newStats = await reviewService.getProductRatingStats(productId);
+        const newStats = await reviewService.getProjectRatingStats(projectId);
         setStats(newStats);
       }
     } catch (error: unknown) {
@@ -234,7 +234,7 @@ export function ProductReviews({ productId }: ProductReviewsProps) {
                       value={reviewText}
                       onChange={(e) => setReviewText(e.target.value)}
                       className="w-full min-h-[120px] p-3 border-2 border-border rounded-lg bg-background resize-none focus:outline-none focus:ring-2 focus:ring-primary"
-                      placeholder="Chia sẻ trải nghiệm của bạn về sản phẩm này... (tối thiểu 10 ký tự)"
+                      placeholder="Chia sẻ trải nghiệm của bạn về đồ án này... (tối thiểu 10 ký tự)"
                       required
                       minLength={10}
                       maxLength={1000}
@@ -311,7 +311,7 @@ export function ProductReviews({ productId }: ProductReviewsProps) {
           <Card>
             <CardContent className="p-12 text-center">
               <p className="text-muted-foreground">
-                Chưa có đánh giá nào. Hãy là người đầu tiên đánh giá sản phẩm này!
+                Chưa có đánh giá nào. Hãy là người đầu tiên đánh giá đồ án này!
               </p>
             </CardContent>
           </Card>

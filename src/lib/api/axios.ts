@@ -137,7 +137,7 @@ axiosInstance.interceptors.response.use(
     const url = originalRequest 
       ? `${originalRequest.baseURL || ''}${originalRequest.url || ''}`
       : 'Unknown URL';
-    const isPublicEndpoint = url.includes('/reviews/product/') && url.includes('/stats');
+    const isPublicEndpoint = url.includes('/reviews/project/') && url.includes('/stats');
     const shouldLogError = !(status === 401 && isPublicEndpoint);
     
     if (import.meta.env.DEV && shouldLogError) {

@@ -900,17 +900,17 @@ export default function AdminOrdersPage() {
               </div>
 
               <div>
-                <p className="mb-2 text-sm font-medium">Sản phẩm</p>
+                <p className="mb-2 text-sm font-medium">Đồ án</p>
                 {!selectedOrder.SanPham || selectedOrder.SanPham.length === 0 ? (
                   <div className="rounded-md border p-4 text-center text-sm text-muted-foreground">
-                    Không có sản phẩm nào trong đơn hàng này
+                    Không có đồ án nào trong đơn hàng này
                   </div>
                 ) : (
                   <div className="rounded-md border">
                     <table className="w-full">
                       <thead className="border-b bg-muted/50">
                         <tr>
-                          <th className="px-4 py-2 text-left text-sm">Tên sản phẩm</th>
+                          <th className="px-4 py-2 text-left text-sm">Tên đồ án</th>
                           <th className="px-4 py-2 text-center text-sm">Số lượng</th>
                           <th className="px-4 py-2 text-right text-sm">Đơn giá</th>
                           <th className="px-4 py-2 text-right text-sm">Thành tiền</th>
@@ -920,15 +920,15 @@ export default function AdminOrdersPage() {
                         {selectedOrder.SanPham.map((item: unknown, idx: number) => {
                           // Hỗ trợ cả MaSanPham và IdSanPham
                           const itemRecord = item as Record<string, unknown>;
-                          const productId = itemRecord.MaSanPham || itemRecord.IdSanPham || itemRecord._id || idx;
-                          const productName = String(itemRecord.TenSanPham || itemRecord.name || "Sản phẩm không xác định");
+                          const projectId = itemRecord.MaSanPham || itemRecord.IdSanPham || itemRecord._id || idx;
+                          const projectName = String(itemRecord.TenSanPham || itemRecord.name || "Đồ án không xác định");
                           const price = Number(itemRecord.GiaTaiThoiDiemDat || itemRecord.Gia || itemRecord.price || 0);
                           const quantity = Number(itemRecord.SoLuong || itemRecord.quantity || 0);
                           const total = Number(itemRecord.ThanhTien || itemRecord.TongTien || (price * quantity));
                           
                           return (
-                            <tr key={`${selectedOrder._id}-${productId}-${idx}`} className="border-b">
-                              <td className="px-4 py-2 text-sm">{productName}</td>
+                            <tr key={`${selectedOrder._id}-${projectId}-${idx}`} className="border-b">
+                              <td className="px-4 py-2 text-sm">{projectName}</td>
                               <td className="px-4 py-2 text-center text-sm">{quantity}</td>
                               <td className="px-4 py-2 text-right text-sm">
                                 {currencyFormatter.format(price)}

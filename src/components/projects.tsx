@@ -1,13 +1,14 @@
 /**
- * Products Grid Component - Style Shopee
- * Hiển thị danh sách sản phẩm với bố cục giống Shopee
+ * Projects Grid Component - Style Shopee
+ * Hiển thị danh sách đồ án với bố cục giống Shopee
  */
 
 import { memo, useCallback, useState, useEffect, useMemo } from "react"
-import type { Product, ProductVolumeOption, RatingStats } from "@/types/models"
+import type { Project, ProjectIncludesOption } from "@/types/models/product"
+import type { RatingStats } from "@/types/models"
 import { useNavigate } from "react-router-dom"
 import { Star, ShoppingCart, Heart } from "lucide-react"
-import { getCloudinaryProductImageUrl } from "@/utils/imageUtils"
+import { getCloudinaryProjectImageUrl } from "@/utils/imageUtils"
 import { reviewService } from "@/services/reviewService"
 import { storage } from "@/utils/storage"
 import { heartService } from "@/services/heartService"
@@ -20,16 +21,16 @@ type PaginationProps = {
   onPageChange: (page: number) => void
 }
 
-type ProductsGridProps = {
-  products: Product[]
+type ProjectsGridProps = {
+  projects: Project[]
   loading?: boolean
   emptyMessage?: string
   className?: string
   showCategoryBadge?: boolean
   showSoldQuantity?: boolean
   showAddToCartButton?: boolean
-  showVolumeOptions?: boolean
-  onAddToCart?: (product: Product, selectedVolume?: ProductVolumeOption) => void
+  showIncludesOptions?: boolean
+  onAddToCart?: (project: Project, selectedIncludes?: ProjectIncludesOption) => void
   pagination?: PaginationProps
   showPagination?: boolean
 }
@@ -37,44 +38,44 @@ type ProductsGridProps = {
 const FALLBACK_IMAGE =
   "https://placehold.co/300x300/E5E5EA/000?text=No+Image"
 
-// ProductCard component - Style Shopee
-type ProductCardProps = {
-  product: Product;
-  onAddToCart?: (product: Product, selectedVolume?: ProductVolumeOption) => void;
+// ProjectCard component - Style Shopee
+type ProjectCardProps = {
+  project: Project;
+  onAddToCart?: (project: Project, selectedIncludes?: ProjectIncludesOption) => void;
   showCategoryBadge: boolean;
   showSoldQuantity: boolean;
   showAddToCartButton: boolean;
-  showVolumeOptions?: boolean;
-  onProductClick: (productId: string) => void;
+  showIncludesOptions?: boolean;
+  onProjectClick: (projectId: string) => void;
 }
 
-const ProductCard = memo(({ 
-  product, 
+const ProjectCard = memo(({ 
+  project, 
   onAddToCart, 
   showAddToCartButton,
-  showVolumeOptions = true,
-  onProductClick
-}: ProductCardProps) => {
+  showIncludesOptions = true,
+  onProjectClick
+}: ProjectCardProps) => {
   const { isAuthenticated } = useAuth();
   const [rating, setRating] = useState<RatingStats | null>(null);
   const [isFavorite, setIsFavorite] = useState(false);
   const [isTogglingHeart, setIsTogglingHeart] = useState(false);
 
-  // Get product ID (support both normalized and original)
-  const productId = String((product as unknown as Record<string, unknown>).id || (product as unknown as Record<string, unknown>)._id || '');
+  // Get project ID (support both normalized and original)
+  const projectId = String((project as unknown as Record<string, unknown>).id || (project as unknown as Record<string, unknown>)._id || '');
   
   // Load heart status from localStorage
   useEffect(() => {
-    if (productId) {
-      setIsFavorite(storage.isHeart(productId));
+    if (projectId) {
+      setIsFavorite(storage.isHeart(projectId));
     }
-  }, [productId]);
+  }, [projectId]);
 
   // Listen for hearts:updated event
   useEffect(() => {
     const handleHeartsUpdate = () => {
-      if (productId) {
-        setIsFavorite(storage.isHeart(productId));
+      if (projectId) {
+        setIsFavorite(storage.isHeart(projectId));
       }
     };
     
@@ -82,25 +83,25 @@ const ProductCard = memo(({
     return () => {
       window.removeEventListener('hearts:updated', handleHeartsUpdate);
     };
-  }, [productId]);
+  }, [projectId]);
   
-  // Fetch rating stats cho sản phẩm
+  // Fetch rating stats cho đồ án
   useEffect(() => {
-    if (!productId) return;
+    if (!projectId) return;
     const fetchRating = async () => {
       try {
-        setLoadingRating(true);
+        // Loading state removed
         
         // Debug: Log API call
         if (import.meta.env.DEV) {
-          console.log('⭐ [ProductsGrid] Fetching rating stats...', { productId });
+          console.log('⭐ [ProjectsGrid] Fetching rating stats...', { projectId });
         }
         
-        const stats = await reviewService.getProductRatingStats(String(productId));
+        const stats = await reviewService.getProjectRatingStats(String(projectId));
         
         // Debug: Log API response
         if (import.meta.env.DEV) {
-          console.log('⭐ [ProductsGrid] Rating stats received:', { productId, stats });
+          console.log('⭐ [ProjectsGrid] Rating stats received:', { projectId, stats });
         }
         
         setRating(stats);
@@ -111,11 +112,11 @@ const ProductCard = memo(({
         if (status === 401 || status === 403 || status === 404) {
           // Silently set default stats for unauthorized/not found
           if (import.meta.env.DEV) {
-            console.debug('⭐ [ProductsGrid] Rating stats not available (401/403/404), using defaults', { productId, status });
+            console.debug('⭐ [ProjectsGrid] Rating stats not available (401/403/404), using defaults', { projectId, status });
           }
         } else if (import.meta.env.DEV) {
           // Only log non-auth errors in dev mode
-          console.warn('⭐ [ProductsGrid] Error fetching rating stats:', { productId, error });
+          console.warn('⭐ [ProjectsGrid] Error fetching rating stats:', { projectId, error });
         }
         
         // Set default rating stats
@@ -129,17 +130,17 @@ const ProductCard = memo(({
           star1: 0
         });
       } finally {
-        setLoadingRating(false);
+        // Loading state removed
       }
     };
     fetchRating();
-  }, [productId]);
+  }, [projectId]);
 
   // Support both normalized và original field names
-  const productAny = product as unknown as Record<string, unknown>;
-  const volumeOptions = useMemo<ProductVolumeOption[]>(() => {
-    const rawOptions = productAny.DungTichOptions || productAny.dungTichOptions;
-    let normalized: ProductVolumeOption[] = Array.isArray(rawOptions) ? rawOptions.filter(Boolean) : [];
+  const projectAny = project as unknown as Record<string, unknown>;
+  const includesOptions = useMemo<ProjectIncludesOption[]>(() => {
+    const rawOptions = projectAny.DungTichOptions || projectAny.dungTichOptions;
+    let normalized: ProjectIncludesOption[] = Array.isArray(rawOptions) ? rawOptions.filter(Boolean) : [];
 
     normalized = normalized
       .map((option: unknown) => {
@@ -155,10 +156,10 @@ const ProductCard = memo(({
           isDefault: Boolean(optionRecord?.isDefault ?? optionRecord?.IsDefault),
         };
       })
-      .filter(Boolean) as ProductVolumeOption[];
+      .filter(Boolean) as ProjectIncludesOption[];
 
     if (!normalized.length) {
-      const fallback = Number(productAny.DungTich ?? productAny.dungTich ?? 0);
+      const fallback = Number(projectAny.DungTich ?? projectAny.dungTich ?? 0);
       if (fallback > 0) {
         normalized = [{ value: fallback, label: `${fallback} ml`, isDefault: true }];
       } else {
@@ -171,28 +172,28 @@ const ProductCard = memo(({
     }
 
     return normalized;
-  }, [productAny.DungTichOptions, productAny.DungTich, productAny.dungTich, productAny.dungTichOptions]);
+  }, [projectAny.DungTichOptions, projectAny.DungTich, projectAny.dungTich, projectAny.dungTichOptions]);
 
-  const [selectedVolume, setSelectedVolume] = useState<ProductVolumeOption>(
-    volumeOptions.find(opt => opt.isDefault) || volumeOptions[0]
+  const [selectedIncludes, setSelectedIncludes] = useState<ProjectIncludesOption>(
+    includesOptions.find(opt => opt.isDefault) || includesOptions[0]
   );
 
   useEffect(() => {
-    setSelectedVolume(volumeOptions.find(opt => opt.isDefault) || volumeOptions[0]);
-  }, [productId, volumeOptions]);
+    setSelectedIncludes(includesOptions.find(opt => opt.isDefault) || includesOptions[0]);
+  }, [projectId, includesOptions]);
 
-  const isSoldOut = Number(productAny.soLuong ?? productAny.SoLuong ?? 0) <= 0;
-  const discount = Number(productAny.giamGia ?? productAny.KhuyenMai ?? 0);
-  const basePrice = Number(productAny.gia ?? productAny.Gia ?? 0);
-  const variantBasePrice = basePrice + (selectedVolume?.priceDiff || 0);
+  const isSoldOut = Number(projectAny.soLuong ?? projectAny.SoLuong ?? 0) <= 0;
+  const discount = Number(projectAny.giamGia ?? projectAny.KhuyenMai ?? 0);
+  const basePrice = Number(projectAny.gia ?? projectAny.Gia ?? 0);
+  const variantBasePrice = basePrice + (selectedIncludes?.priceDiff || 0);
   const discountedPrice = discount > 0 ? Math.round(variantBasePrice * (1 - discount / 100)) : variantBasePrice;
   const avgRating = rating?.avgRating || 0;
-  const formattedVolume = selectedVolume?.label || (selectedVolume ? `${selectedVolume.value} ml` : null);
+  const formattedIncludes = selectedIncludes?.label || (selectedIncludes ? `${selectedIncludes.value} ml` : null);
 
   return (
     <div
       className="w-full bg-white dark:bg-card rounded-3xl shadow-lg p-3 flex flex-col h-full group cursor-pointer hover:shadow-xl transition-all duration-200"
-      onClick={() => onProductClick(String(productId))}
+      onClick={() => onProjectClick(String(projectId))}
     >
       {/* Image Section */}
       <div className="relative bg-gray-100 dark:bg-muted rounded-2xl mb-3 overflow-hidden aspect-square">
@@ -208,12 +209,12 @@ const ProductCard = memo(({
             try {
               if (newFavoriteState) {
                 // Thêm vào yêu thích
-                storage.addHeart(String(productId));
+                storage.addHeart(String(projectId));
                 
                 // Nếu đã đăng nhập, sync với database
                 if (isAuthenticated) {
                   try {
-                    await heartService.addHeart(String(productId));
+                    await heartService.addHeart(String(projectId));
                   } catch (error: unknown) {
                     // Nếu lỗi, vẫn giữ trong localStorage
                     console.error('Error adding heart to database:', error);
@@ -221,12 +222,12 @@ const ProductCard = memo(({
                 }
               } else {
                 // Xóa khỏi yêu thích
-                storage.removeHeart(String(productId));
+                storage.removeHeart(String(projectId));
                 
                 // Nếu đã đăng nhập, sync với database
                 if (isAuthenticated) {
                   try {
-                    await heartService.removeHeart(String(productId));
+                    await heartService.removeHeart(String(projectId));
                   } catch (error: unknown) {
                     // Nếu lỗi, vẫn xóa khỏi localStorage
                     console.error('Error removing heart from database:', error);
@@ -258,15 +259,15 @@ const ProductCard = memo(({
 
           <img
             src={(() => {
-              const imagePath = String(productAny.hinhAnhChinh || productAny.hinhAnh || productAny.HinhAnhChinh || '');
+              const imagePath = String(projectAny.hinhAnhChinh || projectAny.hinhAnh || projectAny.HinhAnhChinh || '');
               // Nếu là URL đầy đủ (http/https), sử dụng trực tiếp
               if (imagePath && (imagePath.startsWith('http://') || imagePath.startsWith('https://'))) {
                 return imagePath;
               }
-              // Sử dụng getCloudinaryProductImageUrl để xử lý Cloudinary path (bao gồm luxury_perfume_images/)
-              return getCloudinaryProductImageUrl(imagePath) || FALLBACK_IMAGE;
+              // Sử dụng getCloudinaryProjectImageUrl để xử lý Cloudinary path (bao gồm luxury_project_images/)
+              return getCloudinaryProjectImageUrl(imagePath) || FALLBACK_IMAGE;
             })()}
-            alt={String(productAny.tenSP || productAny.TenSanPham || 'Sản phẩm')}
+            alt={String(projectAny.tenSP || projectAny.TenSanPham || 'Đồ án')}
             className="w-full h-full object-cover"
             onError={(event) => {
               event.currentTarget.src = FALLBACK_IMAGE
@@ -283,12 +284,12 @@ const ProductCard = memo(({
           )}
         </div>
 
-      {/* Product Info */}
+      {/* Project Info */}
       <div className="space-y-2 flex flex-col flex-1">
         {/* Title and Rating */}
         <div className="flex items-start justify-between gap-2">
           <h2 className="text-lg font-bold text-gray-900 dark:text-foreground flex-1 leading-tight">
-            {String(productAny.tenSP || productAny.TenSanPham || 'Sản phẩm')}
+            {String(projectAny.tenSP || projectAny.TenSanPham || 'Đồ án')}
           </h2>
             {avgRating > 0 && (
             <div className="flex items-center gap-1 flex-shrink-0">
@@ -302,26 +303,26 @@ const ProductCard = memo(({
 
         {/* Description */}
         <p className="text-gray-500 dark:text-muted-foreground text-xs leading-snug line-clamp-2">
-          {String(productAny.moTa || productAny.MoTa || 'Chưa có mô tả sản phẩm...')}
+          {String(projectAny.moTa || projectAny.MoTa || 'Chưa có mô tả đồ án...')}
         </p>
-        {showVolumeOptions && formattedVolume && (
+        {showIncludesOptions && formattedIncludes && (
           <p className="text-[11px] font-semibold text-teal-600 dark:text-teal-400">
-            Dung tích: {formattedVolume}
+            Bao gồm: {formattedIncludes}
           </p>
         )}
 
-        {/* Volume Selection */}
-        {showVolumeOptions && volumeOptions.length > 0 && (
+        {/* Includes Selection */}
+        {showIncludesOptions && includesOptions.length > 0 && (
           <div className="flex gap-1.5 flex-wrap">
-            {volumeOptions.map((option) => (
+            {includesOptions.map((option) => (
               <button
-                key={`${productId}-volume-${option.value}`}
+                key={`${projectId}-includes-${option.value}`}
                 onClick={(e) => {
                   e.stopPropagation();
-                  setSelectedVolume(option);
+                  setSelectedIncludes(option);
                 }}
                 className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
-                  Number(selectedVolume?.value) === Number(option.value)
+                  Number(selectedIncludes?.value) === Number(option.value)
                     ? 'bg-teal-600 text-white shadow-md'
                     : 'bg-white dark:bg-card text-gray-700 dark:text-foreground border-2 border-gray-200 dark:border-border hover:border-teal-300'
                 }`}
@@ -347,7 +348,7 @@ const ProductCard = memo(({
               onClick={(e) => {
                 e.stopPropagation();
                 if (!isSoldOut && onAddToCart) {
-                  onAddToCart(product, selectedVolume);
+                  onAddToCart(project, selectedIncludes);
                 }
               }}
               disabled={isSoldOut || !onAddToCart}
@@ -362,25 +363,25 @@ const ProductCard = memo(({
   );
 });
 
-ProductCard.displayName = 'ProductCard';
+ProjectCard.displayName = 'ProjectCard';
 
-function ProductsGridComponent({
-  products,
+function ProjectsGridComponent({
+  projects,
   loading,
-  emptyMessage = "Không có sản phẩm nào",
+  emptyMessage = "Không có đồ án nào",
   className = "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 2xl:grid-cols-6 gap-3 lg:gap-4",
   showCategoryBadge = true,
   showSoldQuantity = true,
   showAddToCartButton = true,
-  showVolumeOptions = true,
+  showIncludesOptions = true,
   onAddToCart,
   pagination,
   showPagination = false,
-}: ProductsGridProps) {
+}: ProjectsGridProps) {
   // Tất cả hooks phải được gọi ở đầu component, trước các early returns
   const navigate = useNavigate()
-  const handleProductClick = useCallback((productId: string) => {
-    navigate(`/products/${productId}`);
+  const handleProjectClick = useCallback((projectId: string) => {
+    navigate(`/projects/${projectId}`);
   }, [navigate]);
 
   // Early returns sau khi hooks đã được gọi
@@ -388,12 +389,12 @@ function ProductsGridComponent({
     return (
       <div className="text-center py-12">
         <div className="inline-block h-12 w-12 animate-spin rounded-full border-4 border-solid border-primary border-r-transparent"></div>
-        <p className="text-muted-foreground mt-4">Đang tải sản phẩm...</p>
+        <p className="text-muted-foreground mt-4">Đang tải đồ án...</p>
       </div>
     )
   }
 
-  if (!products?.length) {
+  if (!projects?.length) {
     return (
       <div className="text-center py-12">
         <p className="text-muted-foreground">{emptyMessage}</p>
@@ -494,18 +495,18 @@ function ProductsGridComponent({
   return (
     <>
       <div className={className}>
-        {products.map((product) => {
-          const productId = String((product as unknown as Record<string, unknown>).id || (product as unknown as Record<string, unknown>)._id || '');
+        {projects.map((project) => {
+          const projectId = String((project as unknown as Record<string, unknown>).id || (project as unknown as Record<string, unknown>)._id || '');
           return (
-          <ProductCard
-              key={productId}
-            product={product}
+          <ProjectCard
+              key={projectId}
+            project={project}
             onAddToCart={onAddToCart}
             showCategoryBadge={showCategoryBadge}
             showSoldQuantity={showSoldQuantity}
             showAddToCartButton={showAddToCartButton}
-            showVolumeOptions={showVolumeOptions}
-            onProductClick={handleProductClick}
+            showIncludesOptions={showIncludesOptions}
+            onProjectClick={handleProjectClick}
           />
           );
         })}
@@ -516,5 +517,5 @@ function ProductsGridComponent({
   )
 }
 
-export const ProductsGrid = memo(ProductsGridComponent)
-ProductsGrid.displayName = "ProductsGrid"
+export const ProjectsGrid = memo(ProjectsGridComponent)
+ProjectsGrid.displayName = "ProjectsGrid"

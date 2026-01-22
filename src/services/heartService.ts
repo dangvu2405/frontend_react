@@ -1,17 +1,17 @@
 import axiosInstance from './axios';
-import type { ApiItemResponse, Product } from '@/types/models';
+import type { ApiItemResponse, Project } from '@/types/models';
 
 export interface Heart {
   _id: string;
   MaKhachHang: string;
-  MaSanPham: string | Product;
+  MaSanPham: string | Project;
   createdAt?: string;
   updatedAt?: string;
 }
 
 export const heartService = {
   /**
-   * Lấy danh sách sản phẩm yêu thích của user
+   * Lấy danh sách đồ án yêu thích của user
    */
   getUserHearts: async (): Promise<Heart[]> => {
     const response = await axiosInstance.get<ApiItemResponse<{ hearts: Heart[] }>>('/user/hearts');
@@ -31,17 +31,17 @@ export const heartService = {
   },
 
   /**
-   * Lấy danh sách product IDs đã yêu thích
+   * Lấy danh sách project IDs đã yêu thích
    */
-  getUserHeartProductIds: async (): Promise<string[]> => {
+  getUserHeartProjectIds: async (): Promise<string[]> => {
     try {
-      const response = await axiosInstance.get<ApiItemResponse<{ productIds: string[] }>>('/user/hearts/ids');
+      const response = await axiosInstance.get<ApiItemResponse<{ projectIds: string[] }>>('/user/hearts/ids');
       const responseData = response.data;
       
       if (responseData && responseData.data) {
-        if (typeof responseData.data === 'object' && 'productIds' in responseData.data) {
-          const productIds = (responseData.data as Record<string, unknown>).productIds;
-          return Array.isArray(productIds) ? productIds : [];
+        if (typeof responseData.data === 'object' && 'projectIds' in responseData.data) {
+          const projectIds = (responseData.data as Record<string, unknown>).projectIds;
+          return Array.isArray(projectIds) ? projectIds : [];
         }
         if (Array.isArray(responseData.data)) {
           return responseData.data;
@@ -50,17 +50,17 @@ export const heartService = {
       
       return [];
     } catch (error) {
-      console.error('Error fetching heart product IDs:', error);
+      console.error('Error fetching heart project IDs:', error);
       return [];
     }
   },
 
   /**
-   * Kiểm tra user đã yêu thích sản phẩm chưa
+   * Kiểm tra user đã yêu thích đồ án chưa
    */
-  checkHeart: async (productId: string): Promise<boolean> => {
+  checkHeart: async (projectId: string): Promise<boolean> => {
     try {
-      const response = await axiosInstance.get<ApiItemResponse<{ isHeart: boolean }>>(`/user/hearts/check/${productId}`);
+      const response = await axiosInstance.get<ApiItemResponse<{ isHeart: boolean }>>(`/user/hearts/check/${projectId}`);
       const responseData = response.data;
       
       if (responseData && responseData.data) {
@@ -77,12 +77,12 @@ export const heartService = {
   },
 
   /**
-   * Thêm sản phẩm vào yêu thích
+   * Thêm đồ án vào yêu thích
    */
-  addHeart: async (productId: string): Promise<Heart | null> => {
+  addHeart: async (projectId: string): Promise<Heart | null> => {
     try {
       const response = await axiosInstance.post<ApiItemResponse<{ heart: Heart }>>('/user/hearts', {
-        productId,
+        projectId,
       });
       const responseData = response.data;
       
@@ -106,11 +106,11 @@ export const heartService = {
   },
 
   /**
-   * Xóa sản phẩm khỏi yêu thích
+   * Xóa đồ án khỏi yêu thích
    */
-  removeHeart: async (productId: string): Promise<void> => {
+  removeHeart: async (projectId: string): Promise<void> => {
     try {
-      await axiosInstance.delete(`/user/hearts/${productId}`);
+      await axiosInstance.delete(`/user/hearts/${projectId}`);
     } catch (error: unknown) {
       // Nếu lỗi 401 (chưa đăng nhập), không throw error
       const errorRecord = error as Record<string, unknown>;
@@ -125,9 +125,9 @@ export const heartService = {
   /**
    * Đồng bộ hearts từ localStorage lên database
    */
-  syncHearts: async (productIds: string[]): Promise<Heart[]> => {
+  syncHearts: async (projectIds: string[]): Promise<Heart[]> => {
     const response = await axiosInstance.post<ApiItemResponse<{ hearts: Heart[] }>>('/user/hearts/sync', {
-      productIds,
+      projectIds,
     });
     const responseData = response.data;
     

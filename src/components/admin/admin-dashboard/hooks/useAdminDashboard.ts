@@ -6,7 +6,7 @@ import { adminDashboardService } from '../services/admin-dashboard.service';
 import type { AdminDashboardHookState } from '../types';
 
 const normalizeSummary = (payload: unknown): SummaryStats => ({
-  totalProducts: Number((payload as Record<string, unknown>)?.totalProducts ?? 0),
+  totalProjects: Number((payload as Record<string, unknown>)?.totalProjects ?? 0),
   totalCategories: Number((payload as Record<string, unknown>)?.totalCategories ?? 0),
   totalUsers: Number((payload as Record<string, unknown>)?.totalUsers ?? 0),
   totalOrders: Number((payload as Record<string, unknown>)?.totalOrders ?? 0),
@@ -24,7 +24,7 @@ export const useAdminDashboard = (): AdminDashboardHookState => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [summaryStats, setSummaryStats] = useState<SummaryStats | null>(null);
-  const [topProductsChart, setTopProductsChart] = useState<ChartItem[]>([]);
+  const [topProjectsChart, setTopProjectsChart] = useState<ChartItem[]>([]);
   const [monthlyOrdersChart, setMonthlyOrdersChart] = useState<ChartItem[]>([]);
   const [topCustomersChart, setTopCustomersChart] = useState<ChartItem[]>([]);
 
@@ -32,24 +32,24 @@ export const useAdminDashboard = (): AdminDashboardHookState => {
     try {
       setLoading(true);
       setError(null);
-      const [summaryRes, topProductsRes, monthlyOrdersRes, topCustomersRes] = await Promise.all([
+      const [summaryRes, topProjectsRes, monthlyOrdersRes, topCustomersRes] = await Promise.all([
         adminDashboardService.getSummaryStats(),
-        adminDashboardService.getTopProducts({ limit: 8 }),
+        adminDashboardService.getTopProjects({ limit: 8 }),
         adminDashboardService.getMonthlyOrdersStats({ months: 6 }),
         adminDashboardService.getTopCustomersByOrders({ limit: 6 }),
       ]);
 
       setSummaryStats(normalizeSummary((summaryRes as unknown as Record<string, unknown>)?.data ?? summaryRes));
 
-      setTopProductsChart(
-        normalizeChart(topProductsRes, (product) => {
-          const productRecord = product as Record<string, unknown>;
+      setTopProjectsChart(
+        normalizeChart(topProjectsRes, (project) => {
+          const projectRecord = project as Record<string, unknown>;
           return {
-            name: String(productRecord?.TenSanPham ?? 'Không tên'),
-            sold: Number(productRecord?.DaBan ?? 0),
+            name: String(projectRecord?.TenSanPham ?? 'Không tên'),
+            sold: Number(projectRecord?.DaBan ?? 0),
             revenue:
-              typeof productRecord?.Gia === 'number' && typeof productRecord?.DaBan === 'number'
-                ? productRecord.Gia * productRecord.DaBan
+              typeof projectRecord?.Gia === 'number' && typeof projectRecord?.DaBan === 'number'
+                ? projectRecord.Gia * projectRecord.DaBan
                 : undefined,
           };
         }),
@@ -95,7 +95,7 @@ export const useAdminDashboard = (): AdminDashboardHookState => {
     loading,
     error,
     summaryStats,
-    topProductsChart,
+    topProjectsChart,
     monthlyOrdersChart,
     topCustomersChart,
     refresh: fetchData,

@@ -13,6 +13,7 @@ import {
   IconMail,
   IconStar,
   IconTicket,
+  IconWallet,
 } from "@tabler/icons-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -42,8 +43,8 @@ const sidebarData = {
       icon: IconListDetails,
     },
     {
-      title: "Quản lý sản phẩm",
-      url: "/admin/products",
+      title: "Quản lý đồ án",
+      url: "/admin/projects",
       icon: IconChartBar,
     },
     {
@@ -65,6 +66,11 @@ const sidebarData = {
       title: "Quản lý voucher",
       url: "/admin/vouchers",
       icon: IconTicket,
+    },
+    {
+      title: "Quản lý ví điện tử",
+      url: "/admin/wallets",
+      icon: IconWallet,
     },
     {
       title: "Quản lý Chat",

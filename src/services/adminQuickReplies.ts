@@ -18,19 +18,19 @@ export const adminQuickReplies: QuickReply[] = [
   {
     id: 'greeting-1',
     label: 'Xin chào',
-    message: 'Xin chào! Tôi là nhân viên tư vấn của Perfume Shop. Tôi có thể giúp gì cho bạn?',
+    message: 'Xin chào! Tôi là nhân viên tư vấn của Project Shop. Tôi có thể giúp gì cho bạn?',
     category: 'greeting',
   },
   {
     id: 'greeting-2',
     label: 'Chào mừng',
-    message: 'Chào mừng bạn đến với Perfume Shop! 👋 Bạn cần hỗ trợ gì hôm nay?',
+    message: 'Chào mừng bạn đến với Project Shop! 👋 Bạn cần hỗ trợ gì hôm nay?',
     category: 'greeting',
   },
   {
     id: 'greeting-3',
     label: 'Cảm ơn đã liên hệ',
-    message: 'Cảm ơn bạn đã liên hệ với chúng tôi! Tôi sẽ hỗ trợ bạn ngay. Bạn cần tư vấn về sản phẩm nào?',
+    message: 'Cảm ơn bạn đã liên hệ với chúng tôi! Tôi sẽ hỗ trợ bạn ngay. Bạn cần tư vấn về đồ án nào?',
     category: 'greeting',
   },
 
@@ -80,11 +80,11 @@ export const adminQuickReplies: QuickReply[] = [
     category: 'common',
   },
 
-  // Hỗ trợ sản phẩm
+  // Hỗ trợ đồ án
   {
     id: 'support-1',
-    label: 'Tư vấn sản phẩm',
-    message: 'Bạn đang quan tâm đến sản phẩm nào? Tôi có thể tư vấn chi tiết cho bạn.',
+    label: 'Tư vấn đồ án',
+    message: 'Bạn đang quan tâm đến đồ án nào? Tôi có thể tư vấn chi tiết cho bạn.',
     category: 'support',
   },
   {
@@ -96,13 +96,13 @@ export const adminQuickReplies: QuickReply[] = [
   {
     id: 'support-3',
     label: 'Hướng dẫn đặt hàng',
-    message: 'Để đặt hàng, bạn có thể:\n1. Chọn sản phẩm và thêm vào giỏ hàng\n2. Vào giỏ hàng và thanh toán\n3. Chọn phương thức thanh toán và hoàn tất đơn hàng',
+    message: 'Để đặt hàng, bạn có thể:\n1. Chọn đồ án và thêm vào giỏ hàng\n2. Vào giỏ hàng và thanh toán\n3. Chọn phương thức thanh toán và hoàn tất đơn hàng',
     category: 'support',
   },
   {
     id: 'support-4',
     label: 'Chính sách đổi trả',
-    message: 'Chúng tôi hỗ trợ đổi trả trong 7 ngày kể từ ngày nhận hàng. Sản phẩm cần còn nguyên seal và có hóa đơn mua hàng.',
+    message: 'Chúng tôi hỗ trợ đổi trả trong 7 ngày kể từ ngày nhận hàng. Đồ án cần còn nguyên seal và có hóa đơn mua hàng.',
     category: 'support',
   },
   {

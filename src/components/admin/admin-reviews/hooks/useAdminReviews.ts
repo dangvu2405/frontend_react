@@ -9,7 +9,7 @@ import type { AdminReviewsFilters, AdminReviewsHookState } from '../types';
 const PAGE_SIZE = 20;
 
 const INITIAL_FILTERS: AdminReviewsFilters = {
-  productId: '',
+  projectId: '',
   customerId: '',
   minRating: 'all',
   maxRating: 'all',
@@ -44,7 +44,7 @@ export const useAdminReviews = (): AdminReviewsHookState => {
   const setFilters = (update: Partial<AdminReviewsFilters>) => {
     setFiltersState((prev) => ({ ...prev, ...update }));
     if (
-      update.productId !== undefined ||
+      update.projectId !== undefined ||
       update.customerId !== undefined ||
       update.minRating !== undefined ||
       update.maxRating !== undefined ||
@@ -68,7 +68,7 @@ export const useAdminReviews = (): AdminReviewsHookState => {
       sortOrder: filters.sortOrder,
     };
 
-    if (filters.productId.trim()) params.productId = filters.productId.trim();
+    if (filters.projectId.trim()) params.projectId = filters.projectId.trim();
     if (filters.customerId.trim()) params.customerId = filters.customerId.trim();
     if (filters.minRating !== 'all') params.minRating = Number(filters.minRating);
     if (filters.maxRating !== 'all') params.maxRating = Number(filters.maxRating);

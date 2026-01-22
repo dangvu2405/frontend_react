@@ -175,7 +175,7 @@ export const getSimpleCloudinaryUrl = (imageName: string | undefined | null): st
     : buildLocalUrl(imageName);
 };
 
-export const getProductImageUrl = (
+export const getProjectImageUrl = (
   imagePath: string | undefined | null, 
   useSimpleUrl = false
 ): string => {
@@ -283,7 +283,7 @@ export const getVideoUrl = (
   return `${CLOUDINARY_VIDEO_BASE}${versionString}${transformString}/${cleanPath}`;
 };
 
-export const getCloudinaryProductImageUrl = (imageName: string): string => {
+export const getCloudinaryProjectImageUrl = (imageName: string): string => {
   if (!imageName) return PLACEHOLDER_IMAGE;
   
   // Nếu là URL đầy đủ (http/https), sử dụng trực tiếp
@@ -295,8 +295,8 @@ export const getCloudinaryProductImageUrl = (imageName: string): string => {
     imageName = extractedId;
   }
   
-  // Nếu là path từ luxury_perfume_images (Cloudinary public_id), xử lý như Cloudinary path
-  if (imageName.startsWith('luxury_perfume_images/')) {
+  // Nếu là path từ luxury_project_images (Cloudinary public_id), xử lý như Cloudinary path
+  if (imageName.startsWith('luxury_project_images/')) {
     // Đây là Cloudinary public_id, xử lý như path Cloudinary bình thường
     const normalized = stripLeadingSlash(imageName);
     return `${CLOUDINARY_IMAGE_BASE}/w_500,h_500,c_fill,f_auto,q_auto/${normalized}`;
@@ -307,16 +307,16 @@ export const getCloudinaryProductImageUrl = (imageName: string): string => {
 
   const normalized = stripLeadingSlash(imageName);
   const hasVersionPrefix = /^v\d+\//.test(normalized);
-  const hasProductsPrefix = normalized.startsWith('products/');
+  const hasProjectsPrefix = normalized.startsWith('projects/');
   const hasTransformsPrefix = normalized.startsWith('w_') || normalized.startsWith('c_');
 
-  if (hasVersionPrefix || hasProductsPrefix || hasTransformsPrefix) {
-    // Đã là Cloudinary path hoàn chỉnh (ví dụ: v123/products/abc.jpg)
+  if (hasVersionPrefix || hasProjectsPrefix || hasTransformsPrefix) {
+    // Đã là Cloudinary path hoàn chỉnh (ví dụ: v123/projects/abc.jpg)
     return `${CLOUDINARY_IMAGE_BASE}/${normalized}`;
   }
 
   let cleanImageName = removeExtension(normalized);
-  if (!cleanImageName.startsWith('products/')) cleanImageName = `products/${cleanImageName}`;
+  if (!cleanImageName.startsWith('projects/')) cleanImageName = `projects/${cleanImageName}`;
 
   return `${CLOUDINARY_IMAGE_BASE}/w_500,h_500,c_fill,f_auto,q_20/${cleanImageName}`;
 };

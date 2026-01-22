@@ -6,8 +6,8 @@ import type { ApiResponse } from '@/types/models';
 
 const FALLBACK_DATA_KEYS = [
   'data',
-  'product',
-  'products',
+  'project',
+  'projects',
   'order',
   'orders',
   'cart',

@@ -1,7 +1,7 @@
 import type { Review, ReviewStats } from '@/types/models';
 
 export interface AdminReviewsFilters {
-  productId: string;
+  projectId: string;
   customerId: string;
   minRating: string;
   maxRating: string;

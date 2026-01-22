@@ -4,7 +4,7 @@ import { ChartAreaInteractive } from '@/components/chart-area-interactive';
 import useAdminDashboard from '../hooks/useAdminDashboard';
 
 const AdminDashboardView = () => {
-  const { loading, summaryStats, topProductsChart, monthlyOrdersChart, topCustomersChart, error } = useAdminDashboard();
+  const { loading, summaryStats, topProjectsChart, monthlyOrdersChart, topCustomersChart, error } = useAdminDashboard();
 
   return (
     <>
@@ -13,10 +13,10 @@ const AdminDashboardView = () => {
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
         <ChartAreaInteractive
-          data={topProductsChart}
+          data={topProjectsChart}
           loading={loading}
-          title="Top sản phẩm bán chạy"
-          description="Dựa trên số lượng sản phẩm đã bán"
+          title="Top đồ án bán chạy"
+          description="Dựa trên số lượng đồ án đã bán"
         />
         <ChartAreaInteractive
           data={monthlyOrdersChart}

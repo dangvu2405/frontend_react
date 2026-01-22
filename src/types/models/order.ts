@@ -4,19 +4,19 @@
  */
 
 import type { BaseDocument, ObjectId } from './common';
-import type { Product, ProductVolumeOption } from './product';
+import type { Project, ProjectIncludesOption } from './product';
 
 /**
- * OrderProduct - Sản phẩm trong đơn hàng
+ * OrderProject - Đồ án trong đơn hàng
  */
-export interface OrderProduct {
-  IdSanPham?: ObjectId | Product;  // ID sản phẩm
-  TenSanPham?: string;              // Tên sản phẩm (lưu để tránh thay đổi)
+export interface OrderProject {
+  IdSanPham?: ObjectId | Project;  // ID đồ án
+  TenSanPham?: string;              // Tên đồ án (lưu để tránh thay đổi)
   SoLuong?: number;                 // Số lượng
   Gia?: number;                     // Giá tại thời điểm đặt
   ThanhTien?: number;               // Thành tiền (Gia * SoLuong)
   GiaTaiThoiDiemDat?: number;       // Giá tại thời điểm đặt hàng
-  SelectedDungTich?: ProductVolumeOption;
+  SelectedDungTich?: ProjectIncludesOption;
   [key: string]: unknown;           // Cho phép thêm field khác
 }
 
@@ -65,7 +65,7 @@ export interface Order extends BaseDocument, VNPayMeta {
   MaDonHang?: string;                    // Mã đơn hàng (unique, tự động generate từ backend)
   MaKhachHang: string;                  // ID khách hàng (string ID)
   IdKhachHang?: CustomerInfo | null;    // Thông tin khách hàng (populated từ backend)
-  SanPham: OrderProduct[];              // Danh sách sản phẩm
+  SanPham: OrderProject[];              // Danh sách đồ án
   TongTien: number;                     // Tổng tiền đơn hàng
   DiaChi: string;                       // Địa chỉ giao hàng (JSON string hoặc ObjectId)
   ThongTinNhanHang?: OrderShippingInfo | null; // Thông tin nhận hàng chi tiết

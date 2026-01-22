@@ -18,14 +18,14 @@ import {
 } from "@/components/ui/chart"
 import { Skeleton } from "@/components/ui/skeleton"
 
-type TopProductChartItem = {
+type TopProjectChartItem = {
   name: string
   sold?: number | null
   revenue?: number | null
 }
 
 type ChartAreaInteractiveProps = {
-  data?: TopProductChartItem[]
+  data?: TopProjectChartItem[]
   loading?: boolean
   title?: string
   description?: string
@@ -45,13 +45,13 @@ const defaultChartConfig = {
 export function ChartAreaInteractive({
   data = [],
   loading,
-  title = "Top sản phẩm bán chạy",
-  description = "Dựa trên số lượng sản phẩm đã bán",
+  title = "Top đồ án bán chạy",
+  description = "Dựa trên số lượng đồ án đã bán",
 }: ChartAreaInteractiveProps) {
   const chartData = React.useMemo(() => {
     if (!data?.length) {
       return Array.from({ length: 5 }).map((_, index) => ({
-        name: `Sản phẩm ${index + 1}`,
+        name: `Đồ án ${index + 1}`,
         sold: 0,
         revenue: 0,
       }))

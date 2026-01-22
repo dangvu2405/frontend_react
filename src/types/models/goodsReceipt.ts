@@ -4,15 +4,15 @@
  */
 
 import type { BaseDocument, ObjectId } from './common';
-import type { Product } from './product';
+import type { Project } from './project';
 import type { User } from './user';
 
 /**
- * GoodsReceiptProduct - Sản phẩm trong phiếu nhập
+ * GoodsReceiptProject - Đồ án trong phiếu nhập
  */
-export interface GoodsReceiptProduct {
-  MaSanPham: ObjectId | Product; // ID sản phẩm
-  TenSanPham: string;             // Tên sản phẩm
+export interface GoodsReceiptProject {
+  MaSanPham: ObjectId | Project; // ID đồ án
+  TenSanPham: string;             // Tên đồ án
   SoLuong: number;                // Số lượng nhập
   GiaNhap: number;                // Giá nhập
   ThanhTien: number;              // Thành tiền (GiaNhap * SoLuong)
@@ -24,7 +24,7 @@ export interface GoodsReceiptProduct {
 export interface GoodsReceipt extends BaseDocument {
   MaNhaCungCap: string;           // Mã nhà cung cấp
   TenNhaCungCap: string;          // Tên nhà cung cấp
-  SanPham: GoodsReceiptProduct[]; // Danh sách sản phẩm
+  SanPham: GoodsReceiptProject[]; // Danh sách đồ án
   TongTien: number;               // Tổng tiền
   MaNguoiNhap: ObjectId | User;  // ID người nhập
   TrangThai: 'pending' | 'approved' | 'received' | 'cancelled'; // Trạng thái

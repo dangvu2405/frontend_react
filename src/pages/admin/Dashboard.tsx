@@ -25,7 +25,7 @@ const toArray = (payload: unknown): unknown[] => {
 const normalizeSummary = (payload: unknown): SummaryStats => {
   const data = unwrapResponse(payload) ?? {}
   return {
-    totalProducts: Number((data as Record<string, unknown>)?.totalProducts ?? 0),
+    totalProjects: Number((data as Record<string, unknown>)?.totalProjects ?? 0),
     totalCategories: Number((data as Record<string, unknown>)?.totalCategories ?? 0),
     totalUsers: Number((data as Record<string, unknown>)?.totalUsers ?? 0),
     totalOrders: Number((data as Record<string, unknown>)?.totalOrders ?? 0),
@@ -36,7 +36,7 @@ const normalizeSummary = (payload: unknown): SummaryStats => {
 export default function AdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [summaryStats, setSummaryStats] = useState<SummaryStats | null>(null)
-  const [topProductsChart, setTopProductsChart] = useState<ChartItem[]>([])
+  const [topProjectsChart, setTopProjectsChart] = useState<ChartItem[]>([])
   const [monthlyOrdersChart, setMonthlyOrdersChart] = useState<ChartItem[]>([])
   const [topCustomersChart, setTopCustomersChart] = useState<ChartItem[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -54,13 +54,13 @@ export default function AdminDashboard() {
 
         const [
           summaryRes,
-          topProductsRes,
+          topProjectsRes,
           monthlyOrdersRes,
           topCustomersRes,
         ] =
           await Promise.all([
             adminService.getSummaryStats(),
-            adminService.getTopProducts({ limit: 8 }),
+            adminService.getTopProjects({ limit: 8 }),
             adminService.getMonthlyOrdersStats({ months: 6 }),
             adminService.getTopCustomersByOrders({ limit: 6 }),
           ])
@@ -69,17 +69,17 @@ export default function AdminDashboard() {
 
         setSummaryStats(normalizeSummary(summaryRes))
 
-        const topProductData = toArray(topProductsRes)
+        const topProjectData = toArray(topProjectsRes)
 
-        setTopProductsChart(
-          topProductData.map((product: unknown) => {
-            const productRecord = product as Record<string, unknown>;
+        setTopProjectsChart(
+          topProjectData.map((project: unknown) => {
+            const projectRecord = project as Record<string, unknown>;
             return {
-              name: String(productRecord?.TenSanPham ?? "Không tên"),
-              sold: Number(productRecord?.DaBan ?? 0),
+              name: String(projectRecord?.TenSanPham ?? "Không tên"),
+              sold: Number(projectRecord?.DaBan ?? 0),
               revenue:
-                typeof productRecord?.Gia === "number" && typeof productRecord?.DaBan === "number"
-                  ? productRecord.Gia * productRecord.DaBan
+                typeof projectRecord?.Gia === "number" && typeof projectRecord?.DaBan === "number"
+                  ? projectRecord.Gia * projectRecord.DaBan
                   : undefined,
             };
           })
@@ -144,10 +144,10 @@ export default function AdminDashboard() {
       </div>
       <div className="grid gap-6 lg:grid-cols-2">
         <ChartAreaInteractive
-          data={topProductsChart}
+          data={topProjectsChart}
           loading={loading}
-          title="Top sản phẩm bán chạy"
-          description="Dựa trên số lượng sản phẩm đã bán"
+          title="Top đồ án bán chạy"
+          description="Dựa trên số lượng đồ án đã bán"
         />
         <ChartAreaInteractive
           data={monthlyOrdersChart}

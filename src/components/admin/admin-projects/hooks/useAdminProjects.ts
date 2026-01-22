@@ -1,27 +1,28 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
-import { getCloudinaryProductImageUrl } from '@/utils/imageUtils';
-import type { Category, ChartItem, Product } from '@/types/models';
+import { getCloudinaryProjectImageUrl } from '@/utils/imageUtils';
+import type { Category, Project } from '@/types/models/product';
+import type { ChartItem } from '@/types/models';
 
-import adminProductsService from '../services/admin-products.service';
+import adminProjectsService from '../services/admin-projects.service';
 import type {
-  AdminProductsFilters,
-  AdminProductsFormState,
-  AdminProductsHookState,
+  AdminProjectsFilters,
+  AdminProjectsFormState,
+  AdminProjectsHookState,
   PaginationState,
 } from '../types';
 
 const PAGE_SIZE = 10;
 const SUB_IMAGE_LIMIT = 3;
 
-const INITIAL_FILTERS: AdminProductsFilters = {
+const INITIAL_FILTERS: AdminProjectsFilters = {
   search: '',
   categoryId: 'all',
   stock: 'all',
 };
 
-const INITIAL_FORM_STATE: AdminProductsFormState = {
+const INITIAL_FORM_STATE: AdminProjectsFormState = {
   TenSanPham: '',
   MoTa: '',
   Gia: 0,
@@ -65,7 +66,7 @@ const resolvePreviewUrl = (path?: string | null) => {
   if (!path) return '';
   if (path.startsWith('http')) return path;
   if (path.startsWith('/uploads')) return path;
-  return getCloudinaryProductImageUrl(path);
+  return getCloudinaryProjectImageUrl(path);
 };
 
 const buildSubImagePreviews = (images: string[]) => {
@@ -76,9 +77,9 @@ const buildSubImagePreviews = (images: string[]) => {
   return previews.slice(0, SUB_IMAGE_LIMIT);
 };
 
-export const useAdminProducts = (): AdminProductsHookState => {
+export const useAdminProjects = (): AdminProjectsHookState => {
   const [loading, setLoading] = useState(true);
-  const [products, setProducts] = useState<Product[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [categorySalesChart, setCategorySalesChart] = useState<ChartItem[]>([]);
   const [priceTrendChart, setPriceTrendChart] = useState<ChartItem[]>([]);
@@ -89,16 +90,16 @@ export const useAdminProducts = (): AdminProductsHookState => {
     pageSize: PAGE_SIZE,
   });
 
-  const [filters, setFiltersState] = useState<AdminProductsFilters>(INITIAL_FILTERS);
-  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
+  const [filters, setFiltersState] = useState<AdminProjectsFilters>(INITIAL_FILTERS);
+  const [selectedProjects, setSelectedProjects] = useState<Set<string>>(new Set());
   const [isSelectMode, setIsSelectMode] = useState(false);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [deletingProduct, setDeletingProduct] = useState<Product | null>(null);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [deletingProject, setDeletingProject] = useState<Project | null>(null);
 
-  const [formData, setFormData] = useState<AdminProductsFormState>(INITIAL_FORM_STATE);
+  const [formData, setFormData] = useState<AdminProjectsFormState>(INITIAL_FORM_STATE);
   const [submitting, setSubmitting] = useState(false);
 
   const [mainImagePreview, setMainImagePreview] = useState('');
@@ -108,7 +109,7 @@ export const useAdminProducts = (): AdminProductsHookState => {
 
   const categoriesFetchedRef = useRef(false);
 
-  const updateFilters = useCallback((update: Partial<AdminProductsFilters>) => {
+  const updateFilters = useCallback((update: Partial<AdminProjectsFilters>) => {
     setFiltersState((prev) => {
       const next = { ...prev, ...update };
       return next;
@@ -125,21 +126,21 @@ export const useAdminProducts = (): AdminProductsHookState => {
   }, []);
 
   const setSelectionDefaults = useCallback(() => {
-    setSelectedProducts(new Set());
+    setSelectedProjects(new Set());
     setIsSelectMode(false);
   }, []);
 
   const toggleSelectMode = () => {
     setIsSelectMode((prev) => {
       if (prev) {
-        setSelectedProducts(new Set());
+        setSelectedProjects(new Set());
       }
       return !prev;
     });
   };
 
   const updateFormData = useCallback(
-    <K extends keyof AdminProductsFormState>(field: K, value: AdminProductsFormState[K]) => {
+    <K extends keyof AdminProjectsFormState>(field: K, value: AdminProjectsFormState[K]) => {
       setFormData((prev) => ({
         ...prev,
         [field]: value,
@@ -148,23 +149,23 @@ export const useAdminProducts = (): AdminProductsHookState => {
     [],
   );
 
-  const updateCharts = useCallback((productsData: Product[]) => {
-    const safeProducts = Array.isArray(productsData) ? productsData : [];
+  const updateCharts = useCallback((projectsData: Project[]) => {
+    const safeProjects = Array.isArray(projectsData) ? projectsData : [];
 
     const categoryMap = new Map<string, ChartItem>();
-    safeProducts.forEach((product) => {
+    safeProjects.forEach((project) => {
       const categoryName =
-        typeof product.MaLoaiSanPham === 'string'
+        typeof project.MaLoaiSanPham === 'string'
           ? 'Không phân loại'
-          : product.MaLoaiSanPham?.TenLoaiSanPham ?? 'Không phân loại';
+          : project.MaLoaiSanPham?.TenLoaiSanPham ?? 'Không phân loại';
 
       if (!categoryMap.has(categoryName)) {
         categoryMap.set(categoryName, { name: categoryName, sold: 0, revenue: 0 });
       }
 
       const categoryData = categoryMap.get(categoryName)!;
-      categoryData.sold = (categoryData.sold ?? 0) + product.DaBan;
-      categoryData.revenue = (categoryData.revenue ?? 0) + product.DaBan * product.Gia;
+      categoryData.sold = (categoryData.sold ?? 0) + project.DaBan;
+      categoryData.revenue = (categoryData.revenue ?? 0) + project.DaBan * project.Gia;
     });
 
     setCategorySalesChart(Array.from(categoryMap.values()));
@@ -178,8 +179,8 @@ export const useAdminProducts = (): AdminProductsHookState => {
       { name: '> 5 triệu', sold: 0 },
     ];
 
-    safeProducts.forEach((product) => {
-      const price = product.Gia;
+    safeProjects.forEach((project) => {
+      const price = project.Gia;
       let rangeIndex = 0;
       if (price >= 5_000_000) rangeIndex = 5;
       else if (price >= 4_000_000) rangeIndex = 4;
@@ -187,7 +188,7 @@ export const useAdminProducts = (): AdminProductsHookState => {
       else if (price >= 2_000_000) rangeIndex = 2;
       else if (price >= 1_000_000) rangeIndex = 1;
 
-      priceRanges[rangeIndex].sold = (priceRanges[rangeIndex].sold ?? 0) + product.DaBan;
+      priceRanges[rangeIndex].sold = (priceRanges[rangeIndex].sold ?? 0) + project.DaBan;
     });
 
     setPriceTrendChart(priceRanges);
@@ -199,10 +200,10 @@ export const useAdminProducts = (): AdminProductsHookState => {
       if (filters.categoryId !== 'all') {
         params.categoryId = filters.categoryId;
       }
-      const response = await adminProductsService.getProducts(params);
+      const response = await adminProjectsService.getProjects(params);
       const responseData = response?.data;
-      const allProducts = extractArrayFromResponse<Product>(responseData?.data ?? responseData);
-      updateCharts(allProducts);
+      const allProjects = extractArrayFromResponse<Project>(responseData?.data ?? responseData);
+      updateCharts(allProjects);
     } catch (error) {
       console.error('Error refreshing charts:', error);
     }
@@ -213,12 +214,12 @@ export const useAdminProducts = (): AdminProductsHookState => {
 
     try {
       categoriesFetchedRef.current = true;
-      const response = await adminProductsService.getCategories();
+      const response = await adminProjectsService.getCategories();
       const responseData = response?.data;
       const categoryList = extractArrayFromResponse<Category>(responseData?.data ?? responseData, 'categories');
       setCategories(categoryList);
       if (categoryList.length === 0) {
-        console.warn('Không có danh mục nào. Vui lòng tạo danh mục trước khi thêm sản phẩm.');
+        console.warn('Không có danh mục nào. Vui lòng tạo danh mục trước khi thêm đồ án.');
       }
     } catch (error) {
       categoriesFetchedRef.current = false;
@@ -227,7 +228,7 @@ export const useAdminProducts = (): AdminProductsHookState => {
     }
   }, [categories.length]);
 
-  const fetchProducts = useCallback(async () => {
+  const fetchProjects = useCallback(async () => {
     try {
       setLoading(true);
       const params: Record<string, number | string> = {
@@ -239,24 +240,24 @@ export const useAdminProducts = (): AdminProductsHookState => {
         params.categoryId = filters.categoryId;
       }
 
-      const response = await adminProductsService.getProducts(params);
+      const response = await adminProjectsService.getProjects(params);
       const responseData = response?.data;
-      const productsData = extractArrayFromResponse<Product>(responseData?.data ?? responseData);
+      const projectsData = extractArrayFromResponse<Project>(responseData?.data ?? responseData);
       const paginationInfo = (responseData as Record<string, unknown>)?.pagination as Record<string, unknown> | undefined;
 
-      setProducts(productsData);
+      setProjects(projectsData);
       setPagination((prev) => ({
         ...prev,
         totalPages: typeof paginationInfo?.totalPages === 'number' ? paginationInfo.totalPages : 1,
-        total: typeof paginationInfo?.total === 'number' ? paginationInfo.total : productsData.length,
+        total: typeof paginationInfo?.total === 'number' ? paginationInfo.total : projectsData.length,
       }));
 
       if (pagination.currentPage === 1) {
         await refreshCharts();
       }
     } catch (error) {
-      console.error('Error fetching products:', error);
-      toast.error('Không thể tải dữ liệu sản phẩm');
+      console.error('Error fetching projects:', error);
+      toast.error('Không thể tải dữ liệu đồ án');
     } finally {
       setLoading(false);
     }
@@ -267,25 +268,25 @@ export const useAdminProducts = (): AdminProductsHookState => {
   }, [fetchCategories]);
 
   useEffect(() => {
-    fetchProducts();
-  }, [fetchProducts]);
+    fetchProjects();
+  }, [fetchProjects]);
 
   useEffect(() => {
     setSelectionDefaults();
   }, [filters.categoryId, filters.stock, filters.search, setSelectionDefaults]);
 
-  const filteredProducts = useMemo(() => {
-    const safeProducts = Array.isArray(products) ? products : [];
-    return safeProducts.filter((product) => {
+  const filteredProjects = useMemo(() => {
+    const safeProjects = Array.isArray(projects) ? projects : [];
+    return safeProjects.filter((project) => {
       if (filters.search.trim()) {
         const query = filters.search.toLowerCase();
         const categoryName =
-          typeof product.MaLoaiSanPham === 'string'
+          typeof project.MaLoaiSanPham === 'string'
             ? 'Không phân loại'
-            : product.MaLoaiSanPham?.TenLoaiSanPham ?? 'Không phân loại';
+            : project.MaLoaiSanPham?.TenLoaiSanPham ?? 'Không phân loại';
         const matchesSearch =
-          product.TenSanPham?.toLowerCase().includes(query) ||
-          product.MoTa?.toLowerCase().includes(query) ||
+          project.TenSanPham?.toLowerCase().includes(query) ||
+          project.MoTa?.toLowerCase().includes(query) ||
           categoryName.toLowerCase().includes(query);
         if (!matchesSearch) return false;
       }
@@ -293,70 +294,70 @@ export const useAdminProducts = (): AdminProductsHookState => {
       if (filters.stock !== 'all') {
         switch (filters.stock) {
           case 'out':
-            if (product.SoLuong !== 0) return false;
+            if (project.SoLuong !== 0) return false;
             break;
           case 'low':
-            if (product.SoLuong >= 10 || product.SoLuong === 0) return false;
+            if (project.SoLuong >= 10 || project.SoLuong === 0) return false;
             break;
           case 'in':
-            if (product.SoLuong < 10) return false;
+            if (project.SoLuong < 10) return false;
             break;
         }
       }
 
       return true;
     });
-  }, [products, filters]);
+  }, [projects, filters]);
 
   const handleToggleSelectAll = useCallback(() => {
-    setSelectedProducts((prev) => {
-      if (prev.size === filteredProducts.length) {
+    setSelectedProjects((prev) => {
+      if (prev.size === filteredProjects.length) {
         return new Set();
       }
-      return new Set(filteredProducts.map((product) => product._id));
+      return new Set(filteredProjects.map((project) => project._id));
     });
-  }, [filteredProducts]);
+  }, [filteredProjects]);
 
-  const handleToggleSelectProduct = useCallback((productId: string) => {
-    setSelectedProducts((prev) => {
+  const handleToggleSelectProject = useCallback((projectId: string) => {
+    setSelectedProjects((prev) => {
       const next = new Set(prev);
-      if (next.has(productId)) {
-        next.delete(productId);
+      if (next.has(projectId)) {
+        next.delete(projectId);
       } else {
-        next.add(productId);
+        next.add(projectId);
       }
       return next;
     });
   }, []);
 
   const handleBulkDelete = useCallback(async () => {
-    if (selectedProducts.size === 0) {
-      toast.error('Vui lòng chọn ít nhất một sản phẩm');
+    if (selectedProjects.size === 0) {
+      toast.error('Vui lòng chọn ít nhất một đồ án');
       return;
     }
 
     try {
       setSubmitting(true);
       await Promise.all(
-        Array.from(selectedProducts).map((productId) => adminProductsService.deleteProduct(productId)),
+        Array.from(selectedProjects).map((projectId) => adminProjectsService.deleteProject(projectId)),
       );
-      toast.success(`Đã xóa ${selectedProducts.size} sản phẩm thành công`);
+      toast.success(`Đã xóa ${selectedProjects.size} đồ án thành công`);
       setSelectionDefaults();
-      await fetchProducts();
+      await fetchProjects();
       await refreshCharts();
     } catch (error) {
-      console.error('Error bulk deleting products:', error);
-      toast.error('Không thể xóa một số sản phẩm');
+      console.error('Error bulk deleting projects:', error);
+      toast.error('Không thể xóa một số đồ án');
     } finally {
       setSubmitting(false);
     }
-  }, [fetchProducts, refreshCharts, selectedProducts, setSelectionDefaults]);
+  }, [fetchProjects, refreshCharts, selectedProjects, setSelectionDefaults]);
 
   const openCreateDialog = useCallback(() => {
     if (categories.length === 0) {
       fetchCategories();
     }
-    setEditingProduct(null);
+    setEditingProject(null);
     setFormData(INITIAL_FORM_STATE);
     setMainImagePreview('');
     setSubImagePreviews(INITIAL_SUB_IMAGE_PREVIEWS);
@@ -364,23 +365,23 @@ export const useAdminProducts = (): AdminProductsHookState => {
     setIsDialogOpen(true);
   }, [categories.length, fetchCategories]);
 
-  const openEditDialog = useCallback((product: Product) => {
-    setEditingProduct(product);
-    const subImages = product.HinhAnhPhu || [];
+  const openEditDialog = useCallback((project: Project) => {
+    setEditingProject(project);
+    const subImages = project.HinhAnhPhu || [];
     setFormData({
-      TenSanPham: product.TenSanPham,
-      MoTa: product.MoTa || '',
-      Gia: product.Gia,
-      KhuyenMai: product.KhuyenMai || 0,
-      SoLuong: product.SoLuong,
+      TenSanPham: project.TenSanPham,
+      MoTa: project.MoTa || '',
+      Gia: project.Gia,
+      KhuyenMai: project.KhuyenMai || 0,
+      SoLuong: project.SoLuong,
       MaLoaiSanPham:
-        typeof product.MaLoaiSanPham === 'string'
-          ? product.MaLoaiSanPham
-          : product.MaLoaiSanPham?._id || '',
-      HinhAnhChinh: product.HinhAnhChinh || '',
+        typeof project.MaLoaiSanPham === 'string'
+          ? project.MaLoaiSanPham
+          : project.MaLoaiSanPham?._id || '',
+      HinhAnhChinh: project.HinhAnhChinh || '',
       HinhAnhPhu: subImages,
     });
-    setMainImagePreview(resolvePreviewUrl(product.HinhAnhChinh));
+    setMainImagePreview(resolvePreviewUrl(project.HinhAnhChinh));
     setSubImagePreviews(buildSubImagePreviews(subImages));
     setSubImageUploading(INITIAL_SUB_IMAGE_UPLOADING);
     setIsDialogOpen(true);
@@ -388,25 +389,25 @@ export const useAdminProducts = (): AdminProductsHookState => {
 
   const closeDialog = useCallback(() => {
     setIsDialogOpen(false);
-    setEditingProduct(null);
+    setEditingProject(null);
     setFormData(INITIAL_FORM_STATE);
     setMainImagePreview('');
     setSubImagePreviews(INITIAL_SUB_IMAGE_PREVIEWS);
     setSubImageUploading(INITIAL_SUB_IMAGE_UPLOADING);
   }, []);
 
-  const openDeleteDialog = useCallback((product: Product) => {
-    setDeletingProduct(product);
+  const openDeleteDialog = useCallback((project: Project) => {
+    setDeletingProject(project);
     setIsDeleteDialogOpen(true);
   }, []);
 
   const closeDeleteDialog = useCallback(() => {
-    setDeletingProduct(null);
+    setDeletingProject(null);
     setIsDeleteDialogOpen(false);
   }, []);
 
   const uploadImageToCloudinary = useCallback(async (base64: string) => {
-    const response = await adminProductsService.uploadImage(base64);
+    const response = await adminProjectsService.uploadImage(base64);
     const responseData = response?.data;
     const url = extractUploadUrl(responseData) || extractUploadUrl(responseData?.data);
     if (!url) {
@@ -522,15 +523,15 @@ export const useAdminProducts = (): AdminProductsHookState => {
 
   const validateForm = () => {
     if (!formData.TenSanPham.trim()) {
-      toast.error('Vui lòng nhập tên sản phẩm');
+      toast.error('Vui lòng nhập tên đồ án');
       return false;
     }
     if (!formData.MaLoaiSanPham) {
-      toast.error('Vui lòng chọn loại sản phẩm');
+      toast.error('Vui lòng chọn loại đồ án');
       return false;
     }
     if (!formData.HinhAnhChinh?.trim()) {
-      toast.error('Vui lòng chọn và upload ảnh chính cho sản phẩm');
+      toast.error('Vui lòng chọn và upload ảnh chính cho đồ án');
       return false;
     }
     if (mainImageUploading || subImageUploading.some(Boolean)) {
@@ -538,7 +539,7 @@ export const useAdminProducts = (): AdminProductsHookState => {
       return false;
     }
     if (formData.Gia < 0) {
-      toast.error('Giá sản phẩm phải lớn hơn hoặc bằng 0');
+      toast.error('Giá đồ án phải lớn hơn hoặc bằng 0');
       return false;
     }
     if (formData.SoLuong < 0) {
@@ -569,19 +570,19 @@ export const useAdminProducts = (): AdminProductsHookState => {
         HinhAnhPhu: (formData.HinhAnhPhu || []).filter((img) => img && img.trim() !== ''),
       };
 
-      if (editingProduct) {
-        await adminProductsService.updateProduct(editingProduct._id, payload);
-        toast.success('Cập nhật sản phẩm thành công');
+      if (editingProject) {
+        await adminProjectsService.updateProject(editingProject._id, payload);
+        toast.success('Cập nhật đồ án thành công');
       } else {
-        await adminProductsService.createProduct(payload);
-        toast.success('Thêm sản phẩm thành công');
+        await adminProjectsService.createProject(payload);
+        toast.success('Thêm đồ án thành công');
       }
 
       closeDialog();
-      await fetchProducts();
+      await fetchProjects();
       await refreshCharts();
     } catch (error: unknown) {
-      console.error('Error submitting product:', error);
+      console.error('Error submitting project:', error);
       const errorRecord = error as Record<string, unknown>;
       const errorMsg = ((errorRecord?.response as Record<string, unknown>)?.data as Record<string, unknown>)?.message as string | undefined;
       toast.error(errorMsg || 'Có lỗi xảy ra');
@@ -591,23 +592,23 @@ export const useAdminProducts = (): AdminProductsHookState => {
   };
 
   const handleDelete = useCallback(async () => {
-    if (!deletingProduct) return;
+    if (!deletingProject) return;
     try {
       setSubmitting(true);
-      await adminProductsService.deleteProduct(deletingProduct._id);
-      toast.success('Xóa sản phẩm thành công');
+      await adminProjectsService.deleteProject(deletingProject._id);
+      toast.success('Xóa đồ án thành công');
       closeDeleteDialog();
-      await fetchProducts();
+      await fetchProjects();
       await refreshCharts();
     } catch (error: unknown) {
-      console.error('Error deleting product:', error);
+      console.error('Error deleting project:', error);
       const errorRecord = error as Record<string, unknown>;
       const errorMsg = ((errorRecord?.response as Record<string, unknown>)?.data as Record<string, unknown>)?.message as string | undefined;
-      toast.error(errorMsg || 'Không thể xóa sản phẩm');
+      toast.error(errorMsg || 'Không thể xóa đồ án');
     } finally {
       setSubmitting(false);
     }
-  }, [closeDeleteDialog, deletingProduct, fetchProducts, refreshCharts]);
+  }, [closeDeleteDialog, deletingProject, fetchProjects, refreshCharts]);
 
   const getStockStatus = useCallback((stock: number) => {
     if (stock === 0) return { text: 'Hết hàng', color: 'text-red-600' };
@@ -628,12 +629,12 @@ export const useAdminProducts = (): AdminProductsHookState => {
     filters,
     setFilters: updateFilters,
     resetFilters,
-    filteredProducts,
+    filteredProjects,
     isSelectMode,
     toggleSelectMode,
-    selectedProducts,
+    selectedProjects,
     handleToggleSelectAll,
-    handleToggleSelectProduct,
+    handleToggleSelectProject,
     handleBulkDelete,
     isDialogOpen,
     openCreateDialog,
@@ -654,11 +655,11 @@ export const useAdminProducts = (): AdminProductsHookState => {
     isDeleteDialogOpen,
     openDeleteDialog,
     closeDeleteDialog,
-    deletingProduct,
+    deletingProject,
     handleDelete,
     getStockStatus,
     changePage,
-    editingProduct,
+    editingProject,
   };
 };
 

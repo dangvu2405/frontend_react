@@ -6,7 +6,7 @@ export interface AdminReviewsParams {
   limit?: number;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
-  productId?: string;
+  projectId?: string;
   customerId?: string;
   minRating?: number;
   maxRating?: number;

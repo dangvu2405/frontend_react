@@ -40,10 +40,10 @@ export function Navbar() {
           <Link to="/" className="flex items-center space-x-3">
             <img 
               src="/logo.jpg" 
-              alt="Perfume Shop Logo" 
+              alt="Project Shop Logo" 
               className="w-12 h-12 object-contain rounded-xl"
             />
-            <span className="text-xl font-bold text-foreground">Perfume Shop</span>
+            <span className="text-xl font-bold text-foreground">Project Shop</span>
           </Link>
 
           {/* Desktop Navigation */}
@@ -51,14 +51,20 @@ export function Navbar() {
             <Link to="/" className="text-foreground hover:text-primary transition-colors">
               Trang chủ
             </Link>
-            <Link to="/products" className="text-foreground hover:text-primary transition-colors">
-              Sản phẩm
+            <Link to="/projects" className="text-foreground hover:text-primary transition-colors">
+              Đồ án
             </Link>
-            <Link to="/about" className="text-foreground hover:text-primary transition-colors">
-              Giới thiệu
+            <Link to="/documents" className="text-foreground hover:text-primary transition-colors">
+              Tài liệu
             </Link>
-            <Link to="/contact" className="text-foreground hover:text-primary transition-colors">
-              Liên hệ
+            <Link to="/subject-support" className="text-foreground hover:text-primary transition-colors">
+              Hỗ trợ môn học
+            </Link>
+            <Link to="/blog" className="text-foreground hover:text-primary transition-colors">
+              Bài viết
+            </Link>
+            <Link to="/mmo-shop" className="text-foreground hover:text-primary transition-colors">
+              Tạp hóa MMO
             </Link>
           </div>
 
@@ -139,25 +145,39 @@ export function Navbar() {
               Trang chủ
             </Link>
             <Link
-              to="/products"
+              to="/projects"
               className="block px-4 py-2 text-foreground hover:bg-muted rounded-lg"
               onClick={() => setMobileMenuOpen(false)}
             >
-              Sản phẩm
+              Đồ án
             </Link>
             <Link
-              to="/about"
+              to="/documents"
               className="block px-4 py-2 text-foreground hover:bg-muted rounded-lg"
               onClick={() => setMobileMenuOpen(false)}
             >
-              Giới thiệu
+              Tài liệu
             </Link>
             <Link
-              to="/contact"
+              to="/subject-support"
               className="block px-4 py-2 text-foreground hover:bg-muted rounded-lg"
               onClick={() => setMobileMenuOpen(false)}
             >
-              Liên hệ
+              Hỗ trợ môn học
+            </Link>
+            <Link
+              to="/blog"
+              className="block px-4 py-2 text-foreground hover:bg-muted rounded-lg"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Bài viết
+            </Link>
+            <Link
+              to="/mmo-shop"
+              className="block px-4 py-2 text-foreground hover:bg-muted rounded-lg"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Tạp hóa MMO
             </Link>
             {isAuthenticated ? (
               <>

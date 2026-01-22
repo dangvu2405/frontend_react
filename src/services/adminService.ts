@@ -1,6 +1,6 @@
 import axiosInstance from './axios';
 import type {
-  AdminProductPayload,
+  AdminProjectPayload,
   AdminCategoryPayload,
   AdminRolePayload,
   AdminUserPayload,
@@ -11,20 +11,20 @@ import type {
 
 const adminService = {
   // ==========================
-  // PRODUCTS
+  // PROJECTS
   // ==========================
-  createProduct: (payload: AdminProductPayload) =>
-    axiosInstance.post('/admin/products', payload),
+  createProject: (payload: AdminProjectPayload) =>
+    axiosInstance.post('/admin/projects', payload),
 
-  getProducts: (params?: { page?: number; limit?: number; sortBy?: string; sortOrder?: string }) =>
-    axiosInstance.get('/admin/products', { params }),
+  getProjects: (params?: { page?: number; limit?: number; sortBy?: string; sortOrder?: string }) =>
+    axiosInstance.get('/admin/projects', { params }),
 
-  getProductById: (id: string) => axiosInstance.get(`/admin/products/${id}`),
+  getProjectById: (id: string) => axiosInstance.get(`/admin/projects/${id}`),
 
-  updateProduct: (id: string, payload: AdminProductPayload) =>
-    axiosInstance.put(`/admin/products/${id}`, payload),
+  updateProject: (id: string, payload: AdminProjectPayload) =>
+    axiosInstance.put(`/admin/projects/${id}`, payload),
 
-  deleteProduct: (id: string) => axiosInstance.delete(`/admin/products/${id}`),
+  deleteProject: (id: string) => axiosInstance.delete(`/admin/projects/${id}`),
 
   // ==========================
   // CATEGORIES
@@ -158,10 +158,10 @@ const adminService = {
   getRevenueStats: (params?: { startDate?: string; endDate?: string }) =>
     axiosInstance.get('/admin/stats/revenue', { params }),
 
-  getTopProducts: (params?: { limit?: number }) =>
-    axiosInstance.get('/admin/stats/top-products', { params }),
+  getTopProjects: (params?: { limit?: number }) =>
+    axiosInstance.get('/admin/stats/top-projects', { params }),
 
-  getLowStockProducts: (params?: { threshold?: number }) =>
+  getLowStockProjects: (params?: { threshold?: number }) =>
     axiosInstance.get('/admin/stats/low-stock', { params }),
 
   getMonthlyOrdersStats: (params?: { months?: number }) =>
@@ -178,7 +178,7 @@ const adminService = {
     limit?: number;
     sortBy?: string;
     sortOrder?: string;
-    productId?: string;
+    projectId?: string;
     customerId?: string;
     minRating?: number;
     maxRating?: number;
@@ -221,8 +221,8 @@ const adminService = {
 
 export default adminService;
 export type {
-  AdminProductPayload,
-  AdminProductVolumeOptionPayload,
+  AdminProjectPayload,
+  AdminProjectIncludesOptionPayload,
   AdminCategoryPayload,
   AdminRolePayload,
   AdminUserPayload,

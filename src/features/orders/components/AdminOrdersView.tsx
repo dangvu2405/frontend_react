@@ -118,7 +118,7 @@ export const AdminOrdersView = () => {
                   <tr>
                     <th className="px-4 py-3 font-semibold">Mã đơn</th>
                     <th className="px-4 py-3 font-semibold">Khách hàng</th>
-                    <th className="px-4 py-3 font-semibold">Sản phẩm</th>
+                    <th className="px-4 py-3 font-semibold">Đồ án</th>
                     <th className="px-4 py-3 font-semibold text-right">Tổng tiền</th>
                     <th className="px-4 py-3 font-semibold">Ngày tạo</th>
                     <th className="px-4 py-3 font-semibold">Trạng thái</th>
@@ -141,7 +141,7 @@ export const AdminOrdersView = () => {
                             </div>
                           ))}
                           {order.SanPham.length > 2 && (
-                            <div className="text-xs text-muted-foreground">+{order.SanPham.length - 2} sản phẩm khác</div>
+                            <div className="text-xs text-muted-foreground">+{order.SanPham.length - 2} đồ án khác</div>
                           )}
                         </div>
                       </td>

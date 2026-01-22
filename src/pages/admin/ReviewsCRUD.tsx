@@ -56,8 +56,8 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
-import type { Review, ReviewStats, Product, User } from "@/types/models"
-import { getProductImageUrl } from "@/utils/imageUtils"
+import type { Review, ReviewStats, Project, User } from "@/types/models"
+import { getProjectImageUrl } from "@/utils/imageUtils"
 
 // ==========================
 // TYPES
@@ -68,7 +68,7 @@ interface ReviewsParams {
   limit?: number
   sortBy?: string
   sortOrder?: string
-  productId?: string
+  projectId?: string
   customerId?: string
   minRating?: number
   maxRating?: number
@@ -120,16 +120,16 @@ const renderStars = (rating: number) => {
 // HELPER FUNCTIONS
 // ==========================
 
-const getProductInfo = (product: Review["IdSanPham"]) => {
-  if (!product) {
+const getProjectInfo = (project: Review["IdSanPham"]) => {
+  if (!project) {
     return {
-      name: "Sản phẩm không xác định",
+      name: "Đồ án không xác định",
       price: null,
       imageUrl: null,
     }
   }
   
-  if (typeof product === "string") {
+  if (typeof project === "string") {
     return {
       name: "Đang tải...",
       price: null,
@@ -137,12 +137,12 @@ const getProductInfo = (product: Review["IdSanPham"]) => {
     }
   }
 
-  const productObj = product as Product
+  const projectObj = project as Project
   return {
-    name: productObj.TenSanPham || "Sản phẩm không xác định",
-    price: productObj.Gia,
-    imageUrl: productObj.HinhAnhChinh 
-      ? getProductImageUrl(productObj.HinhAnhChinh, true) 
+    name: projectObj.TenSanPham || "Đồ án không xác định",
+    price: projectObj.Gia,
+    imageUrl: projectObj.HinhAnhChinh 
+      ? getProjectImageUrl(projectObj.HinhAnhChinh, true) 
       : null,
   }
 }
@@ -184,7 +184,7 @@ export default function AdminReviewsPage() {
   const pageSize = 20
 
   // Filter states
-  const [productIdFilter, setProductIdFilter] = useState<string>("")
+  const [projectIdFilter, setProjectIdFilter] = useState<string>("")
   const [customerIdFilter, setCustomerIdFilter] = useState<string>("")
   const [minRating, setMinRating] = useState<string>("all")
   const [maxRating, setMaxRating] = useState<string>("all")
@@ -214,8 +214,8 @@ export default function AdminReviewsPage() {
       sortOrder,
     }
 
-    if (productIdFilter.trim()) {
-      params.productId = productIdFilter.trim()
+    if (projectIdFilter.trim()) {
+      params.projectId = projectIdFilter.trim()
     }
     if (customerIdFilter.trim()) {
       params.customerId = customerIdFilter.trim()
@@ -228,7 +228,7 @@ export default function AdminReviewsPage() {
     }
 
     return params
-  }, [currentPage, sortBy, sortOrder, productIdFilter, customerIdFilter, minRating, maxRating])
+  }, [currentPage, sortBy, sortOrder, projectIdFilter, customerIdFilter, minRating, maxRating])
 
   // Fetch reviews data
   useEffect(() => {
@@ -342,7 +342,7 @@ export default function AdminReviewsPage() {
             if (nestedData && 'summary' in nestedData) {
               setStats({
                 summary: nestedData.summary as { totalReviews: number; avgRating: number; distribution: { star5: number; star4: number; star3: number; star2: number; star1: number; }; },
-                topReviewedProducts: (nestedData.topReviewedProducts as { productId: string; productName: string; reviewCount: number; avgRating: number; }[]) || [],
+                topReviewedProjects: (nestedData.topReviewedProjects as { projectId: string; projectName: string; reviewCount: number; avgRating: number; }[]) || [],
                 monthlyStats: (nestedData.monthlyStats as { year: number; month: number; reviewCount: number; avgRating: number; }[]) || []
               })
             }
@@ -426,7 +426,7 @@ export default function AdminReviewsPage() {
   }, [])
 
   const clearFilters = useCallback(() => {
-    setProductIdFilter("")
+    setProjectIdFilter("")
     setCustomerIdFilter("")
     setMinRating("all")
     setMaxRating("all")
@@ -437,27 +437,27 @@ export default function AdminReviewsPage() {
   useEffect(() => {
     setSelectedReviews(new Set())
     setIsSelectMode(false)
-  }, [productIdFilter, customerIdFilter, minRating, maxRating, sortBy, sortOrder])
+  }, [projectIdFilter, customerIdFilter, minRating, maxRating, sortBy, sortOrder])
 
   // Prepare view dialog content
   const viewDialogContent = useMemo(() => {
     if (!viewingReview) return null
 
-    const productInfo = getProductInfo(viewingReview.IdSanPham)
+    const projectInfo = getProjectInfo(viewingReview.IdSanPham)
     const customerInfo = getCustomerInfo(viewingReview.IdKhachHang)
     
     return (
       <div className="space-y-4">
         <div className="grid gap-4 md:grid-cols-2">
           <div>
-            <Label>Sản phẩm</Label>
+            <Label>Đồ án</Label>
             <div className="mt-2">
               <div className="font-medium">
-                {productInfo.name}
+                {projectInfo.name}
               </div>
-              {productInfo.price !== null && productInfo.price !== undefined && (
+              {projectInfo.price !== null && projectInfo.price !== undefined && (
                 <div className="text-sm text-muted-foreground">
-                  {currencyFormatter.format(productInfo.price)}
+                  {currencyFormatter.format(projectInfo.price)}
                 </div>
               )}
             </div>
@@ -638,12 +638,12 @@ export default function AdminReviewsPage() {
             <div className="mb-6 p-4 border rounded-lg space-y-4 bg-muted/50">
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <div className="space-y-2">
-                  <Label htmlFor="productId">Mã sản phẩm</Label>
+                  <Label htmlFor="projectId">Mã đồ án</Label>
                   <Input
-                    id="productId"
-                    placeholder="Nhập mã sản phẩm"
-                    value={productIdFilter}
-                    onChange={(e) => setProductIdFilter(e.target.value)}
+                    id="projectId"
+                    placeholder="Nhập mã đồ án"
+                    value={projectIdFilter}
+                    onChange={(e) => setProjectIdFilter(e.target.value)}
                   />
                 </div>
                 <div className="space-y-2">
@@ -766,7 +766,7 @@ export default function AdminReviewsPage() {
                         </th>
                       )}
                       <th className="px-4 py-3 text-left text-sm font-medium">
-                        Sản phẩm
+                        Đồ án
                       </th>
                       <th className="px-4 py-3 text-left text-sm font-medium">
                         Khách hàng
@@ -787,7 +787,7 @@ export default function AdminReviewsPage() {
                   </thead>
                   <tbody>
                     {reviews.map((review) => {
-                      const productInfo = getProductInfo(review.IdSanPham)
+                      const projectInfo = getProjectInfo(review.IdSanPham)
                       const customerInfo = getCustomerInfo(review.IdKhachHang)
                       
                       return (
@@ -813,11 +813,11 @@ export default function AdminReviewsPage() {
                           <td className="px-4 py-3">
                             <div>
                               <div className="font-medium">
-                                {productInfo.name}
+                                {projectInfo.name}
                               </div>
-                              {productInfo.price !== null && productInfo.price !== undefined && (
+                              {projectInfo.price !== null && projectInfo.price !== undefined && (
                                 <div className="text-xs text-muted-foreground">
-                                  {currencyFormatter.format(productInfo.price)}
+                                  {currencyFormatter.format(projectInfo.price)}
                                 </div>
                               )}
                             </div>

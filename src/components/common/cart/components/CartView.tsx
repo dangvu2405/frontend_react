@@ -8,7 +8,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { storage, type CartItem } from '@/utils/storage';
-import { getCloudinaryProductImageUrl } from '@/utils/imageUtils';
+import { getCloudinaryProjectImageUrl } from '@/utils/imageUtils';
 
 const formatCurrency = (value: number) =>
   value.toLocaleString('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 });
@@ -36,33 +36,33 @@ export const CartView = () => {
     }, 0);
   }, [items]);
 
-  const updateQuantity = (productId: string, quantity: number) => {
+  const updateQuantity = (projectId: string, quantity: number) => {
     const nextQuantity = Math.max(1, quantity);
-    storage.updateCartItemQuantity(productId, nextQuantity);
+    storage.updateCartItemQuantity(projectId, nextQuantity);
     const updated = storage.getCart();
     setItems(updated);
     window.dispatchEvent(new CustomEvent('cart:updated'));
   };
 
-  const removeItem = (productId: string) => {
-    storage.removeCartItem(productId);
+  const removeItem = (projectId: string) => {
+    storage.removeCartItem(projectId);
     const updated = storage.getCart();
     setItems(updated);
     window.dispatchEvent(new CustomEvent('cart:updated'));
-    toast.success('Đã xóa sản phẩm khỏi giỏ hàng');
+    toast.success('Đã xóa đồ án khỏi giỏ hàng');
   };
 
-  const handleVolumeChange = (cartItemId: string, value: string) => {
+  const handleIncludesChange = (cartItemId: string, value: string) => {
     const target = items.find((item) => item.id === cartItemId);
-    if (!target || !target.volumeOptions) return;
-    const option = target.volumeOptions.find((opt) => String(opt?.value) === value);
+    if (!target || !target.includesOptions) return;
+    const option = target.includesOptions.find((opt) => String(opt?.value) === value);
     if (!option) return;
 
-    storage.updateCartItemVolume(cartItemId, option);
+    storage.updateCartItemIncludes(cartItemId, option);
     const updated = storage.getCart();
     setItems(updated);
     window.dispatchEvent(new CustomEvent('cart:updated'));
-    toast.success('Đã cập nhật dung tích');
+    toast.success('Đã cập nhật bao gồm');
   };
 
   const clearCart = () => {
@@ -85,12 +85,12 @@ export const CartView = () => {
         <div className="mb-8 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-sm uppercase tracking-wide text-primary">Giỏ hàng</p>
-            <h1 className="text-3xl font-bold text-foreground">Sản phẩm của bạn</h1>
+            <h1 className="text-3xl font-bold text-foreground">Đồ án của bạn</h1>
             <p className="text-muted-foreground">
-              Bạn có {items.reduce((sum, item) => sum + (item.quantity || 0), 0)} sản phẩm trong giỏ hàng
+              Bạn có {items.reduce((sum, item) => sum + (item.quantity || 0), 0)} đồ án trong giỏ hàng
             </p>
           </div>
-          <Button variant="outline" onClick={() => navigate('/products')}>
+          <Button variant="outline" onClick={() => navigate('/projects')}>
             Tiếp tục mua hàng
           </Button>
         </div>
@@ -98,14 +98,14 @@ export const CartView = () => {
         <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
           <Card className="border-border/80 shadow-sm">
             <CardHeader>
-              <CardTitle className="text-lg">Danh sách sản phẩm</CardTitle>
+              <CardTitle className="text-lg">Danh sách đồ án</CardTitle>
             </CardHeader>
             <CardContent>
               {items.length === 0 ? (
                 <div className="flex flex-col items-center justify-center gap-4 py-12 text-center text-muted-foreground">
-                  <p>Giỏ hàng trống. Hãy khám phá thêm sản phẩm!</p>
+                  <p>Giỏ hàng trống. Hãy khám phá thêm đồ án!</p>
                   <Button asChild>
-                    <Link to="/products">Khám phá sản phẩm</Link>
+                    <Link to="/projects">Khám phá đồ án</Link>
                   </Button>
                 </div>
               ) : (
@@ -120,7 +120,7 @@ export const CartView = () => {
                       <div key={item.id} className="flex flex-col gap-4 rounded-xl border border-border/60 p-4 md:flex-row">
                         <div className="flex items-start gap-4">
                           <img
-                            src={getCloudinaryProductImageUrl(item.hinhAnh || '') || 'https://placehold.co/200x200?text=No+Image'}
+                            src={getCloudinaryProjectImageUrl(item.hinhAnh || '') || 'https://placehold.co/200x200?text=No+Image'}
                             alt={item.tenSP}
                             className="h-28 w-28 rounded-lg object-cover"
                           />
@@ -137,18 +137,18 @@ export const CartView = () => {
                                 </span>
                               )}
                             </div>
-                            {item.volumeOptions && item.volumeOptions.length > 0 ? (
+                            {item.includesOptions && item.includesOptions.length > 0 ? (
                               <div className="mt-3 w-48">
-                                <p className="text-xs text-muted-foreground mb-1">Dung tích</p>
+                                <p className="text-xs text-muted-foreground mb-1">Bao gồm</p>
                                 <Select
-                                  value={String(item.selectedDungTich?.value ?? item.volumeOptions[0]?.value ?? '')}
-                                  onValueChange={(value) => handleVolumeChange(item.id, value)}
+                                  value={String(item.selectedDungTich?.value ?? item.includesOptions[0]?.value ?? '')}
+                                  onValueChange={(value) => handleIncludesChange(item.id, value)}
                                 >
                                   <SelectTrigger>
-                                    <SelectValue placeholder="Chọn dung tích" />
+                                    <SelectValue placeholder="Chọn bao gồm" />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    {item.volumeOptions.map((option) => (
+                                    {item.includesOptions.map((option) => (
                                       <SelectItem
                                         key={`${item.id}-${option?.value ?? 'default'}`}
                                         value={String(option?.value ?? '')}
@@ -162,7 +162,7 @@ export const CartView = () => {
                             ) : (
                               item.selectedDungTich && (
                                 <p className="mt-2 text-xs text-muted-foreground">
-                                  Dung tích:{' '}
+                                  Bao gồm:{' '}
                                   <span className="font-medium text-foreground">
                                     {item.selectedDungTich.label || `${item.selectedDungTich.value} ml`}
                                   </span>
@@ -219,7 +219,7 @@ export const CartView = () => {
                   Xóa toàn bộ
                 </Button>
                 <span className="text-sm text-muted-foreground">
-                  Tổng cộng {items.length} sản phẩm
+                  Tổng cộng {items.length} đồ án
                 </span>
               </CardFooter>
             )}

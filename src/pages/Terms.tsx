@@ -54,7 +54,7 @@ export default function Terms() {
               </p>
               <ul className="list-disc list-inside space-y-2 text-muted-foreground ml-4">
                 <li>Cung cấp thông tin thanh toán chính xác</li>
-                <li>Thanh toán đầy đủ cho các sản phẩm/dịch vụ đã đặt</li>
+                <li>Thanh toán đầy đủ cho các đồ án/dịch vụ đã đặt</li>
                 <li>Chấp nhận chính sách đổi trả và hoàn tiền của chúng tôi</li>
                 <li>Chịu trách nhiệm về các khoản phí phát sinh</li>
               </ul>

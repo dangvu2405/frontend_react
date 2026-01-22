@@ -32,8 +32,8 @@ const chatbotRules: KeywordRule[] = [
     priority: 100,
     response: {
       message:
-        'Xin chào! 👋 Tôi là chatbot hỗ trợ của Perfume Shop. Tôi có thể giúp bạn:\n\n' +
-        '• Tìm hiểu về sản phẩm\n' +
+        'Xin chào! 👋 Tôi là chatbot hỗ trợ của Project Shop. Tôi có thể giúp bạn:\n\n' +
+        '• Tìm hiểu về đồ án\n' +
         '• Hướng dẫn đặt hàng\n' +
         '• Kiểm tra đơn hàng\n' +
         '• Chính sách đổi trả\n' +
@@ -41,7 +41,7 @@ const chatbotRules: KeywordRule[] = [
         '• Khuyến mãi và ưu đãi\n\n' +
         'Bạn cần hỗ trợ gì? Hoặc nhập "CSKH" để liên hệ với nhân viên tư vấn.',
       suggestions: [
-        'Sản phẩm nước hoa',
+        'Đồ án đồ án',
         'Cách đặt hàng',
         'Chính sách đổi trả',
         'Khuyến mãi',
@@ -62,54 +62,54 @@ const chatbotRules: KeywordRule[] = [
     },
   },
 
-  // Nước hoa nam
+  // Đồ án nam
   {
-    keywords: ['nước hoa nam', 'perfume nam', 'nam', 'male', 'men', 'cho nam', 'dành cho nam'],
+    keywords: ['đồ án nam', 'project nam', 'nam', 'male', 'men', 'cho nam', 'dành cho nam'],
     priority: 80,
     response: {
       message:
-        'Nước hoa nam của chúng tôi:\n\n' +
-        '• Đa dạng các thương hiệu nổi tiếng\n' +
-        '• Mùi hương nam tính, mạnh mẽ\n' +
-        '• Dung tích: 30ml, 50ml, 100ml\n' +
+        'Đồ án nam của chúng tôi:\n\n' +
+        '• Đa dạng các môn học nổi tiếng\n' +
+        '• Tính năng nam tính, mạnh mẽ\n' +
+        '• Bao gồm: 30ml, 50ml, 100ml\n' +
         '• Chính hãng 100%, có tem chống giả\n\n' +
-        'Bạn có thể xem tất cả sản phẩm nước hoa nam tại trang sản phẩm.\n\n' +
+        'Bạn có thể xem tất cả đồ án đồ án nam tại trang đồ án.\n\n' +
         'Cần tư vấn chi tiết? Nhập "CSKH" để liên hệ.',
-      suggestions: ['Giá nước hoa nam', 'Thương hiệu', 'Dung tích', 'Liên hệ CSKH'],
+      suggestions: ['Giá đồ án nam', 'Môn học', 'Bao gồm', 'Liên hệ CSKH'],
     },
   },
 
-  // Nước hoa nữ
+  // Đồ án nữ
   {
-    keywords: ['nước hoa nữ', 'perfume nữ', 'nữ', 'female', 'women', 'ladies', 'cho nữ', 'dành cho nữ'],
+    keywords: ['đồ án nữ', 'project nữ', 'nữ', 'female', 'women', 'ladies', 'cho nữ', 'dành cho nữ'],
     priority: 80,
     response: {
       message:
-        'Nước hoa nữ của chúng tôi:\n\n' +
-        '• Nhiều thương hiệu cao cấp\n' +
-        '• Mùi hương quyến rũ, thanh lịch\n' +
-        '• Dung tích: 30ml, 50ml, 100ml\n' +
+        'Đồ án nữ của chúng tôi:\n\n' +
+        '• Nhiều môn học cao cấp\n' +
+        '• Tính năng quyến rũ, thanh lịch\n' +
+        '• Bao gồm: 30ml, 50ml, 100ml\n' +
         '• Chính hãng 100%, có tem chống giả\n\n' +
-        'Bạn có thể xem tất cả sản phẩm nước hoa nữ tại trang sản phẩm.\n\n' +
+        'Bạn có thể xem tất cả đồ án đồ án nữ tại trang đồ án.\n\n' +
         'Cần tư vấn chi tiết? Nhập "CSKH" để liên hệ.',
-      suggestions: ['Giá nước hoa nữ', 'Thương hiệu', 'Dung tích', 'Liên hệ CSKH'],
+      suggestions: ['Giá đồ án nữ', 'Môn học', 'Bao gồm', 'Liên hệ CSKH'],
     },
   },
 
-  // Sản phẩm chung
+  // Đồ án chung
   {
-    keywords: ['sản phẩm', 'nước hoa', 'sp', 'hàng', 'perfume', 'fragrance', 'sản phẩm nào', 'có gì'],
+    keywords: ['đồ án', 'đồ án', 'sp', 'hàng', 'project', 'quality', 'đồ án nào', 'có gì'],
     priority: 70,
     response: {
       message:
-        'Chúng tôi có đa dạng các loại nước hoa cao cấp:\n\n' +
-        '• Nước hoa nam\n' +
-        '• Nước hoa nữ\n' +
-        '• Nước hoa unisex\n' +
+        'Chúng tôi có đa dạng các loại đồ án cao cấp:\n\n' +
+        '• Đồ án nam\n' +
+        '• Đồ án nữ\n' +
+        '• Đồ án unisex\n' +
         '• Combo/Giftset\n\n' +
-        'Tất cả sản phẩm đều chính hãng 100%, có tem chống giả. Bạn có thể xem chi tiết tại trang sản phẩm.\n\n' +
-        'Bạn muốn tìm loại nước hoa nào? Hoặc nhập "CSKH" để được tư vấn chi tiết.',
-      suggestions: ['Nước hoa nam', 'Nước hoa nữ', 'Giá sản phẩm', 'Liên hệ CSKH'],
+        'Tất cả đồ án đều chính hãng 100%, có tem chống giả. Bạn có thể xem chi tiết tại trang đồ án.\n\n' +
+        'Bạn muốn tìm loại đồ án nào? Hoặc nhập "CSKH" để được tư vấn chi tiết.',
+      suggestions: ['Đồ án nam', 'Đồ án nữ', 'Giá đồ án', 'Liên hệ CSKH'],
     },
   },
 
@@ -119,13 +119,13 @@ const chatbotRules: KeywordRule[] = [
     priority: 70,
     response: {
       message:
-        'Giá sản phẩm của chúng tôi:\n\n' +
+        'Giá đồ án của chúng tôi:\n\n' +
         '• Được niêm yết công khai trên website\n' +
-        '• Có nhiều mức giá phù hợp với từng sản phẩm\n' +
+        '• Có nhiều mức giá phù hợp với từng đồ án\n' +
         '• Thường xuyên có chương trình khuyến mãi\n' +
-        '• Giá từ 500.000đ - 5.000.000đ tùy sản phẩm\n\n' +
-        'Bạn có thể xem giá chi tiết tại trang sản phẩm. Để được tư vấn về giá tốt nhất, nhập "CSKH" để liên hệ nhân viên.',
-      suggestions: ['Khuyến mãi', 'Sản phẩm', 'Liên hệ CSKH'],
+        '• Giá từ 500.000đ - 5.000.000đ tùy đồ án\n\n' +
+        'Bạn có thể xem giá chi tiết tại trang đồ án. Để được tư vấn về giá tốt nhất, nhập "CSKH" để liên hệ nhân viên.',
+      suggestions: ['Khuyến mãi', 'Đồ án', 'Liên hệ CSKH'],
     },
   },
 
@@ -139,11 +139,11 @@ const chatbotRules: KeywordRule[] = [
         '🎁 Thường xuyên có các chương trình giảm giá\n' +
         '🎁 Giảm giá theo % hoặc số tiền cụ thể\n' +
         '🎁 Combo/Giftset với giá ưu đãi\n' +
-        '🎁 Khuyến mãi theo từng sản phẩm\n' +
+        '🎁 Khuyến mãi theo từng đồ án\n' +
         '🎁 Đăng ký nhận voucher giảm giá 20% cho đơn hàng đầu tiên\n\n' +
-        'Bạn có thể xem các sản phẩm đang khuyến mãi tại trang sản phẩm.\n\n' +
+        'Bạn có thể xem các đồ án đang khuyến mãi tại trang đồ án.\n\n' +
         'Để biết thông tin khuyến mãi mới nhất, nhập "CSKH" để liên hệ.',
-      suggestions: ['Sản phẩm', 'Giá sản phẩm', 'Liên hệ CSKH'],
+      suggestions: ['Đồ án', 'Giá đồ án', 'Liên hệ CSKH'],
     },
   },
 
@@ -167,18 +167,18 @@ const chatbotRules: KeywordRule[] = [
         '   → Chuyển khoản trực tiếp\n' +
         '   → Thông tin tài khoản sẽ được gửi qua email\n\n' +
         'Cần hỗ trợ về thanh toán? Nhập "CSKH" để liên hệ.',
-      suggestions: ['Đặt hàng', 'Vận chuyển', 'Liên hệ CSKH'],
+      suggestions: ['Đặt mua', 'Vận chuyển', 'Liên hệ CSKH'],
     },
   },
 
-  // Đặt hàng
+  // Đặt mua
   {
     keywords: ['đặt hàng', 'mua hàng', 'order', 'mua', 'purchase', 'mua như thế nào', 'cách mua'],
     priority: 70,
     response: {
       message:
         'Để đặt hàng, bạn có thể:\n\n' +
-        '1️⃣ Thêm sản phẩm vào giỏ hàng\n' +
+        '1️⃣ Thêm đồ án vào giỏ hàng\n' +
         '2️⃣ Vào giỏ hàng và kiểm tra\n' +
         '3️⃣ Chọn phương thức thanh toán\n' +
         '4️⃣ Xác nhận đơn hàng\n\n' +
@@ -199,7 +199,7 @@ const chatbotRules: KeywordRule[] = [
     response: {
       message:
         'Thông tin vận chuyển:\n\n' +
-        '🚚 Giao hàng toàn quốc\n' +
+        '🚚 Giao file toàn quốc\n' +
         '⏱️ Thời gian: 2-3 ngày làm việc\n' +
         '💰 Phí ship: Miễn phí cho đơn hàng trên 500.000đ\n' +
         '📍 Hỗ trợ giao hàng tận nơi\n\n' +
@@ -218,10 +218,10 @@ const chatbotRules: KeywordRule[] = [
         'Phí vận chuyển:\n\n' +
         '💰 Miễn phí ship cho đơn hàng trên 500.000đ\n' +
         '💰 Phí ship 30.000đ cho đơn hàng dưới 500.000đ\n' +
-        '💰 Giao hàng toàn quốc\n\n' +
+        '💰 Giao file toàn quốc\n\n' +
         'Bạn có thể xem chi tiết phí ship khi thanh toán đơn hàng.\n\n' +
         'Cần hỗ trợ thêm? Nhập "CSKH" để liên hệ.',
-      suggestions: ['Vận chuyển', 'Đặt hàng', 'Liên hệ CSKH'],
+      suggestions: ['Vận chuyển', 'Đặt mua', 'Liên hệ CSKH'],
     },
   },
 
@@ -254,7 +254,7 @@ const chatbotRules: KeywordRule[] = [
         '3️⃣ Xem chi tiết đơn hàng\n\n' +
         'Bạn sẽ thấy:\n' +
         '• Trạng thái đơn hàng\n' +
-        '• Thông tin sản phẩm\n' +
+        '• Thông tin đồ án\n' +
         '• Địa chỉ giao hàng\n' +
         '• Phương thức thanh toán\n\n' +
         'Cần hỗ trợ về đơn hàng? Nhập "CSKH" để liên hệ.',
@@ -288,11 +288,11 @@ const chatbotRules: KeywordRule[] = [
       message:
         'Chính sách đổi trả:\n\n' +
         '✅ Đổi trả trong 7 ngày kể từ ngày nhận hàng\n' +
-        '✅ Sản phẩm còn nguyên seal, chưa sử dụng\n' +
+        '✅ Đồ án còn nguyên seal, chưa sử dụng\n' +
         '✅ Có hóa đơn mua hàng\n\n' +
         'Quy trình:\n' +
         '1. Liên hệ CSKH để yêu cầu đổi trả\n' +
-        '2. Gửi sản phẩm về kho\n' +
+        '2. Gửi đồ án về kho\n' +
         '3. Kiểm tra và hoàn tiền\n\n' +
         'Nhập "CSKH" để được hỗ trợ đổi trả.',
       suggestions: ['Điều kiện đổi trả', 'Quy trình đổi trả', 'Liên hệ CSKH'],
@@ -307,13 +307,13 @@ const chatbotRules: KeywordRule[] = [
       message:
         'Điều kiện đổi trả:\n\n' +
         '✅ Đổi trả trong 7 ngày kể từ ngày nhận hàng\n' +
-        '✅ Sản phẩm còn nguyên seal, chưa mở\n' +
-        '✅ Sản phẩm không bị hư hỏng\n' +
+        '✅ Đồ án còn nguyên seal, chưa mở\n' +
+        '✅ Đồ án không bị hư hỏng\n' +
         '✅ Có hóa đơn mua hàng\n' +
         '✅ Không có dấu hiệu sử dụng\n\n' +
         'Không áp dụng cho:\n' +
-        '❌ Sản phẩm đã mở seal\n' +
-        '❌ Sản phẩm bị hư hỏng do người dùng\n' +
+        '❌ Đồ án đã mở seal\n' +
+        '❌ Đồ án bị hư hỏng do người dùng\n' +
         '❌ Quá 7 ngày kể từ ngày nhận hàng\n\n' +
         'Nhập "CSKH" để được hỗ trợ đổi trả.',
       suggestions: ['Quy trình đổi trả', 'Liên hệ CSKH'],
@@ -327,47 +327,47 @@ const chatbotRules: KeywordRule[] = [
     response: {
       message:
         'Cam kết chất lượng:\n\n' +
-        '✅ 100% sản phẩm chính hãng\n' +
+        '✅ 100% đồ án chính hãng\n' +
         '✅ Có tem chống giả từ nhà sản xuất\n' +
-        '✅ Nhập khẩu trực tiếp từ các thương hiệu uy tín\n' +
-        '✅ Đảm bảo chất lượng, mùi hương chuẩn\n' +
+        '✅ Nhập khẩu trực tiếp từ các môn học uy tín\n' +
+        '✅ Đảm bảo chất lượng, tính năng chuẩn\n' +
         '✅ Bảo hành chính hãng\n\n' +
         'Nếu phát hiện hàng giả, chúng tôi sẽ hoàn tiền 200%.\n\n' +
         'Cần tư vấn thêm? Nhập "CSKH" để liên hệ.',
-      suggestions: ['Sản phẩm', 'Giá sản phẩm', 'Liên hệ CSKH'],
+      suggestions: ['Đồ án', 'Giá đồ án', 'Liên hệ CSKH'],
     },
   },
 
-  // Thương hiệu
+  // Môn học
   {
-    keywords: ['thương hiệu', 'brand', 'nhãn hiệu', 'hãng', 'brand nào', 'thương hiệu nào'],
+    keywords: ['môn học', 'subject', 'nhãn hiệu', 'hãng', 'subject nào', 'môn học nào'],
     priority: 70,
     response: {
       message:
-        'Chúng tôi cung cấp các thương hiệu nước hoa nổi tiếng:\n\n' +
-        '• Các thương hiệu quốc tế cao cấp\n' +
+        'Chúng tôi cung cấp các môn học đồ án nổi tiếng:\n\n' +
+        '• Các môn học quốc tế cao cấp\n' +
         '• 100% chính hãng, có tem chống giả\n' +
-        '• Đa dạng mùi hương và dung tích\n\n' +
-        'Bạn có thể xem tất cả thương hiệu tại trang sản phẩm.\n\n' +
-        'Cần tư vấn về thương hiệu cụ thể? Nhập "CSKH" để liên hệ.',
-      suggestions: ['Sản phẩm', 'Giá sản phẩm', 'Liên hệ CSKH'],
+        '• Đa dạng tính năng và bao gồm\n\n' +
+        'Bạn có thể xem tất cả môn học tại trang đồ án.\n\n' +
+        'Cần tư vấn về môn học cụ thể? Nhập "CSKH" để liên hệ.',
+      suggestions: ['Đồ án', 'Giá đồ án', 'Liên hệ CSKH'],
     },
   },
 
-  // Dung tích
+  // Bao gồm
   {
-    keywords: ['dung tích', 'ml', 'size', 'kích thước', 'bao nhiêu ml', 'dung lượng'],
+    keywords: ['bao gồm', 'ml', 'size', 'kích thước', 'bao nhiêu ml', 'dung lượng'],
     priority: 65,
     response: {
       message:
-        'Dung tích sản phẩm:\n\n' +
+        'Bao gồm đồ án:\n\n' +
         '📦 30ml - Phù hợp để dùng thử\n' +
         '📦 50ml - Kích thước phổ biến\n' +
         '📦 100ml - Giá tốt nhất, tiết kiệm\n\n' +
-        'Mỗi sản phẩm có thể có nhiều tùy chọn dung tích khác nhau.\n\n' +
-        'Bạn có thể chọn dung tích khi thêm vào giỏ hàng.\n\n' +
+        'Mỗi đồ án có thể có nhiều tùy chọn bao gồm khác nhau.\n\n' +
+        'Bạn có thể chọn bao gồm khi thêm vào giỏ hàng.\n\n' +
         'Cần tư vấn? Nhập "CSKH" để liên hệ.',
-      suggestions: ['Sản phẩm', 'Giá sản phẩm', 'Liên hệ CSKH'],
+      suggestions: ['Đồ án', 'Giá đồ án', 'Liên hệ CSKH'],
     },
   },
 
@@ -383,10 +383,10 @@ const chatbotRules: KeywordRule[] = [
         '🔐 Đăng nhập bằng Google OAuth\n' +
         '👤 Quản lý thông tin cá nhân\n' +
         '📦 Xem lịch sử đơn hàng\n' +
-        '❤️ Quản lý sản phẩm yêu thích\n\n' +
+        '❤️ Quản lý đồ án yêu thích\n\n' +
         'Bạn có thể đăng ký/đăng nhập tại trang đăng nhập.\n\n' +
         'Cần hỗ trợ về tài khoản? Nhập "CSKH" để liên hệ.',
-      suggestions: ['Đơn hàng', 'Sản phẩm yêu thích', 'Liên hệ CSKH'],
+      suggestions: ['Đơn hàng', 'Đồ án yêu thích', 'Liên hệ CSKH'],
     },
   },
 
@@ -416,7 +416,7 @@ const chatbotRules: KeywordRule[] = [
         'Cảm ơn bạn đã liên hệ với chúng tôi! 😊\n\n' +
         'Nếu bạn cần hỗ trợ thêm, đừng ngần ngại hỏi tôi.\n\n' +
         'Chúc bạn một ngày tốt lành! 🌟',
-      suggestions: ['Sản phẩm', 'Đặt hàng', 'Liên hệ CSKH'],
+      suggestions: ['Đồ án', 'Đặt mua', 'Liên hệ CSKH'],
     },
   },
 ];
@@ -447,12 +447,12 @@ export const chatbotService = {
       message:
         'Xin lỗi, tôi chưa hiểu rõ câu hỏi của bạn. 😅\n\n' +
         'Bạn có thể:\n' +
-        '• Hỏi về sản phẩm\n' +
+        '• Hỏi về đồ án\n' +
         '• Hỏi về đặt hàng\n' +
         '• Hỏi về vận chuyển\n' +
         '• Hỏi về đổi trả\n' +
         '• Hoặc nhập "CSKH" để liên hệ với nhân viên tư vấn',
-      suggestions: ['Sản phẩm', 'Đặt hàng', 'Vận chuyển', 'Liên hệ CSKH'],
+      suggestions: ['Đồ án', 'Đặt mua', 'Vận chuyển', 'Liên hệ CSKH'],
     };
   },
 
@@ -463,15 +463,15 @@ export const chatbotService = {
     return chatbotRules.find(r => r.keywords.includes('xin chào'))?.response || {
       message:
         'Xin chào! 👋\n\n' +
-        'Tôi là chatbot hỗ trợ của Perfume Shop. Tôi có thể giúp bạn:\n\n' +
-        '• Tìm hiểu về sản phẩm\n' +
+        'Tôi là chatbot hỗ trợ của Project Shop. Tôi có thể giúp bạn:\n\n' +
+        '• Tìm hiểu về đồ án\n' +
         '• Hướng dẫn đặt hàng\n' +
         '• Kiểm tra đơn hàng\n' +
         '• Chính sách đổi trả\n' +
         '• Vận chuyển và thanh toán\n\n' +
         'Bạn cần hỗ trợ gì? Hoặc nhập "CSKH" để liên hệ với nhân viên tư vấn.',
       suggestions: [
-        'Sản phẩm nước hoa',
+        'Đồ án đồ án',
         'Cách đặt hàng',
         'Chính sách đổi trả',
         'Liên hệ CSKH',

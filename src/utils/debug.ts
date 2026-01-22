@@ -95,8 +95,8 @@ export const debugPageError = (pageName: string, operation: string, error: unkno
 const getPageEmoji = (pageName: string): string => {
   const emojiMap: Record<string, string> = {
     'Home Page': '🏠',
-    'Products Page': '📦',
-    'ProductDetail Page': '🔍',
+    'Projects Page': '📦',
+    'ProjectDetail Page': '🔍',
     'Checkout Page': '💳',
     'MyAccount Page': '👤',
     'Cart Page': '🛒',

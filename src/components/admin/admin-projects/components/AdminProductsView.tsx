@@ -27,9 +27,9 @@ import {
 } from '@/components/ui/pagination';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import type { Product } from '@/types/models';
+import type { Project, Category } from '@/types/models/product';
 
-import { useAdminProducts } from '../hooks/useAdminProducts';
+import { useAdminProjects } from '../hooks/useAdminProjects';
 import type { StockFilter } from '../types';
 
 const currencyFormatter = new Intl.NumberFormat('vi-VN', {
@@ -41,7 +41,7 @@ const currencyFormatter = new Intl.NumberFormat('vi-VN', {
 const hasActiveFilters = (filters: { search: string; categoryId: string; stock: string }) =>
   Boolean(filters.search) || filters.categoryId !== 'all' || filters.stock !== 'all';
 
-export const AdminProductsView: FC = () => {
+export const AdminProjectsView: FC = () => {
   const {
     loading,
     categories,
@@ -51,12 +51,12 @@ export const AdminProductsView: FC = () => {
     filters,
     setFilters,
     resetFilters,
-    filteredProducts,
+    filteredProjects,
     isSelectMode,
     toggleSelectMode,
-    selectedProducts,
+    selectedProjects,
     handleToggleSelectAll,
-    handleToggleSelectProduct,
+    handleToggleSelectProject,
     handleBulkDelete,
     isDialogOpen,
     openCreateDialog,
@@ -72,12 +72,12 @@ export const AdminProductsView: FC = () => {
     isDeleteDialogOpen,
     openDeleteDialog,
     closeDeleteDialog,
-    deletingProduct,
+    deletingProject,
     handleDelete,
     getStockStatus,
     changePage,
-    editingProduct,
-  } = useAdminProducts();
+    editingProject,
+  } = useAdminProjects();
 
   const totalPages = pagination.totalPages || 1;
   const pageSize = pagination.pageSize;
@@ -90,26 +90,26 @@ export const AdminProductsView: FC = () => {
     return { start, end };
   }, [currentPage, pageSize, totalItems]);
 
-  const renderCategoryName = (product: Product) =>
-    typeof product.MaLoaiSanPham === 'string'
+  const renderCategoryName = (project: Project) =>
+    typeof project.MaLoaiSanPham === 'string'
       ? 'Không phân loại'
-      : product.MaLoaiSanPham?.TenLoaiSanPham ?? 'Không phân loại';
+      : project.MaLoaiSanPham?.TenLoaiSanPham ?? 'Không phân loại';
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Quản lý sản phẩm</h1>
-          <p className="text-muted-foreground">Quản lý danh sách sản phẩm và tồn kho</p>
+          <h1 className="text-3xl font-bold tracking-tight">Quản lý đồ án</h1>
+          <p className="text-muted-foreground">Quản lý danh sách đồ án và tồn kho</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant={isSelectMode ? 'default' : 'outline'} onClick={toggleSelectMode}>
             <CheckSquare className="mr-2 h-4 w-4" />
-            {isSelectMode ? `Đã chọn: ${selectedProducts.size}` : 'Chọn nhiều'}
+            {isSelectMode ? `Đã chọn: ${selectedProjects.size}` : 'Chọn nhiều'}
           </Button>
           <Button onClick={openCreateDialog}>
             <Plus className="mr-2 h-4 w-4" />
-            Thêm sản phẩm
+            Thêm đồ án
           </Button>
         </div>
       </div>
@@ -119,7 +119,7 @@ export const AdminProductsView: FC = () => {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-muted-foreground" />
             <Input
-              placeholder="Tìm kiếm theo tên sản phẩm, mô tả, danh mục..."
+              placeholder="Tìm kiếm theo tên đồ án, mô tả, danh mục..."
               value={filters.search}
               onChange={(event) => setFilters({ search: event.target.value })}
               className="pl-10"
@@ -174,12 +174,12 @@ export const AdminProductsView: FC = () => {
           )}
         </div>
 
-        {isSelectMode && selectedProducts.size > 0 && (
+        {isSelectMode && selectedProjects.size > 0 && (
           <div className="flex items-center gap-2 border-t pt-2">
-            <span className="text-sm font-medium">Đã chọn {selectedProducts.size} sản phẩm:</span>
+            <span className="text-sm font-medium">Đã chọn {selectedProjects.size} đồ án:</span>
             <Button variant="destructive" size="sm" onClick={handleBulkDelete} disabled={submitting}>
               <Trash2 className="mr-2 h-4 w-4" />
-              Xóa sản phẩm
+              Xóa đồ án
             </Button>
           </div>
         )}
@@ -190,13 +190,13 @@ export const AdminProductsView: FC = () => {
           data={categorySalesChart}
           loading={loading}
           title="Doanh số theo danh mục"
-          description="Số lượng bán và doanh thu theo từng danh mục sản phẩm"
+          description="Số lượng bán và doanh thu theo từng danh mục đồ án"
         />
         <ChartAreaInteractive
           data={priceTrendChart}
           loading={loading}
           title="Phân bổ theo giá"
-          description="Số lượng sản phẩm bán được theo phân khúc giá"
+          description="Số lượng đồ án bán được theo phân khúc giá"
         />
       </div>
 
@@ -208,7 +208,7 @@ export const AdminProductsView: FC = () => {
                 {isSelectMode && (
                   <th className="w-12 px-4 py-3 text-center">
                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleToggleSelectAll}>
-                      {selectedProducts.size === filteredProducts.length && filteredProducts.length > 0 ? (
+                      {selectedProjects.size === filteredProjects.length && filteredProjects.length > 0 ? (
                         <CheckSquare className="h-4 w-4" />
                       ) : (
                         <Square className="h-4 w-4" />
@@ -216,7 +216,7 @@ export const AdminProductsView: FC = () => {
                     </Button>
                   </th>
                 )}
-                <th className="px-4 py-3 text-left text-sm font-medium">Tên sản phẩm</th>
+                <th className="px-4 py-3 text-left text-sm font-medium">Tên đồ án</th>
                 <th className="px-4 py-3 text-left text-sm font-medium">Danh mục</th>
                 <th className="px-4 py-3 text-right text-sm font-medium">Giá</th>
                 <th className="px-4 py-3 text-center text-sm font-medium">Tồn kho</th>
@@ -235,23 +235,23 @@ export const AdminProductsView: FC = () => {
                     Đang tải...
                   </td>
                 </tr>
-              ) : filteredProducts.length === 0 ? (
+              ) : filteredProjects.length === 0 ? (
                 <tr>
                   <td
                     colSpan={isSelectMode ? 8 : 7}
                     className="px-4 py-8 text-center text-sm text-muted-foreground"
                   >
-                    {filters.search ? 'Không tìm thấy sản phẩm phù hợp' : 'Chưa có sản phẩm nào'}
+                    {filters.search ? 'Không tìm thấy đồ án phù hợp' : 'Chưa có đồ án nào'}
                   </td>
                 </tr>
               ) : (
-                filteredProducts.map((product: Product) => {
-                  const stockStatus = getStockStatus(product.SoLuong);
+                filteredProjects.map((project: Project) => {
+                  const stockStatus = getStockStatus(project.SoLuong);
                   return (
                     <tr
-                      key={product._id}
+                      key={project._id}
                       className={`border-b hover:bg-muted/50 ${
-                        selectedProducts.has(product._id) ? 'bg-primary/5' : ''
+                        selectedProjects.has(project._id) ? 'bg-primary/5' : ''
                       }`}
                     >
                       {isSelectMode && (
@@ -260,9 +260,9 @@ export const AdminProductsView: FC = () => {
                             variant="ghost"
                             size="icon"
                             className="h-6 w-6"
-                            onClick={() => handleToggleSelectProduct(product._id)}
+                            onClick={() => handleToggleSelectProject(project._id)}
                           >
-                            {selectedProducts.has(product._id) ? (
+                            {selectedProjects.has(project._id) ? (
                               <CheckSquare className="h-4 w-4 text-primary" />
                             ) : (
                               <Square className="h-4 w-4" />
@@ -270,25 +270,25 @@ export const AdminProductsView: FC = () => {
                           </Button>
                         </td>
                       )}
-                      <td className="px-4 py-3 text-sm font-medium">{product.TenSanPham}</td>
-                      <td className="px-4 py-3 text-sm">{renderCategoryName(product)}</td>
+                      <td className="px-4 py-3 text-sm font-medium">{project.TenSanPham}</td>
+                      <td className="px-4 py-3 text-sm">{renderCategoryName(project)}</td>
                       <td className="px-4 py-3 text-right text-sm">
-                        {currencyFormatter.format(product.Gia)}
+                        {currencyFormatter.format(project.Gia)}
                       </td>
-                      <td className="px-4 py-3 text-center text-sm">{product.SoLuong}</td>
-                      <td className="px-4 py-3 text-center text-sm">{product.DaBan}</td>
+                      <td className="px-4 py-3 text-center text-sm">{project.SoLuong}</td>
+                      <td className="px-4 py-3 text-center text-sm">{project.DaBan}</td>
                       <td className={`px-4 py-3 text-center text-sm font-medium ${stockStatus.color}`}>
                         {stockStatus.text}
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          <Button size="icon" variant="ghost" onClick={() => openEditDialog(product)}>
+                          <Button size="icon" variant="ghost" onClick={() => openEditDialog(project)}>
                             <Edit className="h-4 w-4" />
                           </Button>
                           <Button
                             size="icon"
                             variant="ghost"
-                            onClick={() => openDeleteDialog(product)}
+                            onClick={() => openDeleteDialog(project)}
                           >
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
@@ -306,7 +306,7 @@ export const AdminProductsView: FC = () => {
       {totalPages > 1 && (
         <div className="flex items-center justify-between">
           <div className="text-sm text-muted-foreground">
-            Hiển thị {pageRangeLabel.start} - {pageRangeLabel.end} trong tổng số {totalItems} sản phẩm
+            Hiển thị {pageRangeLabel.start} - {pageRangeLabel.end} trong tổng số {totalItems} đồ án
           </div>
           <Pagination>
             <PaginationContent>
@@ -374,13 +374,13 @@ export const AdminProductsView: FC = () => {
       >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{editingProduct ? 'Chỉnh sửa sản phẩm' : 'Thêm sản phẩm mới'}</DialogTitle>
-            <DialogDescription>Điền thông tin sản phẩm. Các trường có dấu * là bắt buộc.</DialogDescription>
+            <DialogTitle>{editingProject ? 'Chỉnh sửa đồ án' : 'Thêm đồ án mới'}</DialogTitle>
+            <DialogDescription>Điền thông tin đồ án. Các trường có dấu * là bắt buộc.</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="TenSanPham">Tên sản phẩm *</Label>
+                <Label htmlFor="TenSanPham">Tên đồ án *</Label>
                 <Input
                   id="TenSanPham"
                   value={formData.TenSanPham}
@@ -389,16 +389,16 @@ export const AdminProductsView: FC = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="MaLoaiSanPham">Loại sản phẩm *</Label>
+                <Label htmlFor="MaLoaiSanPham">Loại đồ án *</Label>
                 {categories.length === 0 ? (
                   <div className="space-y-2">
                     <Select disabled>
                       <SelectTrigger>
-                        <SelectValue placeholder="Chưa có loại sản phẩm nào" />
+                        <SelectValue placeholder="Chưa có loại đồ án nào" />
                       </SelectTrigger>
                     </Select>
                     <p className="text-xs text-destructive">
-                      ⚠️ Chưa có loại sản phẩm nào. Vui lòng tạo loại sản phẩm trước khi thêm sản phẩm.
+                      ⚠️ Chưa có loại đồ án nào. Vui lòng tạo loại đồ án trước khi thêm đồ án.
                     </p>
                   </div>
                 ) : (
@@ -408,7 +408,7 @@ export const AdminProductsView: FC = () => {
                     required
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Chọn loại sản phẩm" />
+                      <SelectValue placeholder="Chọn loại đồ án" />
                     </SelectTrigger>
                     <SelectContent>
                       {(Array.isArray(categories) ? categories : []).map((category) => (
@@ -553,7 +553,7 @@ export const AdminProductsView: FC = () => {
                 Hủy
               </Button>
               <Button type="submit" disabled={submitting}>
-                {submitting ? 'Đang xử lý...' : editingProduct ? 'Cập nhật' : 'Thêm mới'}
+                {submitting ? 'Đang xử lý...' : editingProject ? 'Cập nhật' : 'Thêm mới'}
               </Button>
             </DialogFooter>
           </form>
@@ -568,9 +568,9 @@ export const AdminProductsView: FC = () => {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Xác nhận xóa sản phẩm</AlertDialogTitle>
+            <AlertDialogTitle>Xác nhận xóa đồ án</AlertDialogTitle>
             <AlertDialogDescription>
-              Bạn có chắc chắn muốn xóa sản phẩm "{deletingProduct?.TenSanPham}"? Hành động này không thể hoàn tác.
+              Bạn có chắc chắn muốn xóa đồ án "{deletingProject?.TenSanPham}"? Hành động này không thể hoàn tác.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

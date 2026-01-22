@@ -1,14 +1,15 @@
-import type { Category, ChartItem, Product } from '@/types/models';
+import type { Category, Project } from '@/types/models/product';
+import type { ChartItem } from '@/types/models';
 
 export type StockFilter = 'all' | 'in' | 'out' | 'low';
 
-export interface AdminProductsFilters {
+export interface AdminProjectsFilters {
   search: string;
   categoryId: string;
   stock: StockFilter;
 }
 
-export interface AdminProductsFormState {
+export interface AdminProjectsFormState {
   TenSanPham: string;
   MoTa: string;
   Gia: number;
@@ -33,40 +34,40 @@ export interface PaginationState {
   pageSize: number;
 }
 
-export interface AdminProductsHookState {
+export interface AdminProjectsHookState {
   loading: boolean;
   categories: Category[];
   categorySalesChart: ChartItem[];
   priceTrendChart: ChartItem[];
   pagination: PaginationState;
-  filters: AdminProductsFilters;
-  setFilters: (filters: Partial<AdminProductsFilters>) => void;
+  filters: AdminProjectsFilters;
+  setFilters: (filters: Partial<AdminProjectsFilters>) => void;
   resetFilters: () => void;
-  filteredProducts: Product[];
+  filteredProjects: Project[];
   isSelectMode: boolean;
   toggleSelectMode: () => void;
-  selectedProducts: Set<string>;
+  selectedProjects: Set<string>;
   handleToggleSelectAll: () => void;
-  handleToggleSelectProduct: (productId: string) => void;
+  handleToggleSelectProject: (projectId: string) => void;
   handleBulkDelete: () => Promise<void>;
   isDialogOpen: boolean;
   openCreateDialog: () => void;
-  openEditDialog: (product: Product) => void;
+  openEditDialog: (project: Project) => void;
   closeDialog: () => void;
-  formData: AdminProductsFormState;
-  updateFormData: <K extends keyof AdminProductsFormState>(field: K, value: AdminProductsFormState[K]) => void;
+  formData: AdminProjectsFormState;
+  updateFormData: <K extends keyof AdminProjectsFormState>(field: K, value: AdminProjectsFormState[K]) => void;
   submitting: boolean;
   handleSubmit: (event: React.FormEvent<HTMLFormElement>) => Promise<void>;
   imageState: ImageState;
   handleImageChange: (file: File | null, index?: number) => void;
   removeImage: (index?: number) => void;
   isDeleteDialogOpen: boolean;
-  openDeleteDialog: (product: Product) => void;
+  openDeleteDialog: (project: Project) => void;
   closeDeleteDialog: () => void;
-  deletingProduct: Product | null;
+  deletingProject: Project | null;
   handleDelete: () => Promise<void>;
   getStockStatus: (stock: number) => { text: string; color: string };
   changePage: (page: number) => void;
-  editingProduct: Product | null;
+  editingProject: Project | null;
 }
 

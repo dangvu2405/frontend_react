@@ -82,7 +82,7 @@ export const cartService = {
   },
 
   addToCart: async (payload: {
-    productId: string;
+    projectId: string;
     quantity?: number;
     selectedDungTich?: {
       value: number;

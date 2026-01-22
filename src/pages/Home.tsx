@@ -1,69 +1,46 @@
 import { MainLayout } from '@/layouts/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
-import { Sparkles, ShieldCheck, Truck, HeadphonesIcon } from 'lucide-react';
 import { lazy, Suspense, useState, useEffect, useCallback } from 'react';
-import { productsService } from '@/services/productsService';
-import type { Product, ProductVolumeOption } from '@/types/models';
+import { projectsService } from '@/services/projectsService';
+import type { Project, ProjectIncludesOption } from '@/types/models/product';
 import { toast } from 'sonner';
 import { storage, type CartItemInput } from '@/utils/storage';
-import { getCloudinaryProductImageUrl, getVideoUrl } from '@/utils/imageUtils';
+import { getCloudinaryProjectImageUrl, getVideoUrl } from '@/utils/imageUtils';
 
-const ProductsGrid = lazy(async () => {
-  const module = await import('@/components/products');
-  return { default: module.ProductsGrid };
+const ProjectsGrid = lazy(async () => {
+  const module = await import('@/components/projects');
+  return { default: module.ProjectsGrid };
 });
 
-const FEATURE_CARDS = [
-  {
-    icon: <ShieldCheck className="w-8 h-8" />,
-    title: 'Hàng chính hãng',
-    description: '100% sản phẩm chính hãng, có tem chống giả',
-  },
-  {
-    icon: <Truck className="w-8 h-8" />,
-    title: 'Giao hàng nhanh',
-    description: 'Giao hàng toàn quốc trong 2-3 ngày',
-  },
-  {
-    icon: <Sparkles className="w-8 h-8" />,
-    title: 'Chất lượng cao',
-    description: 'Sản phẩm cao cấp từ các thương hiệu hàng đầu',
-  },
-  {
-    icon: <HeadphonesIcon className="w-8 h-8" />,
-    title: 'Hỗ trợ 24/7',
-    description: 'Đội ngũ tư vấn nhiệt tình, chuyên nghiệp',
-  },
-];
 
 
 export default function HomePage() {
-  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
+  const [featuredProjects, setFeaturedProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [canPlayHero, setCanPlayHero] = useState(false);
 
-  const handleAddToCart = useCallback((product: Product, selectedVolume?: ProductVolumeOption) => {
-    const productAny = product as unknown as Record<string, unknown>;
-    const productId = productAny._id || productAny.id || '';
-    if (!productId) return;
-    const productName = String(productAny.TenSanPham || productAny.tenSP || 'Sản phẩm');
-    const productPrice = Number(productAny.Gia ?? productAny.gia ?? 0);
-    const productDiscount = Number(productAny.KhuyenMai ?? productAny.giamGia ?? 0);
-    const productImage = String(productAny.HinhAnhChinh || productAny.hinhAnh || '');
-    const maLoaiSanPham = productAny.MaLoaiSanPham as Record<string, unknown> | undefined;
-    const productCategory = String(productAny.loaiSP || (typeof maLoaiSanPham === 'object' ? maLoaiSanPham?.TenLoaiSanPham : '') || 'Nước hoa');
-    const options = Array.isArray(productAny.DungTichOptions) ? productAny.DungTichOptions : undefined;
+  const handleAddToCart = useCallback((project: Project, selectedIncludes?: ProjectIncludesOption) => {
+    const projectAny = project as unknown as Record<string, unknown>;
+    const projectId = projectAny._id || projectAny.id || '';
+    if (!projectId) return;
+    const projectName = String(projectAny.TenSanPham || projectAny.tenSP || 'Đồ án');
+    const projectPrice = Number(projectAny.Gia ?? projectAny.gia ?? 0);
+    const projectDiscount = Number(projectAny.KhuyenMai ?? projectAny.giamGia ?? 0);
+    const projectImage = String(projectAny.HinhAnhChinh || projectAny.hinhAnh || '');
+    const maLoaiSanPham = projectAny.MaLoaiSanPham as Record<string, unknown> | undefined;
+    const projectCategory = String(projectAny.loaiSP || (typeof maLoaiSanPham === 'object' ? maLoaiSanPham?.TenLoaiSanPham : '') || 'Đồ án');
+    const options = Array.isArray(projectAny.DungTichOptions) ? projectAny.DungTichOptions : undefined;
 
     const item: CartItemInput = {
-      productId: String(productId),
-      tenSP: productName,
-      basePrice: productPrice,
-      giamGia: productDiscount,
-      hinhAnh: productImage,
-      loaiSP: productCategory,
-      selectedDungTich: selectedVolume,
-      volumeOptions: options,
+      projectId: String(projectId),
+      tenSP: projectName,
+      basePrice: projectPrice,
+      giamGia: projectDiscount,
+      hinhAnh: projectImage,
+      loaiSP: projectCategory,
+      selectedDungTich: selectedIncludes,
+      includesOptions: options,
     };
     storage.addCartItem(item, 1);
     window.dispatchEvent(new CustomEvent('cart:updated'));
@@ -74,14 +51,14 @@ export default function HomePage() {
     let isMounted = true;
     const frame = requestAnimationFrame(() => setCanPlayHero(true));
 
-    productsService.getAllProducts({ limit: 8 })
+    projectsService.getAllProjects({ limit: 8 })
       .then((result) => {
         if (!isMounted) return;
         
-        const products = result.products || [];
+        const projects = result.projects || [];
         
-        const validProducts = products.map((product, index) => {
-          const p = product as unknown as Record<string, unknown>;
+        const validProjects = projects.map((project, index) => {
+          const p = project as unknown as Record<string, unknown>;
           let discountPercent = 0;
           const khuyenMai = Number(p.KhuyenMai ?? 0);
           if (khuyenMai > 0) {
@@ -95,9 +72,9 @@ export default function HomePage() {
           }
           
           const normalized = {
-            _id: p._id || p.id || `product-${index}`,
-            TenSanPham: p.TenSanPham || 'Sản phẩm',
-            MoTa: p.MoTa || 'Sản phẩm chính hãng cao cấp',
+            _id: p._id || p.id || `project-${index}`,
+            TenSanPham: p.TenSanPham || 'Đồ án',
+            MoTa: p.MoTa || 'Đồ án chính hãng cao cấp',
             Gia: Number(p.Gia || 0),
             KhuyenMai: discountPercent,
             SoLuong: Number(p.SoLuong || 0),
@@ -110,8 +87,8 @@ export default function HomePage() {
               if (img && (img.startsWith('http://') || img.startsWith('https://'))) {
                 return img;
               }
-              // Nếu là path Cloudinary, sử dụng getCloudinaryProductImageUrl
-              return getCloudinaryProductImageUrl(img);
+              // Nếu là path Cloudinary, sử dụng getCloudinaryProjectImageUrl
+              return getCloudinaryProjectImageUrl(img);
             })(),
             HinhAnhPhu: Array.isArray(p.HinhAnhPhu) 
               ? p.HinhAnhPhu.map((img: unknown) => {
@@ -120,13 +97,13 @@ export default function HomePage() {
                   if (imgStr && (imgStr.startsWith('http://') || imgStr.startsWith('https://'))) {
                     return imgStr;
                   }
-                  return getCloudinaryProductImageUrl(imgStr);
+                  return getCloudinaryProjectImageUrl(imgStr);
                 })
               : [],
             MaLoaiSanPham: p.MaLoaiSanPham || (typeof p.MaLoaiSanPham === 'object' ? p.MaLoaiSanPham : null),
-            id: String(p._id || p.id || `product-${index}`),
-            tenSP: String(p.TenSanPham || 'Sản phẩm'),
-            mota: String(p.MoTa || 'Sản phẩm chính hãng cao cấp'),
+            id: String(p._id || p.id || `project-${index}`),
+            tenSP: String(p.TenSanPham || 'Đồ án'),
+            mota: String(p.MoTa || 'Đồ án chính hãng cao cấp'),
             gia: Number(p.Gia || 0),
             giamGia: discountPercent,
             soLuong: Number(p.SoLuong || 0),
@@ -138,7 +115,7 @@ export default function HomePage() {
               if (img && (img.startsWith('http://') || img.startsWith('https://'))) {
                 return img;
               }
-              return getCloudinaryProductImageUrl(img);
+              return getCloudinaryProjectImageUrl(img);
             })(),
             hinhAnhPhu: Array.isArray(p.HinhAnhPhu) 
               ? p.HinhAnhPhu.map((img: unknown) => {
@@ -146,7 +123,7 @@ export default function HomePage() {
                   if (imgStr && (imgStr.startsWith('http://') || imgStr.startsWith('https://'))) {
                     return imgStr;
                   }
-                  return getCloudinaryProductImageUrl(imgStr);
+                  return getCloudinaryProjectImageUrl(imgStr);
                 })
               : [],
             hinhAnh: (() => {
@@ -154,23 +131,34 @@ export default function HomePage() {
               if (img && (img.startsWith('http://') || img.startsWith('https://'))) {
                 return img;
               }
-              return getCloudinaryProductImageUrl(img);
+              return getCloudinaryProjectImageUrl(img);
             })(),
-            loaiSP: typeof p.MaLoaiSanPham === 'object' ? String((p.MaLoaiSanPham as Record<string, unknown>)?.TenLoaiSanPham || 'Nước hoa') : 'Nước hoa',
+            loaiSP: typeof p.MaLoaiSanPham === 'object' ? String((p.MaLoaiSanPham as Record<string, unknown>)?.TenLoaiSanPham || 'Đồ án') : 'Đồ án',
           };
           
-          return normalized as unknown as Product;
+          return normalized as unknown as Project;
         });
         
-        setFeaturedProducts(validProducts.slice(0, 8));
+        setFeaturedProjects(validProjects.slice(0, 8));
         setLoading(false);
       })
       .catch((error) => {
         if (isMounted) {
-          if (import.meta.env.DEV) {
-          console.error('Error fetching products:', error);
+          const errorRecord = error as Record<string, unknown>;
+          const status = errorRecord?.status || (errorRecord?.response as Record<string, unknown>)?.status;
+          
+          // Don't show error toast for 404 (API not implemented yet)
+          if (status !== 404) {
+            if (import.meta.env.DEV) {
+              console.error('Error fetching projects:', error);
+            }
+            toast.error('Không thể tải đồ án');
+          } else if (import.meta.env.DEV) {
+            console.warn('Projects API not implemented yet (404). Showing empty state.');
           }
-          toast.error('Không thể tải sản phẩm');
+          
+          // Set empty array and stop loading
+          setFeaturedProjects([]);
           setLoading(false);
         }
       });
@@ -189,24 +177,24 @@ export default function HomePage() {
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div>
               <h1 className="text-5xl md:text-6xl font-bold text-foreground mb-6">
-                Nước hoa
+                Đồ án
                 <span className="text-primary"> cao cấp</span>
                 <br />
                 Chính hãng 100%
               </h1>
               <p className="text-lg text-muted-foreground mb-8">
-                Khám phá bộ sưu tập nước hoa cao cấp từ các thương hiệu hàng đầu thế giới.
-                Mang đến hương thơm quyến rũ, đẳng cấp.
+                Khám phá bộ sưu tập đồ án cao cấp từ các môn học hàng đầu thế giới.
+                Mang đến chất lượng quyến rũ, đẳng cấp.
               </p>
               <div className="flex space-x-4">
-                <Link to="/products">
+                <Link to="/projects">
                   <Button className="bg-primary hover:bg-primary/90 text-primary-foreground text-lg px-8 py-6">
                     Khám phá ngay
                   </Button>
                 </Link>
-                <Link to="/about">
+                <Link to="/documents">
                   <Button variant="outline" className="text-lg px-8 py-6">
-                    Tìm hiểu thêm
+                    Tài liệu
                   </Button>
                 </Link>
               </div>
@@ -220,7 +208,7 @@ export default function HomePage() {
                     muted
                     playsInline
                     preload="none"
-                    poster="https://placehold.co/800x600/151515/ffffff?text=Perfume+Shop"
+                    poster="https://placehold.co/800x600/151515/ffffff?text=Project+Shop"
                     className="w-full h-full object-cover will-change-transform"
                     onLoadedData={(e) => {
                       // Video loaded, can start playing
@@ -240,39 +228,19 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Features */}
-      <section className="py-16 bg-background">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-            {FEATURE_CARDS.map((feature, index) => (
-              <div
-                key={index}
-                className="text-center p-6 rounded-2xl hover:bg-muted transition-colors"
-              >
-                <div className="inline-flex items-center justify-center w-16 h-16 bg-primary/10 rounded-2xl text-primary mb-4">
-                  {feature.icon}
-                </div>
-                <h3 className="font-bold text-foreground mb-2">{feature.title}</h3>
-                <p className="text-sm text-muted-foreground">{feature.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Featured Products */}
+      {/* Featured Projects */}
       <section className="py-16 bg-muted">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-foreground mb-4">Sản phẩm nổi bật</h2>
+            <h2 className="text-4xl font-bold text-foreground mb-4">Đồ án nổi bật</h2>
             <p className="text-lg text-muted-foreground">
-              Những sản phẩm được yêu thích nhất tại Perfume Shop
+              Những đồ án được yêu thích nhất tại Project Shop
             </p>
           </div>
 
           <Suspense
             fallback={
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
                 {Array.from({ length: 4 }).map((_, index) => (
                   <div
                     key={index}
@@ -282,22 +250,22 @@ export default function HomePage() {
               </div>
             }
           >
-            <ProductsGrid
-              products={featuredProducts}
+            <ProjectsGrid
+              projects={featuredProjects}
               loading={loading}
-              emptyMessage="Không có sản phẩm nào"
-              className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-6"
+              emptyMessage="Không có đồ án nào"
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
               showSoldQuantity={true}
               showAddToCartButton={true}
-              showVolumeOptions={true}
+              showIncludesOptions={true}
               onAddToCart={handleAddToCart}
             />
           </Suspense>
 
           <div className="text-center mt-12">
-            <Link to="/products">
+            <Link to="/projects">
               <Button className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-6 text-lg">
-                Xem tất cả sản phẩm
+                Xem tất cả đồ án
               </Button>
             </Link>
           </div>

@@ -10,11 +10,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { CreditCard, MapPin } from 'lucide-react';
+import { CreditCard, MapPin, Wallet } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { storage, type CartItem } from '@/utils/storage';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import { useWallet } from '@/contexts/WalletContext';
+import { walletService } from '@/services/walletService';
 import { userService } from '@/services/userService';
 import { cartService } from '@/services/cartService';
 import PaymentSuccess from '@/components/payment-sucess';
@@ -30,12 +32,13 @@ import {
 
 export default function CheckoutPage() {
   const { isAuthenticated, user } = useAuth();
+  const { wallet, loading: walletLoading, refreshWallet } = useWallet();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [addresses, setAddresses] = useState<UserAddress[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [showNewAddress, setShowNewAddress] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'COD' | 'BANK' | 'CARD' | 'VNPAY' | 'MOMO'>('COD');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'COD' | 'BANK' | 'CARD' | 'VNPAY' | 'MOMO' | 'WALLET'>('COD');
   const [selectedNote, setSelectedNote] = useState<string>('');
   const [paymentStatus, setPaymentStatus] = useState<'idle' | 'success' | 'fail' | 'processing'>('idle');
   const [newAddress, setNewAddress] = useState<UserAddress>({
@@ -104,7 +107,7 @@ export default function CheckoutPage() {
       try {
         await cartService.updateCart({
           items: cartItems.map(item => ({
-            id: item.productId,
+            id: item.projectId,
             quantity: item.quantity || 1,
             tenSP: item.tenSP,
             selectedDungTich: item.selectedDungTich,
@@ -118,13 +121,13 @@ export default function CheckoutPage() {
         for (const item of cartItems) {
           try {
             await cartService.addToCart({
-              productId: item.productId,
+              projectId: item.projectId,
               quantity: item.quantity,
               selectedDungTich: item.selectedDungTich,
             });
           } catch (itemError: unknown) {
             if (import.meta.env.DEV) {
-              console.warn('Failed to sync cart item:', item.productId, itemError);
+              console.warn('Failed to sync cart item:', item.projectId, itemError);
             }
           }
         }
@@ -336,7 +339,7 @@ export default function CheckoutPage() {
 
       // Format cartItems thành format backend yêu cầu
       const formattedSanPham = cartItems.map(item => ({
-        MaSanPham: item.productId,
+        MaSanPham: item.projectId,
         SoLuong: item.quantity,
         Gia: item.gia,
         TenSanPham: item.tenSP,
@@ -440,15 +443,48 @@ export default function CheckoutPage() {
         return;
       }
 
+      // Thanh toán bằng ví
+      if (selectedPaymentMethod === 'WALLET') {
+        if (!wallet || !wallet.isActive) {
+          toast.error('Ví của bạn không khả dụng. Vui lòng chọn phương thức thanh toán khác.');
+          setPaymentStatus('fail');
+          setIsSubmitting(false);
+          return;
+        }
+
+        if (wallet.balance < total) {
+          toast.error(`Số dư ví không đủ. Số dư hiện tại: ${wallet.balance.toLocaleString('vi-VN')}đ`);
+          setPaymentStatus('fail');
+          setIsSubmitting(false);
+          return;
+        }
+
+        try {
+          await walletService.payWithWallet(orderId, total);
+          await refreshWallet();
+          toast.success('Thanh toán bằng ví thành công!');
+          storage.setCart([]);
+          window.dispatchEvent(new CustomEvent('cart:updated'));
+          setPaymentStatus('success');
+          return;
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Có lỗi xảy ra khi thanh toán bằng ví';
+          toast.error(errorMessage);
+          setPaymentStatus('fail');
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
       if (selectedPaymentMethod === 'COD') {
-        toast.success('Đặt hàng thành công');
+        toast.success('Đặt mua thành công');
         storage.setCart([]);
         window.dispatchEvent(new CustomEvent('cart:updated'));
         setPaymentStatus('success');
         return;
       }
       if (selectedPaymentMethod === 'BANK' || selectedPaymentMethod === 'CARD') {
-        toast.success('Đặt hàng thành công. Vui lòng thanh toán theo hướng dẫn.');
+        toast.success('Đặt mua thành công. Vui lòng thanh toán theo hướng dẫn.');
         storage.setCart([]);
         window.dispatchEvent(new CustomEvent('cart:updated'));
         setPaymentStatus('success');
@@ -810,6 +846,30 @@ export default function CheckoutPage() {
                       )}
                     </div>
                   </label>
+                  <label className="flex items-center p-4 border border-border rounded-xl cursor-pointer hover:bg-muted">
+                    <input
+                      type="radio"
+                      name="payment"
+                      className="mr-3"
+                      checked={selectedPaymentMethod === 'WALLET'}
+                      onChange={() => setSelectedPaymentMethod('WALLET')}
+                      disabled={!isAuthenticated || !wallet || !wallet.isActive || walletLoading}
+                    />
+                    <Wallet className="w-5 h-5 mr-3 text-primary" />
+                    <div className="flex flex-col flex-1">
+                      <span className="font-semibold text-foreground">Thanh toán bằng ví điện tử</span>
+                      {wallet && wallet.isActive && (
+                        <span className="text-xs text-muted-foreground">
+                          Số dư: {wallet.balance.toLocaleString('vi-VN')}đ
+                        </span>
+                      )}
+                      {(!isAuthenticated || !wallet || !wallet.isActive) && (
+                        <span className="text-xs text-muted-foreground">
+                          {!isAuthenticated ? 'Yêu cầu đăng nhập' : 'Ví không khả dụng'}
+                        </span>
+                      )}
+                    </div>
+                  </label>
                   <div>
                     <Label>Ghi chú</Label>
                     <Input
@@ -892,7 +952,7 @@ export default function CheckoutPage() {
                 >
                   {isSubmitting 
                     ? 'Đang xử lý...'
-                    : 'Đặt hàng'}
+                    : 'Đặt mua'}
                 </Button>
                 <p className="text-xs text-muted-foreground text-center mt-4">
                   Bằng việc đặt hàng, bạn đồng ý với Điều khoản sử dụng và Chính sách bảo mật

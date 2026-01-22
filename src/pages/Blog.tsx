@@ -1,157 +1,364 @@
 import { MainLayout } from '@/layouts/MainLayout';
 import { Card, CardContent } from '@/components/ui/card';
-import { Calendar, User } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { 
+  Image, 
+  Smile, 
+  MapPin, 
+  Tag, 
+  MoreHorizontal,
+  Heart,
+  MessageCircle,
+  Share2,
+  X,
+  Loader2
+} from 'lucide-react';
+import { useState, useRef } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { getAvatarUrl } from '@/utils/imageUtils';
+import { toast } from 'sonner';
+
+interface Post {
+  id: string;
+  author: {
+    name: string;
+    avatar?: string;
+  };
+  content: string;
+  images?: string[];
+  createdAt: string;
+  likes: number;
+  comments: number;
+  shares: number;
+  isLiked?: boolean;
+}
 
 export default function BlogPage() {
-  const posts = [
-    {
-      id: 1,
-      title: '10 Mùi hương nước hoa nam được yêu thích nhất năm 2024',
-      excerpt: 'Khám phá những mùi hương nam tính, quyến rũ và đầy cuốn hút trong năm nay...',
-      image: 'https://placehold.co/600x400/007AFF/FFF?text=Blog+1',
-      author: 'Admin',
-      date: '15/11/2024',
-      category: 'Xu hướng',
-    },
-    {
-      id: 2,
-      title: 'Cách chọn nước hoa phù hợp với tính cách của bạn',
-      excerpt: 'Mỗi người đều có một mùi hương riêng biệt. Hãy tìm hiểu cách chọn nước hoa phù hợp...',
-      image: 'https://placehold.co/600x400/5AC8FA/FFF?text=Blog+2',
-      author: 'Admin',
-      date: '12/11/2024',
-      category: 'Hướng dẫn',
-    },
-    {
-      id: 3,
-      title: 'Bí quyết giữ hương thơm lâu hơn cả ngày',
-      excerpt: 'Những mẹo nhỏ giúp bạn giữ hương thơm nước hoa bền lâu suốt cả ngày dài...',
-      image: 'https://placehold.co/600x400/AF52DE/FFF?text=Blog+3',
-      author: 'Admin',
-      date: '10/11/2024',
-      category: 'Mẹo hay',
-    },
-    {
-      id: 4,
-      title: 'Top 5 thương hiệu nước hoa cao cấp đáng đầu tư',
-      excerpt: 'Những thương hiệu nước hoa xa xỉ, đẳng cấp mà bạn nên biết...',
-      image: 'https://placehold.co/600x400/FF9500/FFF?text=Blog+4',
-      author: 'Admin',
-      date: '08/11/2024',
-      category: 'Thương hiệu',
-    },
-    {
-      id: 5,
-      title: 'Phân biệt nước hoa chính hãng và hàng giả',
-      excerpt: 'Cách nhận biết nước hoa chính hãng để tránh mua phải hàng fake...',
-      image: 'https://placehold.co/600x400/34C759/FFF?text=Blog+5',
-      author: 'Admin',
-      date: '05/11/2024',
-      category: 'Kiến thức',
-    },
-    {
-      id: 6,
-      title: 'Nước hoa nữ ngọt ngào cho mùa hè',
-      excerpt: 'Những mùi hương nhẹ nhàng, tươi mát phù hợp cho mùa hè nóng bức...',
-      image: 'https://placehold.co/600x400/FF2D55/FFF?text=Blog+6',
-      author: 'Admin',
-      date: '01/11/2024',
-      category: 'Xu hướng',
-    },
-  ];
+  const { user, isAuthenticated } = useAuth();
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [postContent, setPostContent] = useState('');
+  const [selectedImages, setSelectedImages] = useState<string[]>([]);
+  const [isPosting, setIsPosting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    const newImages: string[] = [];
+    Array.from(files).forEach((file) => {
+      if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const result = e.target?.result as string;
+          if (result) {
+            newImages.push(result);
+            if (newImages.length === Array.from(files).length) {
+              setSelectedImages((prev) => [...prev, ...newImages]);
+            }
+          }
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+  };
+
+  const removeImage = (index: number) => {
+    setSelectedImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handlePost = async () => {
+    if (!isAuthenticated) {
+      toast.error('Vui lòng đăng nhập để đăng bài');
+      return;
+    }
+
+    if (!postContent.trim() && selectedImages.length === 0) {
+      toast.error('Vui lòng nhập nội dung hoặc chọn ảnh');
+      return;
+    }
+
+    setIsPosting(true);
+    try {
+      // TODO: Call API to create post
+      // const response = await blogService.createPost({
+      //   content: postContent,
+      //   images: selectedImages,
+      // });
+
+      // Simulate API call
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      const newPost: Post = {
+        id: Date.now().toString(),
+        author: {
+          name: user?.fullName || user?.username || 'User',
+          avatar: user?.avatar,
+        },
+        content: postContent,
+        images: selectedImages.length > 0 ? selectedImages : undefined,
+        createdAt: new Date().toISOString(),
+        likes: 0,
+        comments: 0,
+        shares: 0,
+        isLiked: false,
+      };
+
+      setPosts((prev) => [newPost, ...prev]);
+      setPostContent('');
+      setSelectedImages([]);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      toast.success('Đăng bài thành công!');
+    } catch (error) {
+      toast.error('Có lỗi xảy ra khi đăng bài');
+    } finally {
+      setIsPosting(false);
+    }
+  };
+
+  const handleLike = (postId: string) => {
+    setPosts((prev) =>
+      prev.map((post) =>
+        post.id === postId
+          ? {
+              ...post,
+              isLiked: !post.isLiked,
+              likes: post.isLiked ? post.likes - 1 : post.likes + 1,
+            }
+          : post
+      )
+    );
+  };
+
+  const formatTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+
+    if (minutes < 1) return 'Vừa xong';
+    if (minutes < 60) return `${minutes} phút trước`;
+    if (hours < 24) return `${hours} giờ trước`;
+    if (days < 7) return `${days} ngày trước`;
+    return date.toLocaleDateString('vi-VN');
+  };
 
   return (
     <MainLayout>
-      {/* Header */}
-      <section className="bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-20">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="text-5xl font-bold text-foreground mb-6">Blog</h1>
-          <p className="text-xl text-muted-foreground">
-            Khám phá kiến thức, xu hướng và mẹo hay về nước hoa
-          </p>
-        </div>
-      </section>
-
-      {/* Blog Posts */}
-      <section className="py-16 bg-background">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Category Filter */}
-          <div className="flex gap-3 mb-12 overflow-x-auto pb-2">
-            {['Tất cả', 'Xu hướng', 'Hướng dẫn', 'Mẹo hay', 'Thương hiệu', 'Kiến thức'].map(
-              (category) => (
-                <button
-                  key={category}
-                  className={`px-6 py-2 rounded-full whitespace-nowrap border transition-colors ${
-                    category === 'Tất cả'
-                      ? 'bg-primary text-primary-foreground border-primary'
-                      : 'bg-muted text-foreground hover:bg-accent border-border'
-                  }`}
-                >
-                  {category}
-                </button>
-              )
-            )}
-          </div>
-
-          {/* Posts Grid */}
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {posts.map((post) => (
-              <Card key={post.id} className="overflow-hidden hover:shadow-xl transition-shadow cursor-pointer">
-                <CardContent className="p-0">
-                  <div className="aspect-video overflow-hidden relative">
-                    <img
-                      src={post.image}
-                      alt={post.title}
-                      className="w-full h-full object-cover hover:scale-110 transition-transform duration-300"
-                    />
-                    <div className="absolute top-4 left-4">
-                      <span className="bg-primary text-primary-foreground text-xs px-3 py-1 rounded-full">
-                        {post.category}
-                      </span>
+      <div className="container max-w-4xl mx-auto py-6 px-4">
+        {/* Create Post Form - Facebook Style */}
+        {isAuthenticated && (
+          <Card className="mb-6">
+            <CardContent className="p-4">
+              <div className="flex gap-3">
+                <Avatar className="h-10 w-10">
+                  <AvatarImage
+                    src={getAvatarUrl(user?.avatar, { width: 200, height: 200, quality: 80 })}
+                    alt={user?.fullName || user?.username || 'User'}
+                  />
+                  <AvatarFallback className="bg-primary/20 text-primary font-semibold">
+                    {(user?.fullName || user?.username || 'U').charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="flex-1">
+                  <Textarea
+                    ref={textareaRef}
+                    placeholder="Bạn đang nghĩ gì?"
+                    value={postContent}
+                    onChange={(e) => setPostContent(e.target.value)}
+                    className="min-h-[100px] resize-none border-0 focus-visible:ring-0 text-base"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && e.ctrlKey) {
+                        handlePost();
+                      }
+                    }}
+                  />
+                  
+                  {/* Selected Images Preview */}
+                  {selectedImages.length > 0 && (
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      {selectedImages.map((img, index) => (
+                        <div key={index} className="relative group">
+                          <img
+                            src={img}
+                            alt={`Preview ${index + 1}`}
+                            className="w-full h-32 object-cover rounded-lg"
+                          />
+                          <button
+                            onClick={() => removeImage(index)}
+                            className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <X className="w-4 h-4 text-white" />
+                          </button>
+                        </div>
+                      ))}
                     </div>
+                  )}
+
+                  <div className="flex items-center justify-between mt-3 pt-3 border-t">
+                    <div className="flex items-center gap-2">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleImageSelect}
+                        className="hidden"
+                        id="image-upload"
+                      />
+                      <label
+                        htmlFor="image-upload"
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-muted cursor-pointer transition-colors"
+                      >
+                        <Image className="w-5 h-5 text-primary" />
+                        <span className="text-sm text-muted-foreground">Ảnh/Video</span>
+                      </label>
+                      <button className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-muted transition-colors">
+                        <Smile className="w-5 h-5 text-primary" />
+                        <span className="text-sm text-muted-foreground">Cảm xúc</span>
+                      </button>
+                      <button className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-muted transition-colors">
+                        <Tag className="w-5 h-5 text-primary" />
+                        <span className="text-sm text-muted-foreground">Gắn thẻ</span>
+                      </button>
+                    </div>
+                    <Button
+                      onClick={handlePost}
+                      disabled={isPosting || (!postContent.trim() && selectedImages.length === 0)}
+                      className="px-6"
+                    >
+                      {isPosting ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Đang đăng...
+                        </>
+                      ) : (
+                        'Đăng'
+                      )}
+                    </Button>
                   </div>
-                  <div className="p-6">
-                    <h3 className="font-bold text-foreground text-lg mb-3 line-clamp-2">
-                      {post.title}
-                    </h3>
-                    <p className="text-muted-foreground text-sm mb-4 line-clamp-2">
-                      {post.excerpt}
-                    </p>
-                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                      <div className="flex items-center gap-2">
-                        <User className="w-4 h-4" />
-                        <span>{post.author}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Calendar className="w-4 h-4" />
-                        <span>{post.date}</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Posts Feed */}
+        <div className="space-y-4">
+          {posts.length === 0 ? (
+            <Card>
+              <CardContent className="p-12 text-center">
+                <p className="text-muted-foreground">
+                  {isAuthenticated
+                    ? 'Chưa có bài viết nào. Hãy là người đầu tiên đăng bài!'
+                    : 'Đăng nhập để xem và tạo bài viết'}
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            posts.map((post) => (
+              <Card key={post.id}>
+                <CardContent className="p-4">
+                  {/* Post Header */}
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage
+                          src={getAvatarUrl(post.author.avatar, { width: 200, height: 200, quality: 80 })}
+                          alt={post.author.name}
+                        />
+                        <AvatarFallback className="bg-primary/20 text-primary font-semibold">
+                          {post.author.name.charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-semibold text-foreground">{post.author.name}</p>
+                        <p className="text-xs text-muted-foreground">{formatTime(post.createdAt)}</p>
                       </div>
                     </div>
+                    <button className="p-2 hover:bg-muted rounded-full transition-colors">
+                      <MoreHorizontal className="w-5 h-5 text-muted-foreground" />
+                    </button>
+                  </div>
+
+                  {/* Post Content */}
+                  <div className="mb-3">
+                    <p className="text-foreground whitespace-pre-wrap break-words">{post.content}</p>
+                  </div>
+
+                  {/* Post Images */}
+                  {post.images && post.images.length > 0 && (
+                    <div className={`mb-3 ${post.images.length === 1 ? '' : 'grid grid-cols-2 gap-2'}`}>
+                      {post.images.map((img, index) => (
+                        <img
+                          key={index}
+                          src={img}
+                          alt={`Post image ${index + 1}`}
+                          className={`w-full rounded-lg object-cover ${
+                            post.images?.length === 1 ? 'max-h-96' : 'h-48'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Post Stats */}
+                  {(post.likes > 0 || post.comments > 0 || post.shares > 0) && (
+                    <div className="flex items-center justify-between text-sm text-muted-foreground mb-3 pb-3 border-b">
+                      <div className="flex items-center gap-4">
+                        {post.likes > 0 && (
+                          <span>
+                            {post.likes} {post.likes === 1 ? 'lượt thích' : 'lượt thích'}
+                          </span>
+                        )}
+                        {post.comments > 0 && (
+                          <span>
+                            {post.comments} {post.comments === 1 ? 'bình luận' : 'bình luận'}
+                          </span>
+                        )}
+                        {post.shares > 0 && (
+                          <span>
+                            {post.shares} {post.shares === 1 ? 'lượt chia sẻ' : 'lượt chia sẻ'}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Post Actions */}
+                  <div className="flex items-center justify-around border-t pt-2">
+                    <button
+                      onClick={() => handleLike(post.id)}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-muted transition-colors flex-1 justify-center ${
+                        post.isLiked ? 'text-primary' : 'text-muted-foreground'
+                      }`}
+                    >
+                      <Heart className={`w-5 h-5 ${post.isLiked ? 'fill-current' : ''}`} />
+                      <span className="font-medium">Thích</span>
+                    </button>
+                    <button className="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-muted transition-colors flex-1 justify-center text-muted-foreground">
+                      <MessageCircle className="w-5 h-5" />
+                      <span className="font-medium">Bình luận</span>
+                    </button>
+                    <button className="flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-muted transition-colors flex-1 justify-center text-muted-foreground">
+                      <Share2 className="w-5 h-5" />
+                      <span className="font-medium">Chia sẻ</span>
+                    </button>
                   </div>
                 </CardContent>
               </Card>
-            ))}
-          </div>
-
-          {/* Pagination */}
-          <div className="flex justify-center mt-12 gap-2">
-            <button className="px-4 py-2 border border-border rounded-xl hover:bg-muted transition-colors">
-              Trước
-            </button>
-            <button className="px-4 py-2 bg-primary text-primary-foreground rounded-xl">1</button>
-            <button className="px-4 py-2 border border-border rounded-xl hover:bg-muted transition-colors">
-              2
-            </button>
-            <button className="px-4 py-2 border border-border rounded-xl hover:bg-muted transition-colors">
-              3
-            </button>
-            <button className="px-4 py-2 border border-border rounded-xl hover:bg-muted transition-colors">
-              Sau
-            </button>
-          </div>
+            ))
+          )}
         </div>
-      </section>
+      </div>
     </MainLayout>
   );
 }
-

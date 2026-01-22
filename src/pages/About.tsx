@@ -9,10 +9,10 @@ export default function AboutPage() {
       <section className="bg-gradient-to-br from-primary/5 via-background to-secondary/5 py-20">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h1 className="text-5xl font-bold text-foreground mb-6">
-            Về Perfume Shop
+            Về Project Shop
           </h1>
           <p className="text-xl text-muted-foreground">
-            Chúng tôi mang đến những chai nước hoa chính hãng, cao cấp từ các thương hiệu hàng đầu thế giới
+            Chúng tôi mang đến những bộ đồ án chính hãng, cao cấp từ các môn học hàng đầu thế giới
           </p>
         </div>
       </section>
@@ -24,16 +24,16 @@ export default function AboutPage() {
             <div>
               <h2 className="text-4xl font-bold text-foreground mb-6">Câu chuyện của chúng tôi</h2>
               <p className="text-lg text-muted-foreground mb-4">
-                Perfume Shop được thành lập với mục tiêu mang đến những chai nước hoa chính hãng, 
-                chất lượng cao từ các thương hiệu hàng đầu thế giới đến tay người tiêu dùng Việt Nam.
+                Project Shop được thành lập với mục tiêu mang đến những bộ đồ án chính hãng, 
+                chất lượng cao từ các môn học hàng đầu thế giới đến tay người tiêu dùng Việt Nam.
               </p>
               <p className="text-lg text-muted-foreground mb-4">
-                Chúng tôi hiểu rằng mỗi mùi hương đều mang một câu chuyện riêng, một cảm xúc đặc biệt. 
+                Chúng tôi hiểu rằng mỗi tính năng đều mang một câu chuyện riêng, một cảm xúc đặc biệt. 
                 Vì vậy, chúng tôi cam kết mang đến cho bạn những trải nghiệm mua sắm tốt nhất.
               </p>
               <p className="text-lg text-muted-foreground">
                 Với đội ngũ tư vấn chuyên nghiệp và dịch vụ chăm sóc khách hàng tận tâm, 
-                chúng tôi luôn sẵn sàng đồng hành cùng bạn trong hành trình tìm kiếm hương thơm hoàn hảo.
+                chúng tôi luôn sẵn sàng đồng hành cùng bạn trong hành trình tìm kiếm chất lượng hoàn hảo.
               </p>
             </div>
             <div className="relative">
@@ -57,7 +57,7 @@ export default function AboutPage() {
                 </div>
                 <h3 className="font-bold text-foreground text-xl mb-3">Chất lượng</h3>
                 <p className="text-muted-foreground">
-                  100% sản phẩm chính hãng, có tem chống giả và được nhập khẩu trực tiếp từ các nhà phân phối uy tín.
+                  100% đồ án chính hãng, có tem chống giả và được nhập khẩu trực tiếp từ các nhà phân phối uy tín.
                 </p>
               </CardContent>
             </Card>
@@ -68,7 +68,7 @@ export default function AboutPage() {
                 </div>
                 <h3 className="font-bold text-foreground text-xl mb-3">Tận tâm</h3>
                 <p className="text-muted-foreground">
-                  Đội ngũ tư vấn nhiệt tình, chuyên nghiệp, luôn sẵn sàng hỗ trợ bạn tìm được mùi hương phù hợp nhất.
+                  Đội ngũ tư vấn nhiệt tình, chuyên nghiệp, luôn sẵn sàng hỗ trợ bạn tìm được tính năng phù hợp nhất.
                 </p>
               </CardContent>
             </Card>

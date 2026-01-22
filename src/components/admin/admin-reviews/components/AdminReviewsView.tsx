@@ -39,7 +39,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 import type { Review } from '@/types/models';
-import { getProductImageUrl } from '@/utils/imageUtils';
+import { getProjectImageUrl } from '@/utils/imageUtils';
 
 import { useAdminReviews } from '../hooks/useAdminReviews';
 
@@ -78,17 +78,17 @@ const renderStars = (rating: number) => {
   );
 };
 
-const getProductInfo = (product: Review['IdSanPham']) => {
-  if (!product) {
-    return { name: 'Sản phẩm không xác định', price: null, imageUrl: null };
+const getProjectInfo = (project: Review['IdSanPham']) => {
+  if (!project) {
+    return { name: 'Đồ án không xác định', price: null, imageUrl: null };
   }
-  if (typeof product === 'string') {
+  if (typeof project === 'string') {
     return { name: 'Đang tải...', price: null, imageUrl: null };
   }
   return {
-    name: product.TenSanPham || 'Sản phẩm không xác định',
-    price: product.Gia,
-    imageUrl: product.HinhAnhChinh ? getProductImageUrl(product.HinhAnhChinh, true) : null,
+    name: project.TenSanPham || 'Đồ án không xác định',
+    price: project.Gia,
+    imageUrl: project.HinhAnhChinh ? getProjectImageUrl(project.HinhAnhChinh, true) : null,
   };
 };
 
@@ -145,17 +145,17 @@ export const AdminReviewsView: FC = () => {
 
   const viewDialogContent = useMemo(() => {
     if (!viewingReview) return null;
-    const productInfo = getProductInfo(viewingReview.IdSanPham);
+    const projectInfo = getProjectInfo(viewingReview.IdSanPham);
     const customerInfo = getCustomerInfo(viewingReview.IdKhachHang);
 
     return (
       <div className="space-y-4">
         <div className="grid gap-4 md:grid-cols-2">
           <div>
-            <Label>Sản phẩm</Label>
-            <div className="mt-2 font-medium">{productInfo.name}</div>
-            {productInfo.price !== null && (
-              <div className="text-sm text-muted-foreground">{currencyFormatter.format(productInfo.price)}</div>
+            <Label>Đồ án</Label>
+            <div className="mt-2 font-medium">{projectInfo.name}</div>
+            {projectInfo.price !== null && (
+              <div className="text-sm text-muted-foreground">{currencyFormatter.format(projectInfo.price)}</div>
             )}
           </div>
           <div>
@@ -295,11 +295,11 @@ export const AdminReviewsView: FC = () => {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-muted-foreground" />
               <Input
-                placeholder="Nhập mã sản phẩm/khách hàng để lọc nhanh..."
-                value={filters.productId || filters.customerId ? `${filters.productId} ${filters.customerId}`.trim() : ''}
+                placeholder="Nhập mã đồ án/khách hàng để lọc nhanh..."
+                value={filters.projectId || filters.customerId ? `${filters.projectId} ${filters.customerId}`.trim() : ''}
                 onChange={(event) => {
                   const value = event.target.value;
-                  setFilters({ productId: value, customerId: value });
+                  setFilters({ projectId: value, customerId: value });
                 }}
                 className="pl-10"
               />
@@ -310,12 +310,12 @@ export const AdminReviewsView: FC = () => {
             <div className="mb-6 space-y-4 rounded-lg border bg-muted/50 p-4">
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <div className="space-y-2">
-                  <Label htmlFor="productId">Mã sản phẩm</Label>
+                  <Label htmlFor="projectId">Mã đồ án</Label>
                   <Input
-                    id="productId"
-                    placeholder="Nhập mã sản phẩm"
-                    value={filters.productId}
-                    onChange={(event) => setFilters({ productId: event.target.value })}
+                    id="projectId"
+                    placeholder="Nhập mã đồ án"
+                    value={filters.projectId}
+                    onChange={(event) => setFilters({ projectId: event.target.value })}
                   />
                 </div>
                 <div className="space-y-2">
@@ -419,7 +419,7 @@ export const AdminReviewsView: FC = () => {
                           </Button>
                         </th>
                       )}
-                      <th className="px-4 py-3 text-left text-sm font-medium">Sản phẩm</th>
+                      <th className="px-4 py-3 text-left text-sm font-medium">Đồ án</th>
                       <th className="px-4 py-3 text-left text-sm font-medium">Khách hàng</th>
                       <th className="px-4 py-3 text-left text-sm font-medium">Đánh giá</th>
                       <th className="px-4 py-3 text-left text-sm font-medium">Nội dung</th>
@@ -429,7 +429,7 @@ export const AdminReviewsView: FC = () => {
                   </thead>
                   <tbody>
                     {reviews.map((review) => {
-                      const productInfo = getProductInfo(review.IdSanPham);
+                      const projectInfo = getProjectInfo(review.IdSanPham);
                       const customerInfo = getCustomerInfo(review.IdKhachHang);
 
                       return (
@@ -446,9 +446,9 @@ export const AdminReviewsView: FC = () => {
                             </td>
                           )}
                           <td className="px-4 py-3">
-                            <div className="font-medium">{productInfo.name}</div>
-                            {productInfo.price !== null && (
-                              <div className="text-xs text-muted-foreground">{currencyFormatter.format(productInfo.price)}</div>
+                            <div className="font-medium">{projectInfo.name}</div>
+                            {projectInfo.price !== null && (
+                              <div className="text-xs text-muted-foreground">{currencyFormatter.format(projectInfo.price)}</div>
                             )}
                           </td>
                           <td className="px-4 py-3">

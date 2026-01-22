@@ -8,9 +8,9 @@ import type {
 } from '@/types/models';
 
 export const reviewService = {
-  // Lấy danh sách đánh giá của sản phẩm
-  getProductReviews: async (productId: string, params?: { page?: number; limit?: number; sortBy?: string; sortOrder?: string }) => {
-    const response = await axiosInstance.get<ApiItemResponse<{ reviews: Review[]; pagination?: Pagination }>>(`/api/reviews/product/${productId}`, { params });
+  // Lấy danh sách đánh giá của đồ án
+  getProjectReviews: async (projectId: string, params?: { page?: number; limit?: number; sortBy?: string; sortOrder?: string }) => {
+    const response = await axiosInstance.get<ApiItemResponse<{ reviews: Review[]; pagination?: Pagination }>>(`/api/reviews/project/${projectId}`, { params });
     const responseData = response.data;
     
     // Backend trả về: { success, message, data: { reviews, pagination } }
@@ -36,24 +36,50 @@ export const reviewService = {
     };
   },
 
-  // Lấy thống kê rating của sản phẩm
-  getProductRatingStats: async (productId: string): Promise<RatingStats> => {
-    const response = await axiosInstance.get<ApiItemResponse<RatingStats>>(`/api/reviews/product/${productId}/stats`);
-    const responseData = response.data;
-    
-    if (responseData.success && responseData.data) {
-      return responseData.data as RatingStats;
+  // Lấy thống kê rating của đồ án
+  getProjectRatingStats: async (projectId: string): Promise<RatingStats> => {
+    try {
+      const response = await axiosInstance.get<ApiItemResponse<RatingStats>>(`/api/reviews/project/${projectId}/stats`);
+      const responseData = response.data;
+      
+      if (responseData.success && responseData.data) {
+        return responseData.data as RatingStats;
+      }
+      
+      // Return default stats if response doesn't have data
+      return {
+        avgRating: 0,
+        totalReviews: 0,
+        star5: 0,
+        star4: 0,
+        star3: 0,
+        star2: 0,
+        star1: 0
+      };
+    } catch (error: unknown) {
+      // Handle 404 gracefully - API endpoint not implemented yet
+      const errorRecord = error as Record<string, unknown>;
+      const status = errorRecord?.status || (errorRecord?.response as Record<string, unknown>)?.status;
+      
+      if (status === 404) {
+        if (import.meta.env.DEV) {
+          console.warn(`[reviewService] API endpoint /api/reviews/project/${projectId}/stats not implemented yet (404). Returning default stats.`);
+        }
+        // Return default stats instead of throwing error
+        return {
+          avgRating: 0,
+          totalReviews: 0,
+          star5: 0,
+          star4: 0,
+          star3: 0,
+          star2: 0,
+          star1: 0
+        };
+      }
+      
+      // Re-throw other errors
+      throw error;
     }
-    
-    return {
-      avgRating: 0,
-      totalReviews: 0,
-      star5: 0,
-      star4: 0,
-      star3: 0,
-      star2: 0,
-      star1: 0
-    };
   },
 
   // Tạo đánh giá mới
@@ -68,10 +94,10 @@ export const reviewService = {
     throw new Error(responseData?.message || 'Không thể tạo đánh giá');
   },
 
-  // Lấy đánh giá của user cho sản phẩm
-  getMyReview: async (productId: string): Promise<Review | null> => {
+  // Lấy đánh giá của user cho đồ án
+  getMyReview: async (projectId: string): Promise<Review | null> => {
     try {
-      const response = await axiosInstance.get<ApiItemResponse<Review>>(`/api/reviews/product/${productId}/my-review`);
+      const response = await axiosInstance.get<ApiItemResponse<Review>>(`/api/reviews/project/${projectId}/my-review`);
       const responseData = response.data;
       
       if (responseData.success && responseData.data) {

@@ -4,10 +4,10 @@
  */
 
 import type { BaseDocument, ObjectId } from './common';
-import type { Product, ProductVolumeOption } from './product';
+import type { Project, ProjectIncludesOption } from './product';
 import type { User } from './user';
 
-export interface CartVolumeSelection {
+export interface CartIncludesSelection {
   value: number;
   label: string;
   priceDiff?: number;
@@ -18,12 +18,12 @@ export interface CartVolumeSelection {
  * CartItem - Item trong giỏ hàng
  */
 export interface CartItem {
-  IdSanPham: ObjectId | Product; // ID sản phẩm
-  TenSanPham: string;            // Tên sản phẩm
-  Gia: number;                   // Giá sản phẩm
+  IdSanPham: ObjectId | Project; // ID đồ án
+  TenSanPham: string;            // Tên đồ án
+  Gia: number;                   // Giá đồ án
   SoLuong: number;               // Số lượng
   ThanhTien: number;             // Thành tiền (Gia * SoLuong)
-  SelectedDungTich?: CartVolumeSelection | ProductVolumeOption;
+  SelectedDungTich?: CartIncludesSelection | ProjectIncludesOption;
 }
 
 /**
@@ -31,7 +31,7 @@ export interface CartItem {
  */
 export interface Cart extends BaseDocument {
   IdKhachHang: ObjectId | User;  // ID khách hàng
-  Items: CartItem[];             // Danh sách sản phẩm trong giỏ
+  Items: CartItem[];             // Danh sách đồ án trong giỏ
   TongTien?: number;             // Tổng tiền (tính toán)
   TongSoLuong?: number;          // Tổng số lượng (tính toán)
 }

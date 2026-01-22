@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
-import { User, Package, Heart, Settings, LogOut, MapPin, CreditCard, FileText, Camera, Loader2 } from 'lucide-react';
+import { User, Package, Heart, Settings, LogOut, MapPin, CreditCard, FileText, Camera, Loader2, Wallet } from 'lucide-react';
 import React, { useEffect, useState, useRef } from 'react';
 import type { FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -13,6 +13,7 @@ import { userService } from '@/services/userService';
 import { toast } from 'sonner';
 import { API_BASE_URL } from '@/constants';
 import { useOrders, useCancelOrder } from '@/hooks/useOrders';
+import { WalletView } from '@/components/common/wallet/WalletView';
 
 export default function MyAccountPage() {
   const { user, isAuthenticated, logout } = useAuth();
@@ -346,6 +347,7 @@ export default function MyAccountPage() {
 
   const tabs = [
     { id: 'profile', label: 'Thông tin cá nhân', icon: User, breadcrumb: 'Settings > Profile' },
+    { id: 'wallet', label: 'Ví điện tử', icon: Wallet, breadcrumb: 'Settings > Wallet' },
     { id: 'orders', label: 'Đơn hàng', icon: Package, breadcrumb: 'Settings > Orders' },
     { id: 'addresses', label: 'Địa chỉ', icon: MapPin, breadcrumb: 'Settings > Addresses' },
     { id: 'wishlist', label: 'Yêu thích', icon: Heart, breadcrumb: 'Settings > Wishlist' },
@@ -747,7 +749,7 @@ export default function MyAccountPage() {
                       </div>
                       <div className="flex justify-between items-center">
                         <div>
-                              <p className="text-sm text-muted-foreground">{Array.isArray(order.products) ? order.products.length : 0} sản phẩm</p>
+                              <p className="text-sm text-muted-foreground">{Array.isArray(order.projects) ? order.projects.length : 0} đồ án</p>
                               <p className="font-bold text-primary">
                             {Number(order.total || 0).toLocaleString('vi-VN')}đ
                           </p>
@@ -772,11 +774,11 @@ export default function MyAccountPage() {
               <Card className="border border-border bg-background">
                 <CardContent className="p-6">
                   <h2 className="text-xl font-semibold text-foreground mb-4">
-                    Sản phẩm yêu thích
+                    Đồ án yêu thích
                   </h2>
                   <div className="text-center py-12">
                     <Heart className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
-                    <p className="text-muted-foreground">Chưa có sản phẩm yêu thích nào</p>
+                    <p className="text-muted-foreground">Chưa có đồ án yêu thích nào</p>
                   </div>
                 </CardContent>
               </Card>
@@ -847,29 +849,29 @@ export default function MyAccountPage() {
 
           {selectedOrder ? ((): React.ReactNode => {
             const selectedOrderRecord = selectedOrder as Record<string, unknown>;
-            const productsRaw = selectedOrderRecord.products;
-            const products: unknown[] = Array.isArray(productsRaw) ? productsRaw : [];
+            const projectsRaw = selectedOrderRecord.projects;
+            const projects: unknown[] = Array.isArray(projectsRaw) ? projectsRaw : [];
             
-            // Render products list - use conditional rendering directly
-            const productsListContent = products.length > 0 ? (
-              <div key="products-list" className="products-list">
+            // Render projects list - use conditional rendering directly
+            const projectsListContent: React.ReactNode = projects.length > 0 ? (
+              <div key="projects-list" className="projects-list">
                 <h3 className="font-bold text-lg text-foreground mb-3 flex items-center gap-2">
                   <Package className="w-5 h-5" />
-                  Sản phẩm ({products.length})
+                  Đồ án ({projects.length})
                 </h3>
                 <div className="space-y-3">
-                  {products.map((product: unknown, index: number) => {
-                    const productRecord = product as Record<string, unknown>;
+                  {projects.map((project: unknown, index: number) => {
+                    const projectRecord = project as Record<string, unknown>;
                     return (
                       <div 
-                        key={`${String(selectedOrderRecord?.id || '')}-${String(productRecord.id || productRecord.MaSanPham || index)}`} 
+                        key={`${String(selectedOrderRecord?.id || '')}-${String(projectRecord.id || projectRecord.MaSanPham || index)}`} 
                         className="flex gap-4 p-4 rounded-xl border border-border bg-background"
                       >
-                        {Boolean(productRecord.image) && (
+                        {Boolean(projectRecord.image) && (
                           <div className="w-20 h-20 rounded-lg overflow-hidden bg-muted flex-shrink-0">
                             <img 
-                              src={String(productRecord.image || '')} 
-                              alt={String(productRecord.name || '')}
+                              src={String(projectRecord.image || '')} 
+                              alt={String(projectRecord.name || '')}
                               className="w-full h-full object-cover"
                               onError={(e) => {
                                 (e.target as HTMLImageElement).src = 'https://via.placeholder.com/80?text=No+Image';
@@ -878,27 +880,27 @@ export default function MyAccountPage() {
                           </div>
                         )}
                         <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-foreground truncate">{String(productRecord.name || '')}</p>
-                          {Boolean(productRecord.category) && (
-                            <p className="text-xs text-muted-foreground">{String(productRecord.category || '')}</p>
+                          <p className="font-semibold text-foreground truncate">{String(projectRecord.name || '')}</p>
+                          {Boolean(projectRecord.category) && (
+                            <p className="text-xs text-muted-foreground">{String(projectRecord.category || '')}</p>
                           )}
                           <div className="flex items-center gap-4 mt-2">
                             <p className="text-sm text-muted-foreground">
-                              SL: <span className="font-semibold text-foreground">{Number(productRecord.quantity || 0)}</span>
+                              SL: <span className="font-semibold text-foreground">{Number(projectRecord.quantity || 0)}</span>
                             </p>
                             <p className="text-sm font-semibold text-primary">
-                              {Number(productRecord.price || 0).toLocaleString('vi-VN')}đ
+                              {Number(projectRecord.price || 0).toLocaleString('vi-VN')}đ
                             </p>
-                            {Number(productRecord.discount || 0) > 0 && (
+                            {Number(projectRecord.discount || 0) > 0 && (
                               <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/10 text-red-600 border border-red-500/30">
-                                -{Number(productRecord.discount || 0)}%
+                                -{Number(projectRecord.discount || 0)}%
                               </span>
                             )}
                           </div>
                         </div>
                         <div className="text-right">
                           <p className="font-bold text-foreground">
-                            {(Number(productRecord.price || 0) * Number(productRecord.quantity || 0)).toLocaleString('vi-VN')}đ
+                            {(Number(projectRecord.price || 0) * Number(projectRecord.quantity || 0)).toLocaleString('vi-VN')}đ
                           </p>
                         </div>
                       </div>
@@ -942,9 +944,8 @@ export default function MyAccountPage() {
                 </div>
               </div>
 
-              {/* Products List */}
-              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-              {(productsListContent as any as React.ReactNode)}
+              {/* Projects List */}
+              {projectsListContent}
 
               {/* Address */}
               <div>

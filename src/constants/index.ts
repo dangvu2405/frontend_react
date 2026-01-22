@@ -14,12 +14,12 @@ const getApiBaseUrl = () => {
   }
   
   // Development: localhost
-  // Production: should be set via env var, but fallback to empty (relative URL)
+  // Projection: should be set via env var, but fallback to empty (relative URL)
   if (import.meta.env.MODE === 'development') {
     return 'http://localhost:3001';
   }
   
-  // In production, if not set, use empty string (relative URL)
+  // In projection, if not set, use empty string (relative URL)
   // This assumes frontend and backend are on same domain
   return '';
 };

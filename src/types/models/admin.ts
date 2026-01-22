@@ -8,10 +8,10 @@
 // ==========================
 
 /**
- * AdminProductPayload - Payload tạo/cập nhật sản phẩm
- * Dùng cho API POST /admin/products và PUT /admin/products/:id
+ * AdminProjectPayload - Payload tạo/cập nhật đồ án
+ * Dùng cho API POST /admin/projects và PUT /admin/projects/:id
  */
-export interface AdminProductVolumeOptionPayload {
+export interface AdminProjectIncludesOptionPayload {
   value: number;
   label?: string;
   priceDiff?: number;
@@ -20,13 +20,13 @@ export interface AdminProductVolumeOptionPayload {
   isDefault?: boolean;
 }
 
-export interface AdminProductPayload {
-  TenSanPham?: string;        // Tên sản phẩm
+export interface AdminProjectPayload {
+  TenSanPham?: string;        // Tên đồ án
   MoTa?: string;              // Mô tả
   Gia?: number;               // Giá
   KhuyenMai?: number;         // Phần trăm giảm giá
-  DungTich?: number;          // (Deprecated) Dung tích legacy
-  DungTichOptions?: AdminProductVolumeOptionPayload[]; // Danh sách dung tích
+  DungTich?: number;          // (Deprecated) Bao gồm legacy
+  DungTichOptions?: AdminProjectIncludesOptionPayload[]; // Danh sách bao gồm
   SoLuong?: number;           // Số lượng
   MaLoaiSanPham?: string;     // ID danh mục
   HinhAnhChinh?: string;      // URL ảnh chính
@@ -39,7 +39,7 @@ export interface AdminProductPayload {
  * Dùng cho API POST /admin/categories và PUT /admin/categories/:id
  */
 export interface AdminCategoryPayload {
-  TenLoaiSanPham: string; // Tên loại sản phẩm
+  TenLoaiSanPham: string; // Tên loại đồ án
 }
 
 /**
