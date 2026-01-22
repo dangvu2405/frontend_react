@@ -37,7 +37,7 @@ const AdminCustomersPage = lazy(() => import('./pages/admin/CustomersCRUD'));
 const AdminAccountsPage = lazy(() => import('./pages/admin/AccountsCRUD'));
 const AdminReviewsPage = lazy(() => import('./pages/admin/ReviewsCRUD'));
 const AdminVouchersPage = lazy(() => import('./pages/admin/VouchersCRUD'));
-const AdminWalletsPage = lazy(() => import('./pages/admin/WalletsCRUD'));
+// const AdminWalletsPage = lazy(() => import('./pages/admin/WalletsCRUD'));
 const AdminChatPage = lazy(() => import('./pages/admin/Chat'));
 const AdminSettingsPage = lazy(() => import('./pages/admin/Settings'));
 

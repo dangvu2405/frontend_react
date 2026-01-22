@@ -170,11 +170,11 @@ export const ProjectCard = memo(({
     : price;
 
   // Get title
-  const title: string = String((projectAny.title as string) || project.TenSanPham || 'Đồ án');
+  const titleText = String((projectAny.title as string) || project.TenSanPham || 'Đồ án');
   
   // Get subject/category for badge
-  const subjectText: string = String((projectAny.subject as string) || (projectAny.category as string) || 'Đồ án');
-  const levelText: string | null = projectAny.level ? String(projectAny.level) : null;
+  const subjectText = String((projectAny.subject as string) || (projectAny.category as string) || 'Đồ án');
+  const levelText = projectAny.level ? String(projectAny.level) : null;
 
   return (
     <Card 
@@ -188,7 +188,7 @@ export const ProjectCard = memo(({
       <div className="relative w-full aspect-square rounded-2xl overflow-hidden bg-muted mb-3">
         <img
           src={finalImageUrl}
-          alt={title}
+          alt={titleText}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           onError={(e) => {
             (e.target as HTMLImageElement).src = FALLBACK_IMAGE;
@@ -234,26 +234,27 @@ export const ProjectCard = memo(({
           )}
         </div>
 
-        {/* Title */}
-        <h3 className="font-semibold text-foreground text-sm mb-2 line-clamp-2 min-h-[2.5rem]">
-          {String(title)}
-        </h3>
+        <h3 className="font-semibold text-foreground text-sm mb-2 line-clamp-2 min-h-[2.5rem]">{titleText}</h3>
 
         {/* Tech Stack */}
-        {projectAny.tech_stack && Array.isArray(projectAny.tech_stack) && (projectAny.tech_stack as string[]).length > 0 && (
-          <div className="mb-2">
-            <TechStackBadges 
-              techStack={(projectAny.tech_stack as string[]).slice(0, 3)} 
-              variant="secondary"
-              showIcons={true}
-            />
-            {(projectAny.tech_stack as string[]).length > 3 && (
-              <span className="text-xs text-muted-foreground ml-1">
-                +{(projectAny.tech_stack as string[]).length - 3} khác
-              </span>
-            )}
-          </div>
-        )}
+        {(() => {
+          const techStack = projectAny.tech_stack;
+          if (!techStack || !Array.isArray(techStack) || techStack.length === 0) return null;
+          return (
+            <div className="mb-2">
+              <TechStackBadges 
+                techStack={(techStack as string[]).slice(0, 3)} 
+                variant="secondary"
+                showIcons={true}
+              />
+              {techStack.length > 3 && (
+                <span className="text-xs text-muted-foreground ml-1">
+                  +{techStack.length - 3} khác
+                </span>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Rating & Downloads */}
         <div className="flex items-center gap-3 mb-2 text-xs text-muted-foreground">

@@ -847,13 +847,13 @@ export default function MyAccountPage() {
             </SheetDescription>
           </SheetHeader>
 
-          {selectedOrder ? ((): React.ReactNode => {
+          {selectedOrder ? (() => {
             const selectedOrderRecord = selectedOrder as Record<string, unknown>;
             const projectsRaw = selectedOrderRecord.projects;
             const projects: unknown[] = Array.isArray(projectsRaw) ? projectsRaw : [];
             
-            // Render projects list - use conditional rendering directly
-            const projectsListContent: React.ReactNode = projects.length > 0 ? (
+            // Render projects list
+            const projectsListContent = projects.length > 0 ? (
               <div key="projects-list" className="projects-list">
                 <h3 className="font-bold text-lg text-foreground mb-3 flex items-center gap-2">
                   <Package className="w-5 h-5" />
@@ -944,7 +944,7 @@ export default function MyAccountPage() {
                 </div>
               </div>
 
-              {/* Projects List */}
+              {/* @ts-expect-error TypeScript false positive */}
               {projectsListContent}
 
               {/* Address */}

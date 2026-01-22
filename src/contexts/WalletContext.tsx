@@ -57,12 +57,15 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
       // Set default wallet on 404
       if (status === 404) {
         setWallet({
-          userId: '',
+          _id: 'mock-wallet',
+          IdKhachHang: '',
           balance: 0,
-          locked: false,
+          totalDeposited: 0,
+          totalSpent: 0,
+          isActive: true,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-        } as Wallet);
+        } as unknown as Wallet);
       }
     } finally {
       setLoading(false);

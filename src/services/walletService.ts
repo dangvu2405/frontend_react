@@ -41,12 +41,15 @@ export const walletService = {
         }
         // Return default wallet with zero balance
         return {
-          userId: '',
+          _id: 'mock-wallet',
+          IdKhachHang: '',
           balance: 0,
-          locked: false,
+          totalDeposited: 0,
+          totalSpent: 0,
+          isActive: true,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-        } as Wallet;
+        } as unknown as Wallet;
       }
       
       // Re-throw other errors

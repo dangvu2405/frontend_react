@@ -4,7 +4,8 @@ import { MainLayout } from '@/layouts/MainLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { projectsService } from '@/services/projectsService';
-import type { Project, ProjectIncludesOption } from '@/types/models/product';
+import type { Project, ProjectIncludesOption, Category } from '@/types/models/product';
+import type { ObjectId } from '@/types/models/common';
 import { storage, type CartItemInput } from '@/utils/storage';
 import { reviewService, type RatingStats } from '@/services/reviewService';
 import { toast } from 'sonner';
@@ -123,12 +124,51 @@ export default function ProjectDetailPage() {
         // ✅ Map data từ API response với các field mới
         const projectRaw = projectData as unknown as Record<string, unknown>;
         
+        // Helper to get MaLoaiSanPham
+        const getMaLoaiSanPham = (): Category | ObjectId | null => {
+          const maLoai = projectRaw.MaLoaiDoAn || projectRaw.MaLoaiSanPham;
+          if (!maLoai) return null;
+          if (typeof maLoai === 'string') return maLoai as ObjectId;
+          if (typeof maLoai === 'object' && maLoai !== null) {
+            // Check if it's a Category object
+            if ('TenLoaiSanPham' in maLoai || 'TenLoaiDoAn' in maLoai) {
+              return maLoai as Category;
+            }
+            // Otherwise treat as ObjectId
+            const idField = (maLoai as Record<string, unknown>)._id;
+            if (idField && typeof idField === 'string') {
+              return idField as ObjectId;
+            }
+            return maLoai as unknown as ObjectId;
+          }
+          return null;
+        };
+        
+        // Helper to get first preview image
+        const getMainImage = (): string => {
+          const anhPreview = projectRaw.AnhPreview;
+          if (Array.isArray(anhPreview) && anhPreview.length > 0 && typeof anhPreview[0] === 'string') {
+            const mainImg = anhPreview[0];
+            if (mainImg.startsWith('http://') || mainImg.startsWith('https://')) {
+              return mainImg;
+            }
+            return getCloudinaryProjectImageUrl(mainImg) || FALLBACK_IMAGE;
+          }
+          const hinhAnhChinh = projectRaw.HinhAnhChinh;
+          if (typeof hinhAnhChinh === 'string') {
+            if (hinhAnhChinh.startsWith('http://') || hinhAnhChinh.startsWith('https://')) {
+              return hinhAnhChinh;
+            }
+            return getCloudinaryProjectImageUrl(hinhAnhChinh) || FALLBACK_IMAGE;
+          }
+          return FALLBACK_IMAGE;
+        };
+        
         // Map các field từ API response
         const project: Project = {
           ...projectData,
           // Map title fields
           TenSanPham: (projectRaw.TieuDe || projectRaw.TenSanPham || 'Đồ án') as string,
-          TieuDe: (projectRaw.TieuDe || projectRaw.TenSanPham || 'Đồ án') as string,
           
           // Map description
           MoTa: (projectRaw.MoTa || '') as string,
@@ -136,26 +176,12 @@ export default function ProjectDetailPage() {
           // Map price fields
           Gia: Number(projectRaw.Gia || 0),
           KhuyenMai: Number(projectRaw.KhuyenMai || 0),
-          finalPrice: Number(projectRaw.finalPrice || projectRaw.Gia || 0),
           
           // Map category
-          MaLoaiSanPham: projectRaw.MaLoaiDoAn || projectRaw.MaLoaiSanPham || null,
-          MonHoc: (projectRaw.MonHoc || '') as string,
-          CapDo: (projectRaw.CapDo || '') as string,
-          
-          // Map tech stack and features
-          CongNghe: Array.isArray(projectRaw.CongNghe) ? projectRaw.CongNghe as string[] : [],
-          TinhNang: Array.isArray(projectRaw.TinhNang) ? projectRaw.TinhNang as string[] : [],
-          BaoGom: Array.isArray(projectRaw.BaoGom) ? projectRaw.BaoGom as string[] : [],
+          MaLoaiSanPham: getMaLoaiSanPham(),
           
           // Map images - use AnhPreview if available, otherwise use HinhAnhChinh/HinhAnhPhu
-          HinhAnhChinh: (() => {
-            const mainImg = projectRaw.AnhPreview?.[0] || projectRaw.HinhAnhChinh || '';
-            if (typeof mainImg === 'string' && (mainImg.startsWith('http://') || mainImg.startsWith('https://'))) {
-              return mainImg;
-            }
-            return getCloudinaryProjectImageUrl(mainImg as string) || FALLBACK_IMAGE;
-          })(),
+          HinhAnhChinh: getMainImage(),
           HinhAnhPhu: (() => {
             const previewImages = Array.isArray(projectRaw.AnhPreview) 
               ? projectRaw.AnhPreview.slice(1) 
@@ -762,167 +788,209 @@ export default function ProjectDetailPage() {
             </Card>
 
             {/* Academic Info */}
-            {((project as unknown as Record<string, unknown>).MonHoc || (project as unknown as Record<string, unknown>).CapDo || (project as unknown as Record<string, unknown>).Truong || (project as unknown as Record<string, unknown>).DiemSo) && (
-              <Card>
-                <CardContent className="p-8">
-                  <h2 className="text-2xl font-bold mb-6">Thông tin học thuật</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {(project as unknown as Record<string, unknown>).MonHoc && (
-                      <div className="flex justify-between py-2 border-b border-border">
-                        <span className="font-medium">Môn học:</span>
-                        <span>{(project as unknown as Record<string, unknown>).MonHoc as string}</span>
-                      </div>
-                    )}
-                    {(project as unknown as Record<string, unknown>).CapDo && (
-                      <div className="flex justify-between py-2 border-b border-border">
-                        <span className="font-medium">Cấp độ:</span>
-                        <span>{(project as unknown as Record<string, unknown>).CapDo as string}</span>
-                      </div>
-                    )}
-                    {(project as unknown as Record<string, unknown>).Truong && (
-                      <div className="flex justify-between py-2 border-b border-border">
-                        <span className="font-medium">Trường:</span>
-                        <span>{(project as unknown as Record<string, unknown>).Truong as string}</span>
-                      </div>
-                    )}
-                    {(project as unknown as Record<string, unknown>).DiemSo && (
-                      <div className="flex justify-between py-2 border-b border-border">
-                        <span className="font-medium">Điểm số:</span>
-                        <span className="font-semibold text-primary">{(project as unknown as Record<string, unknown>).DiemSo as string}</span>
-                      </div>
-                    )}
-                    {(project as unknown as Record<string, unknown>).NamThucHien && Number((project as unknown as Record<string, unknown>).NamThucHien) > 0 && (
-                      <div className="flex justify-between py-2 border-b border-border">
-                        <span className="font-medium">Năm thực hiện:</span>
-                        <span>{Number((project as unknown as Record<string, unknown>).NamThucHien)}</span>
-                      </div>
-                    )}
-                    {(project as unknown as Record<string, unknown>).SoLuotTai && Number((project as unknown as Record<string, unknown>).SoLuotTai) > 0 && (
-                      <div className="flex justify-between py-2 border-b border-border">
-                        <span className="font-medium">Lượt tải:</span>
-                        <span>{Number((project as unknown as Record<string, unknown>).SoLuotTai).toLocaleString('vi-VN')}</span>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+            {(() => {
+              const projectAny = project as unknown as Record<string, unknown>;
+              const hasAcademicInfo = projectAny.MonHoc || projectAny.CapDo || projectAny.Truong || projectAny.DiemSo;
+              if (!hasAcademicInfo) return null;
+              
+              return (
+                <Card>
+                  <CardContent className="p-8">
+                    <h2 className="text-2xl font-bold mb-6">Thông tin học thuật</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {projectAny.MonHoc ? (
+                        <div className="flex justify-between py-2 border-b border-border">
+                          <span className="font-medium">Môn học:</span>
+                          <span>{String(projectAny.MonHoc)}</span>
+                        </div>
+                      ) : null}
+                      {projectAny.CapDo ? (
+                        <div className="flex justify-between py-2 border-b border-border">
+                          <span className="font-medium">Cấp độ:</span>
+                          <span>{String(projectAny.CapDo)}</span>
+                        </div>
+                      ) : null}
+                      {projectAny.Truong ? (
+                        <div className="flex justify-between py-2 border-b border-border">
+                          <span className="font-medium">Trường:</span>
+                          <span>{String(projectAny.Truong)}</span>
+                        </div>
+                      ) : null}
+                      {projectAny.DiemSo ? (
+                        <div className="flex justify-between py-2 border-b border-border">
+                          <span className="font-medium">Điểm số:</span>
+                          <span className="font-semibold text-primary">{String(projectAny.DiemSo)}</span>
+                        </div>
+                      ) : null}
+                      {projectAny.NamThucHien && Number(projectAny.NamThucHien) > 0 ? (
+                        <div className="flex justify-between py-2 border-b border-border">
+                          <span className="font-medium">Năm thực hiện:</span>
+                          <span>{Number(projectAny.NamThucHien)}</span>
+                        </div>
+                      ) : null}
+                      {projectAny.SoLuotTai && Number(projectAny.SoLuotTai) > 0 ? (
+                        <div className="flex justify-between py-2 border-b border-border">
+                          <span className="font-medium">Lượt tải:</span>
+                          <span>{Number(projectAny.SoLuotTai).toLocaleString('vi-VN')}</span>
+                        </div>
+                      ) : null}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })()}
 
             {/* Tech Stack */}
-            {Array.isArray((project as unknown as Record<string, unknown>).CongNghe) && (project as unknown as Record<string, unknown>).CongNghe.length > 0 && (
-              <Card>
-                <CardContent className="p-8">
-                  <h2 className="text-2xl font-bold mb-6">Công nghệ sử dụng</h2>
-                  <div className="flex flex-wrap gap-2">
-                    {((project as unknown as Record<string, unknown>).CongNghe as string[]).map((tech, idx) => (
-                      <span
-                        key={idx}
-                        className="px-4 py-2 bg-primary/10 text-primary rounded-full text-sm font-medium"
-                      >
-                        {tech}
-                      </span>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+            {(() => {
+              const projectAny = project as unknown as Record<string, unknown>;
+              const congNghe = projectAny.CongNghe;
+              if (!Array.isArray(congNghe) || congNghe.length === 0) return null;
+              
+              return (
+                <Card>
+                  <CardContent className="p-8">
+                    <h2 className="text-2xl font-bold mb-6">Công nghệ sử dụng</h2>
+                    <div className="flex flex-wrap gap-2">
+                      {(congNghe as string[]).map((tech, idx) => (
+                        <span
+                          key={idx}
+                          className="px-4 py-2 bg-primary/10 text-primary rounded-full text-sm font-medium"
+                        >
+                          {tech}
+                        </span>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })()}
 
             {/* Features */}
-            {Array.isArray((project as unknown as Record<string, unknown>).TinhNang) && (project as unknown as Record<string, unknown>).TinhNang.length > 0 && (
-              <Card>
-                <CardContent className="p-8">
-                  <h2 className="text-2xl font-bold mb-6">Tính năng chính</h2>
-                  <ul className="space-y-2">
-                    {((project as unknown as Record<string, unknown>).TinhNang as string[]).map((feature, idx) => (
-                      <li key={idx} className="flex items-start gap-2">
-                        <span className="text-primary mt-1">✓</span>
-                        <span>{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-            )}
+            {(() => {
+              const projectAny = project as unknown as Record<string, unknown>;
+              const tinhNang = projectAny.TinhNang;
+              if (!Array.isArray(tinhNang) || tinhNang.length === 0) return null;
+              
+              return (
+                <Card>
+                  <CardContent className="p-8">
+                    <h2 className="text-2xl font-bold mb-6">Tính năng chính</h2>
+                    <ul className="space-y-2">
+                      {(tinhNang as string[]).map((feature, idx) => (
+                        <li key={idx} className="flex items-start gap-2">
+                          <span className="text-primary mt-1">✓</span>
+                          <span>{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              );
+            })()}
 
             {/* Includes */}
-            {Array.isArray((project as unknown as Record<string, unknown>).BaoGom) && (project as unknown as Record<string, unknown>).BaoGom.length > 0 && (
-              <Card>
-                <CardContent className="p-8">
-                  <h2 className="text-2xl font-bold mb-6">Bao gồm</h2>
-                  <ul className="space-y-2">
-                    {((project as unknown as Record<string, unknown>).BaoGom as string[]).map((item, idx) => (
-                      <li key={idx} className="flex items-start gap-2">
-                        <span className="text-primary mt-1">•</span>
-                        <span>{item}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
-            )}
+            {(() => {
+              const projectAny = project as unknown as Record<string, unknown>;
+              const baoGom = projectAny.BaoGom;
+              if (!Array.isArray(baoGom) || baoGom.length === 0) return null;
+              
+              return (
+                <Card>
+                  <CardContent className="p-8">
+                    <h2 className="text-2xl font-bold mb-6">Bao gồm</h2>
+                    <ul className="space-y-2">
+                      {(baoGom as string[]).map((item, idx) => (
+                        <li key={idx} className="flex items-start gap-2">
+                          <span className="text-primary mt-1">•</span>
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              );
+            })()}
 
             {/* Preview Images Gallery */}
-            {Array.isArray((project as unknown as Record<string, unknown>).AnhPreview) && (project as unknown as Record<string, unknown>).AnhPreview.length > 0 && (
-              <Card>
-                <CardContent className="p-8">
-                  <h2 className="text-2xl font-bold mb-6">Hình ảnh preview</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {((project as unknown as Record<string, unknown>).AnhPreview as string[]).map((img, idx) => (
-                      <div key={idx} className="aspect-video rounded-lg overflow-hidden border border-border">
-                        <img
-                          src={img}
-                          alt={`Preview ${idx + 1}`}
-                          className="w-full h-full object-cover hover:scale-105 transition-transform cursor-pointer"
-                          onClick={() => window.open(img, '_blank')}
-                          onError={(e) => {
-                            e.currentTarget.src = FALLBACK_IMAGE;
-                          }}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+            {(() => {
+              const projectAny = project as unknown as Record<string, unknown>;
+              const anhPreview = projectAny.AnhPreview;
+              if (!Array.isArray(anhPreview) || anhPreview.length === 0) return null;
+              
+              return (
+                <Card>
+                  <CardContent className="p-8">
+                    <h2 className="text-2xl font-bold mb-6">Hình ảnh preview</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {(anhPreview as string[]).map((img, idx) => (
+                        <div key={idx} className="aspect-video rounded-lg overflow-hidden border border-border">
+                          <img
+                            src={img}
+                            alt={`Preview ${idx + 1}`}
+                            className="w-full h-full object-cover hover:scale-105 transition-transform cursor-pointer"
+                            onClick={() => window.open(img, '_blank')}
+                            onError={(e) => {
+                              e.currentTarget.src = FALLBACK_IMAGE;
+                            }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })()}
 
             {/* Demo Link */}
-            {(project as unknown as Record<string, unknown>).LinkDemo && (
-              <Card>
-                <CardContent className="p-8">
-                  <h2 className="text-2xl font-bold mb-6">Demo</h2>
-                  <a
-                    href={(project as unknown as Record<string, unknown>).LinkDemo as string}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-                  >
-                    <span>Xem Demo</span>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                    </svg>
-                  </a>
-                </CardContent>
-              </Card>
-            )}
+            {(() => {
+              const projectAny = project as unknown as Record<string, unknown>;
+              const linkDemo = projectAny.LinkDemo;
+              if (!linkDemo || typeof linkDemo !== 'string') return null;
+              
+              return (
+                <Card>
+                  <CardContent className="p-8">
+                    <h2 className="text-2xl font-bold mb-6">Demo</h2>
+                    <a
+                      href={linkDemo}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+                    >
+                      <span>Xem Demo</span>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                    </a>
+                  </CardContent>
+                </Card>
+              );
+            })()}
 
             {/* Tags */}
-            {Array.isArray((project as unknown as Record<string, unknown>).Tags) && (project as unknown as Record<string, unknown>).Tags.length > 0 && (
-              <Card>
-                <CardContent className="p-8">
-                  <h2 className="text-2xl font-bold mb-6">Tags</h2>
-                  <div className="flex flex-wrap gap-2">
-                    {((project as unknown as Record<string, unknown>).Tags as string[]).map((tag, idx) => (
-                      <span
-                        key={idx}
-                        className="px-3 py-1 bg-muted text-muted-foreground rounded-full text-sm"
-                      >
-                        #{tag}
-                      </span>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+            {(() => {
+              const projectAny = project as unknown as Record<string, unknown>;
+              const tags = projectAny.Tags;
+              if (!Array.isArray(tags) || tags.length === 0) return null;
+              
+              return (
+                <Card>
+                  <CardContent className="p-8">
+                    <h2 className="text-2xl font-bold mb-6">Tags</h2>
+                    <div className="flex flex-wrap gap-2">
+                      {(tags as string[]).map((tag, idx) => (
+                        <span
+                          key={idx}
+                          className="px-3 py-1 bg-muted text-muted-foreground rounded-full text-sm"
+                        >
+                          #{tag}
+                        </span>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })()}
 
             {/* Additional Info */}
             <Card>
